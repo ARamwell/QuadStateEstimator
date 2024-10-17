@@ -1,0 +1,66 @@
+classdef p3pGeFunctions
+    methods
+
+        %------------------------------------------------------------%
+        function x_pnt_c_unit = getUnitProjectionRay(K, x_pnt_i)        
+            %Function to get unit vector describing the ray between a calibrated
+            %camera's centre of perspective (CP) and the position of a point on the
+            %image plane (i). The point x_pnt_i should be a 2x1 column vector of the
+            %form [u; v], where u is the "x" coordinate (horizontal, right is positive)
+            %and v is the "y" coordinate (vertical, down is positive); the origin of
+            %the image is the top left corner. 
+        
+            x_pnt_i_aug = [x_pnt_i; 1];     %Augment vector to homogenise
+            %K_inv = inv(K);
+            
+            x_pnt_c = x_pnt_i_aug / K;      %Times by inverse of K. Apparently divide is faster.
+            
+            x_pnt_c_unit = x_pnt_c / norm(x_pnt_c);
+        
+        end
+        
+        %------------------------------------------------------------%
+        function L_ab = calcAngle(A, B)
+        
+            %Calculate angle between two vectors.
+            
+            L_ab = acos(dot(A,B)/(norm(A)*norm(B)));
+        
+        end
+                
+        %------------------------------------------------------------%
+        function [R, t] = findTransformation_SVD(X_ABC_W, X_ABC_C)
+            
+            P = X_ABC_W;
+            P_dash = X_ABC_C;
+                    
+            %Find the mean of the columns (i.e. the centroid of the shape)
+            P_centroid = mean(P,2);
+            P_dash_centroid = mean(P_dash, 2);
+            %Centre each vector
+            Q = P - P_centroid;  
+            Q_dash = P_dash - P_dash_centroid;
+        
+            %Find the covariance matrix
+            H = Q_dash * transpose(Q);
+                
+            %Perform SVD (singular value decomposition)
+            [U, S, V] = svd(H);
+        
+            % %Calculate rotation matrix
+            R = V * transpose(U);
+            %Correct sign if needed
+            if det(R)<0
+                V(:,end) = -1 * V(:,end);
+                %and recompute R
+                R = V * transpose(U);
+            end
+            
+            t = P_centroid - R*P_dash_centroid;
+        
+        end
+
+        %------------------------------------------------------------%
+
+    end
+end
