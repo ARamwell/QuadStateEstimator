@@ -1,0 +1,3 @@
+[submodule "QuadSimEnv"]
+	path = QuadSimEnv
+	url = https://github.com/ARamwell/QuadSimEnv
