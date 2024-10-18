@@ -2,35 +2,40 @@ classdef imgFuncs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [rtHist, timeHist, poseHist] = importSimLog(fullFile, R_sim2W)
+        function [rtHist, timeHist, stateHist] = importSimLog(fullFile, R_sim2W)
         %Basic function to import all logged trajectory data (as .m file). 
         %Does not consider time alignment with other data (i.e., imports 
         %all logged points, does not skip any)
             
             simData = load(fullFile);
-            numLogPoints = size((simData.out.camPose.signals.values), 3);
+            numLogPoints = size((simData.out.camState_GT.signals.values), 3);
 
             %Initialise output variables
             rtHist = zeros(3,4,numLogPoints-1);%-1 to skip t0
             timeHist = zeros(1, (numLogPoints-1));
-            poseHist =zeros(6, (numLogPoints-1));
+            stateHist =zeros(9, (numLogPoints-1));
 
 
             %For each logged time - skip t0, where there is no data
             for i=2:numLogPoints
                 %Import time history
-                time = simData.out.camPose.time(i,1);
+                time = simData.out.camState_GT.time(i,1);
                 timeHist(1,(i-1)) = time;
 
                 % Import position log
-                trans = transpose(simData.out.camPose.signals.values(1,1:3,i));
+                trans = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
                 trans = trans*1000; %Convert from m to mm
                 trans_W = R_sim2W * trans; %Convert to world coord sys
              
                 % Import rotation log
-                yaw = simData.out.camPose.signals.values(1,4,i);
-                pitch = simData.out.camPose.signals.values(1,5,i);
-                roll = simData.out.camPose.signals.values(1,6,i);
+                yaw = simData.out.camState_GT.signals.values(1,4,i);
+                pitch = simData.out.camState_GT.signals.values(1,5,i);
+                roll = simData.out.camState_GT.signals.values(1,6,i);
+
+                % Import velocity log
+                x_dot = simData.out.camState_GT.signals.values(1,7,i);
+                y_dot = simData.out.camState_GT.signals.values(1,8,i);
+                z_dot = simData.out.camState_GT.signals.values(1,9,i);
 
                 %Convert euler angles to rotation matrix
                 eul = [yaw pitch roll];
@@ -48,7 +53,7 @@ classdef imgFuncs
                 %build Rt history
                 rtHist(1:3,1:3,i-1) = R_W;
                 rtHist(1:3,4,i-1) = trans_W;
-                poseHist(:,i-1) = ([trans_W; yaw; pitch; roll]);
+                stateHist(:,i-1) = ([trans_W; yaw; pitch; roll; x_dot; y_dot; z_dot]);
             end
         end
 
@@ -64,8 +69,6 @@ classdef imgFuncs
 
             %determine video parameters
             numFrames = vid.NumFrames;
-            vidHeight = vid.Height;
-            vidWidth = vid.Width;
             vidDuration = vid.Duration;
             fps = numFrames/vidDuration;
             secPerFrame = 1/fps;

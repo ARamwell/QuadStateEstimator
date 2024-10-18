@@ -33,15 +33,15 @@ classdef EKF_2dQuad_funcs
         % b_g = 0;
         % 
         % %Process noise covariance (in the noise space)
-        % phi_state = [phi_x, phi_z, phi_theta, phi_xdot, phi_zdot];
-        % Q = diag(phi_state);
+        % sigma_state = [sigma_x, sigma_z, sigma_phi, sigma_xdot, sigma_zdot];
+        % Q = diag(sigma_state);
         % 
         % % %Input noise Jacobian (noise influence matrix)
         % % L = L_update();
         % 
         % %Measurement noise covariance
-        % phi_meas = [phi_xc, phi_zc, phi_thetac];
-        % Z = diag(phi_meas);
+        % sigma_meas = [sigma_xc, sigma_zc, sigma_thetac];
+        % Z = diag(sigma_meas);
         
         
         
@@ -89,7 +89,7 @@ classdef EKF_2dQuad_funcs
 
    %------------------------------------------------------------%
 
-   function [x_next, F_k, R_k, G_k, L_k] = dyn_update(x_k, u_k, b_g, b_a, t_delta)
+        function [x_next, F_k, R_k, G_k, L_k] = dyn_update(x_k, u_k, b_g, b_a, t_delta)
             %F_DYN_2DQUAD_NL Summary of this function goes here
             %   Detailed explanation goes here
             
@@ -98,7 +98,7 @@ classdef EKF_2dQuad_funcs
             %
             % INPUTS:
             %     x_k -   state vector for time k: 
-            %               x_k= [x; z; theta; x_dot; z_dot; q_dot]
+            %               x_k= [x; z; phi; x_dot; z_dot; q_dot]
             %     u_k - control input vector for current time step k: 
             %               u_k = [x, ] 
             
@@ -110,14 +110,14 @@ classdef EKF_2dQuad_funcs
             g= [0; 0; -9.81];
 
             % Extract useful values
-            theta_k = x_k(3);
-            theta_ddot_m_k = u_k(1);
+            phi_k = x_k(3);
+            phi_ddot_m_k = u_k(1);
             x_ddot_m_k = u_k(2);
             z_ddot_m_k = u_k(3);
 
             %Rotation matrix from IMU frame to world frame
-            R_k = [cos(theta_k) sin(theta_k);
-                   -sin(theta_k) cos(theta_k)];
+            R_k = [cos(phi_k) -sin(phi_k);
+                   sin(phi_k) cos(phi_k)];
 
             G_k = [1];
 
@@ -142,9 +142,9 @@ classdef EKF_2dQuad_funcs
             %while we're here, calculate prev covariance
             F_k = [0 0 0 1 0;
                    0 0 0 0 1;
-                   0 0 (sin(theta_k)/cos(theta_k))*(theta_ddot_m_k-b_g) 0 0;
-                   0 0 (-sin(theta_k)*(x_ddot_m_k-b_a(1)) + cos(theta_k)*(z_ddot_m_k-b_a(2))) 0 0;
-                   0 0 (cos(theta_k)*(x_ddot_m_k-b_a(1)) - sin(theta_k)*(z_ddot_m_k-b_a(2))) 0 0 ];
+                   0 0 (sin(phi_k)/cos(phi_k))*(phi_ddot_m_k-b_g) 0 0;
+                   0 0 (-sin(phi_k)*(x_ddot_m_k-b_a(1)) + cos(phi_k)*(z_ddot_m_k-b_a(2))) 0 0;
+                   0 0 (cos(phi_k)*(x_ddot_m_k-b_a(1)) - sin(phi_k)*(z_ddot_m_k-b_a(2))) 0 0 ];
 
             %And L, the input noise covariance: will be used to transform
             %covariance in the noise space into the state space. Also
@@ -154,17 +154,17 @@ classdef EKF_2dQuad_funcs
         end
 
   %------------------------------------------------------------%
-  function [z_new_hat, H_new] = meas_predict(x_new_hat)
-
-      z_new_hat = x_new_hat(1:3, 1);
-
-      H_new = [1 0 0 0 0;
-               0 1 0 0 0;
-               0 0 1 0 0];
-  
-  end
+        function [z_new_hat, H_new] = meas_predict(x_new_hat)
+        
+            z_new_hat = x_new_hat(1:3, 1);
+            
+            H_new = [1 0 0 0 0;
+                      0 1 0 0 0;
+                      0 0 1 0 0];
+        
+        end
 
   %------------------------------------------------------------%
-
+    end
     
 end
