@@ -2,7 +2,7 @@ classdef EKF_2dQuad_funcs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [x_new, P_new] = EKF_loop(x_k,P_k, u_k, Q, z_new, W)
+        function [x_new, P_new] = EKF_loop(x_k,P_k, u_k, Q, z_new, W, t_delta)
         %KALMAN_QUAD2D extended Kalman filter for a 2D quad. Must run iteratively
         %for each time step.
         
@@ -28,9 +28,8 @@ classdef EKF_2dQuad_funcs
         %----------- STEP 0: INITIALISATIONS -------------
         
         % %Biases
-        % b_ax = 0; 
-        % b_az = 0;
-        % b_g = 0;
+         b_a = [0;0];
+         b_g = 0;
         % 
         % %Process noise covariance (in the noise space)
         % sigma_state = [sigma_x, sigma_z, sigma_phi, sigma_xdot, sigma_zdot];
@@ -50,40 +49,46 @@ classdef EKF_2dQuad_funcs
         %----------- STEP 1: DYNAMICS UPDATE -------------
         
             %Predict new state (a priori) and get prev jacobian 
-            [x_new_hat, F_k, L_k] = dyn_update(x_k, u_k);
+            [x_new_hat, F_k, R_k, G_k, L_k] = EKF_2dQuad_funcs.dyn_update(x_k, u_k, b_g, b_a, t_delta);
             
             %Predict new state covariance (in state space)
-            P_new_hat = F_k * P_k * transpose(F_k) + L_k * Q * transpose(L);
+            P_new_hat = F_k * P_k * transpose(F_k) + L_k * Q * transpose(L_k);
         
 
 
         %*************************************************
+        %ONLY RUN CORRECTION IF A NEW MEASUREMENT HAS BEEN DETECTED
+
+            if isnan(z_new)
+                x_new = x_new_hat;
+                P_new = P_new_hat;
+            else
         %---------- STEP 2: MEASUREMENT UPDATE------------    
+
+                %Predict new measurement z (may differ from actual measurement) and get
+                %jacobian H
+                [z_new_hat, H_new] = EKF_2dQuad_funcs.meas_predict(x_new_hat);
             
-            %Predict new measurement z (may differ from actual measurement) and get
-            %jacobian H
-            [z_new_hat, H_new] = meas_model(x_new_hat);
-        
-            %Calculate measurement residual y
-            y_new = z_new - z_new_hat;
-        
-            %Compute predicted measurement covariance S
-            S_new_hat = H_new * P_new_hat * transpose(H_new) + W;
-        
+                %Calculate measurement residual y
+                y_new = z_new - z_new_hat;
+            
+                %Compute predicted measurement covariance S
+                S_new_hat = H_new * P_new_hat * transpose(H_new) + W;
+
         
         %*************************************************
         %------------- STEP 3: STATE UPDATE -------------- 
+                
+                %Calculate Kalman gain
+                K_new = P_new_hat * transpose(H_new)/inv(S_new_hat);
             
-            %Calculate Kalman gain
-            K_new = P_new_hat * transpose(H_new) * inverse(S_new_hat);
-        
-            %Update state est
-            x_new = x_new_hat + (K_new * y_new);
-        
-            %Update state covariance
-            I =  eye(size(H_new)); %make identity matrix of appropriate size
-            P_new = (I - K_new * H_new) * P_new_hat;
-        
+                %Update state est
+                x_new = x_new_hat + (K_new * y_new);
+            
+                %Update state covariance
+                I =  eye(size(H_new,2), size(H_new,2)); %make identity matrix of appropriate size
+                P_new = (I - K_new * H_new) * P_new_hat;
+            end
         
         end
 
@@ -107,7 +112,7 @@ classdef EKF_2dQuad_funcs
             %     x_next - state est for next time step, based on dynamics
             %     x_cov_k - state covariance for current time step
 
-            g= [0; 0; -9.81];
+            g= [0; -9.81];
 
             % Extract useful values
             phi_k = x_k(3);
@@ -120,6 +125,7 @@ classdef EKF_2dQuad_funcs
                    sin(phi_k) cos(phi_k)];
 
             G_k = [1];
+            G_k_inv = inv(G_k);
 
             A = [0 0 0 1 0;
                  0 0 0 0 1;
@@ -130,20 +136,20 @@ classdef EKF_2dQuad_funcs
                  0 0 0;
                  G_k_inv 0 0;
                  zeros(2,1), R_k];
-            C = [zeros(2,5);
-                 0 0 -G_k_inv 0 0;
-                 zeros(2,3), -R_k];
+            C = [zeros(2,3);
+                -G_k_inv 0 0;
+                 zeros(2,1), -R_k];
             D = [0; 0; -G_k_inv*b_g; (-R_k*b_a)+g];
             
 
             % Estimate next state
-            x_next = x_k + t_delta(A*x_k + B*u_k + C*np_k + D);
+            x_next = x_k + t_delta*(A*x_k + B*u_k + D);
 
             %while we're here, calculate prev covariance
             F_k = [0 0 0 1 0;
                    0 0 0 0 1;
                    0 0 (sin(phi_k)/cos(phi_k))*(phi_ddot_m_k-b_g) 0 0;
-                   0 0 (-sin(phi_k)*(x_ddot_m_k-b_a(1)) + cos(phi_k)*(z_ddot_m_k-b_a(2))) 0 0;
+                   0 0 (-sin(phi_k)*(x_ddot_m_k-b_a(1)) - cos(phi_k)*(z_ddot_m_k-b_a(2))) 0 0;
                    0 0 (cos(phi_k)*(x_ddot_m_k-b_a(1)) - sin(phi_k)*(z_ddot_m_k-b_a(2))) 0 0 ];
 
             %And L, the input noise covariance: will be used to transform

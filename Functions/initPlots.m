@@ -1,7 +1,7 @@
 function plots = initPlots(varargin)
 
     %Define a list of valid method names
-    validMethods = {'Gao', 'KneipA', 'KneipO', 'KneipN','Grunert', 'Matlab', 'Verification'}; %if you add to this, you must also add a switch case
+    validMethods = {'Gao', 'KneipA', 'KneipO', 'KneipN','Grunert', 'Matlab', 'Verification', 'EKF'}; %if you add to this, you must also add a switch case
     
     %Initialise output struct
     plots = struct();
@@ -47,6 +47,9 @@ function plots = initPlots(varargin)
                     [lineObj, axTextArr, axLineArr] = p3pPlotting.addTraj(plots.traj.Ax, methodName, '-ob', '-b');
                 case 'Verification'
                     [lineObj, axTextArr, axLineArr] = p3pPlotting.addTraj(plots.traj.Ax, methodName, '-og', '-g');
+                case 'EKF'
+                    [lineObj, axTextArr, axLineArr] = p3pPlotting.addTraj(plots.traj.Ax, 'EKF', '-or', '-r');
+
             end
             
             %Add plot to plot struct

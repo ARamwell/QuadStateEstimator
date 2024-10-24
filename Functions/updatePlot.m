@@ -28,6 +28,10 @@ function plot_updated = updatePlot(plotIn, data)
                     if any(strcmp(currentLine, 'Verification'))
                         continue;
                     end
+                    if any(strcmp(currentLine, 'EKF'))
+                        continue;
+                    end
+                    
                     %update trajectory data
                     %oldDataSeries = plotIn.plotLines.(currentLine).Data;
                     %newDataPnt = data.(currentLine).Rt;

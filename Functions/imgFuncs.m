@@ -2,7 +2,7 @@ classdef imgFuncs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [rtHist, timeHist, stateHist] = importSimLog(fullFile, R_sim2W)
+        function [rtHist, state_timeHist, stateHist, imuHist] = importSimLog(fullFile, R_sim2W)
         %Basic function to import all logged trajectory data (as .m file). 
         %Does not consider time alignment with other data (i.e., imports 
         %all logged points, does not skip any)
@@ -12,25 +12,29 @@ classdef imgFuncs
 
             %Initialise output variables
             rtHist = zeros(3,4,numLogPoints-1);%-1 to skip t0
-            timeHist = zeros(1, (numLogPoints-1));
+            state_timeHist = zeros(1, (numLogPoints-1));
             stateHist =zeros(9, (numLogPoints-1));
+            imuHist =zeros(7, (numLogPoints-1));
 
 
             %For each logged time - skip t0, where there is no data
-            for i=2:numLogPoints
+            for i=1:numLogPoints
+
+                %% Import Ground Truth data
                 %Import time history
-                time = simData.out.camState_GT.time(i,1);
-                timeHist(1,(i-1)) = time;
+                state_times = simData.out.camState_GT.time(i,1);
+                state_timeHist(1,(i)) = state_times;
 
                 % Import position log
                 trans = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
                 trans = trans*1000; %Convert from m to mm
                 trans_W = R_sim2W * trans; %Convert to world coord sys
+                 trans_W = trans; %Convert to world coord sys
              
                 % Import rotation log
-                yaw = simData.out.camState_GT.signals.values(1,4,i);
+                yaw = simData.out.camState_GT.signals.values(1,6,i);
                 pitch = simData.out.camState_GT.signals.values(1,5,i);
-                roll = simData.out.camState_GT.signals.values(1,6,i);
+                roll = simData.out.camState_GT.signals.values(1,4,i);
 
                 % Import velocity log
                 x_dot = simData.out.camState_GT.signals.values(1,7,i);
@@ -38,8 +42,8 @@ classdef imgFuncs
                 z_dot = simData.out.camState_GT.signals.values(1,9,i);
 
                 %Convert euler angles to rotation matrix
-                eul = [yaw pitch roll];
-                R_sim = eul2rotm(eul,"ZYX");
+                eul = [roll, pitch, yaw];
+                R_simCam = eul2rotm(eul,"XYZ");
 
                 %Convert sim-camera coords to more conventional system
                 %Sim Camera has z-up, x-forward. General model has
@@ -47,13 +51,24 @@ classdef imgFuncs
                 R_simCam2genCam = [0  0 1;
                                   -1  0 0;
                                    0 -1 0];
-                R_W =R_sim2W*R_sim*R_simCam2genCam;
+                R_C2W_GT =R_sim2W*R_simCam*R_simCam2genCam;
+                
+                %Buld ground truth Rt history
+                rtHist(1:3,1:3,i) = R_C2W_GT;
+                rtHist(1:3,1:3,i) = R_simCam;
+                rtHist(1:3,4,i) = trans_W;
+                stateHist(:,i) = ([trans_W; roll; pitch; yaw; x_dot; y_dot; z_dot]);
+                
+                %% Import IMU data
+                % Import imu log
+                imu = simData.out.IMU.signals.values(:,:,i);
+                imu_time = simData.out.IMU.time(i,1);
 
 
                 %build Rt history
-                rtHist(1:3,1:3,i-1) = R_W;
-                rtHist(1:3,4,i-1) = trans_W;
-                stateHist(:,i-1) = ([trans_W; yaw; pitch; roll; x_dot; y_dot; z_dot]);
+                imuHist(1,i)=imu_time;
+                imuHist(2:end, i)=transpose(imu); 
+
             end
         end
 
