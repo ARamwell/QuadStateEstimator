@@ -112,7 +112,9 @@ classdef EKF_2dQuad_funcs
             %     x_next - state est for next time step, based on dynamics
             %     x_cov_k - state covariance for current time step
 
-            g= [0; -9.81];
+            %g= [0; -9.81];
+            %FAKE IMU DOES NOT READ g:
+            g = [0; 0];
 
             % Extract useful values
             phi_k = x_k(3);
@@ -121,12 +123,16 @@ classdef EKF_2dQuad_funcs
             z_ddot_m_k = u_k(3);
 
             %Rotation matrix from IMU frame to world frame
-            R_k = [cos(phi_k) -sin(phi_k);
-                   sin(phi_k) cos(phi_k)];
-
+            % R_k = [cos(phi_k) -sin(phi_k);
+            %        sin(phi_k) cos(phi_k)];
+            % G_k = [1];
+            % G_k_inv = inv(G_k);
+            %IMU IN WORLD FRAME:
+            R_k = [1 0; 0 1];
             G_k = [1];
-            G_k_inv = inv(G_k);
+            G_k_inv = [1];
 
+            
             A = [0 0 0 1 0;
                  0 0 0 0 1;
                  0 0 0 0 0;
@@ -146,11 +152,15 @@ classdef EKF_2dQuad_funcs
             x_next = x_k + t_delta*(A*x_k + B*u_k + D);
 
             %while we're here, calculate prev covariance
+            % F_k = [0 0 0 1 0;
+            %        0 0 0 0 1;
+            %        0 0 (sin(phi_k)/cos(phi_k))*(phi_ddot_m_k-b_g) 0 0;
+            %        0 0 (-sin(phi_k)*(x_ddot_m_k-b_a(1)) - cos(phi_k)*(z_ddot_m_k-b_a(2))) 0 0;
+            %        0 0 (cos(phi_k)*(x_ddot_m_k-b_a(1)) - sin(phi_k)*(z_ddot_m_k-b_a(2))) 0 0 ];
+            %FOR THEORETICAL IMU MAGICALLY READING IN WORLD FRAME
             F_k = [0 0 0 1 0;
                    0 0 0 0 1;
-                   0 0 (sin(phi_k)/cos(phi_k))*(phi_ddot_m_k-b_g) 0 0;
-                   0 0 (-sin(phi_k)*(x_ddot_m_k-b_a(1)) - cos(phi_k)*(z_ddot_m_k-b_a(2))) 0 0;
-                   0 0 (cos(phi_k)*(x_ddot_m_k-b_a(1)) - sin(phi_k)*(z_ddot_m_k-b_a(2))) 0 0 ];
+                   zeros(3,5)];
 
             %And L, the input noise covariance: will be used to transform
             %covariance in the noise space into the state space. Also

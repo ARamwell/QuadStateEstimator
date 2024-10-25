@@ -42,22 +42,18 @@ classdef imgFuncs
                 z_dot = simData.out.camState_GT.signals.values(1,9,i);
 
                 %Convert euler angles to rotation matrix
-                eul = [roll; pitch; yaw];
-                R_simCam = eul2rotm(eul,"XYZ");
+                eul = [roll, pitch, yaw];
+                R_cam = eul2rotm(eul,"XYZ");
 
                 %Convert sim-camera coords to more conventional system
                 %Sim Camera has z-up, x-forward. General model has
                 %z-forward, y-down
-                R_simCam2genCam = [0  0 1;
-                                  -1  0 0;
-                                   0 -1 0];
-                R_C2W_GT =R_sim2W*R_simCam*R_simCam2genCam;
                 
                 %Buld ground truth Rt history
-                rtHist(1:3,1:3,i) = R_C2W_GT;
-                rtHist(1:3,1:3,i) = R_simCam;
+
+                rtHist(1:3,1:3,i) = R_cam;
                 rtHist(1:3,4,i) = trans_W;
-                stateHist(:,i) = ([trans_W; yaw; pitch; roll; x_dot; y_dot; z_dot]);
+                stateHist(:,i) = ([trans_W; roll; pitch; yaw; x_dot; y_dot; z_dot]);
                 
                 %% Import IMU data
                 % Import imu log

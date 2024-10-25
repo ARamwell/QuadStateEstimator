@@ -26,10 +26,8 @@ classdef imgFuncs
                 state_timeHist(1,(i)) = state_times;
 
                 % Import position log
-                trans = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
-                trans = trans*1000; %Convert from m to mm
-                trans_W = R_sim2W * trans; %Convert to world coord sys
-                 trans_W = trans; %Convert to world coord sys
+                trans_cam = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
+                trans_cam = trans_cam*1000; %Convert from m to mm
              
                 % Import rotation log
                 yaw = simData.out.camState_GT.signals.values(1,6,i);
@@ -43,21 +41,17 @@ classdef imgFuncs
 
                 %Convert euler angles to rotation matrix
                 eul = [roll, pitch, yaw];
-                R_simCam = eul2rotm(eul,"XYZ");
+                R_cam = eul2rotm(eul,"XYZ");
 
                 %Convert sim-camera coords to more conventional system
                 %Sim Camera has z-up, x-forward. General model has
                 %z-forward, y-down
-                R_simCam2genCam = [0  0 1;
-                                  -1  0 0;
-                                   0 -1 0];
-                R_C2W_GT =R_sim2W*R_simCam*R_simCam2genCam;
                 
                 %Buld ground truth Rt history
-                rtHist(1:3,1:3,i) = R_C2W_GT;
-                rtHist(1:3,1:3,i) = R_simCam;
-                rtHist(1:3,4,i) = trans_W;
-                stateHist(:,i) = ([trans_W; roll; pitch; yaw; x_dot; y_dot; z_dot]);
+
+                rtHist(1:3,1:3,i) = R_cam;
+                rtHist(1:3,4,i) = trans_cam;
+                stateHist(:,i) = ([trans_cam; roll; pitch; yaw; x_dot; y_dot; z_dot]);
                 
                 %% Import IMU data
                 % Import imu log
