@@ -51,7 +51,7 @@ classdef p3pPlotting
         function  scatterObj = addCheckerboard(axObj, cornerPnts)
             %Corner points imported as array of column vectors
             
-            scatterObj = scatter3(axObj,transpose(cornerPnts(1,:)), transpose(cornerPnts(2,:)),transpose(cornerPnts(3,:)), 4, "black", "filled");
+            scatterObj = scatter3(axObj,transpose(cornerPnts(1,:)*1000), transpose(cornerPnts(2,:)*1000),transpose(cornerPnts(3,:)*1000), 4, "black", "filled");
 
 
         end
@@ -60,12 +60,12 @@ classdef p3pPlotting
 
         function updateTraj(lineObj, arr_axTextObj, arr_axLineObj, rtHist)
 
-            tHist_x(:) =rtHist(1,4,:);
-            tHist_y(:) =rtHist(2,4,:);
-            tHist_z(:) =rtHist(3,4,:);
+            tHist_x(:) =rtHist(1,4,:)*1000; %in mm
+            tHist_y(:) =rtHist(2,4,:)*1000; %in mm
+            tHist_z(:) =rtHist(3,4,:)*1000; %in mm
 
             %Extract final point
-            t = rtHist(:,4,end);
+            t = rtHist(:,4,end)*1000; %in mm
             R = rtHist(:,1:3,end);
             
             coordAxEnd = t + (R* [100 0 0; 0 100 0; 0 0 100]);

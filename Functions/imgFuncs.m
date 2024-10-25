@@ -27,7 +27,7 @@ classdef imgFuncs
 
                 % Import position log
                 trans_cam = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
-                trans_cam = trans_cam*1000; %Convert from m to mm
+                trans_cam = trans_cam; %In m
              
                 % Import rotation log
                 yaw = simData.out.camState_GT.signals.values(1,6,i);

@@ -80,7 +80,7 @@ classdef EKF_2dQuad_funcs
         %------------- STEP 3: STATE UPDATE -------------- 
                 
                 %Calculate Kalman gain
-                K_new = P_new_hat * transpose(H_new)/inv(S_new_hat);
+                K_new = P_new_hat * transpose(H_new)/(S_new_hat);
             
                 %Update state est
                 x_new = x_new_hat + (K_new * y_new);
@@ -166,6 +166,7 @@ classdef EKF_2dQuad_funcs
             %covariance in the noise space into the state space. Also
             %called the "noise influence matrix"
             L_k = C;
+            
 
         end
 
