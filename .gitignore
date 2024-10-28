@@ -1,5 +1,7 @@
 # Data directories
-Results/*
+/Results/
+Results/p3pResult.mat
+
 
 #Data files
 *.avi     
