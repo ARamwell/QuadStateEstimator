@@ -1,5 +1,5 @@
 # Data directories
-/Results/  
+Results/*
 
 #Data files
 *.avi     
