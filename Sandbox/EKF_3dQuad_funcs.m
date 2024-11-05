@@ -2,7 +2,7 @@ classdef EKF_3dQuad_funcs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [x_new, P_new, processTerm_k] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta)
+        function [x_new, P_new, processTerm_k, x_new_hat, z_new_hat] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta)
         %Extended Kalman filter for a 3D quad. Must run iteratively
         %for each time step.
         
@@ -62,6 +62,7 @@ classdef EKF_3dQuad_funcs
             if isnan(z_k)
                 x_new = x_new_hat;
                 P_new = P_new_hat;
+                z_new_hat = zeros(7,1);
             else
         %---------- STEP 2: MEASUREMENT UPDATE------------    
 
@@ -258,29 +259,36 @@ classdef EKF_3dQuad_funcs
                       
             %measurements (cam)
             p_c  = sym("p_c", [3,1]);
-            syms phi theta psi
-            ori_c = [phi; theta; psi];
+            syms phi theta psik
+            ori_c = [phi; theta; psik];
             z = [p_c; ori_c];
         
             %roll 
-            phi_hat = atan2((2 * (q(1)*q(2) + q(3)*q(4))), 1 - 2*(q(2)^2) + q(3)^2);
+            phi_hat = atan2((2 * (q(1)*q(2) + q(3)*q(4))), 1 - 2*((q(2)^2 + q(3)^2)));
             
             % Pitch (rotation around y-axis)
             % Clamp the input to the asin function to handle gimbal lock
             sinp = 2 * (q(1)*q(3) - q(4)*q(2));
             theta_hat = asin(sinp);
+            %theta_hat = piecewise(abs(sinp)>=1, sign(sinp) * pi / 2, abs(sinp)<1, asin(sinp));
             % if abs(sinp) >= 1
             %     theta_hat = sign(sinp) * pi / 2; % Use 90 degrees if out of range
             % else
             %     theta_hat = asin(sinp);
             % end
 
-            psi_hat = atan2(2 * (q(1) * q(4) + q(2) * q(3)), 1 - 2 * (q(3)^2 + q(4)^2));
+            %psi_hat = atan2(2 * (q(1) * q(4) + q(2) * q(3)), 1 - 2 * (q(3)^2 + q(4)^2));
+            psi_hat = atan2(2 * (q(1) * q(4) - q(2) * q(3)), 1 - 2 * (q(3)^2 + q(4)^2));
 
-            measurementModel = [p;
-                                phi_hat;
-                                theta_hat;
-                                psi_hat];
+
+
+            %measurementModel = [p;
+            %                    phi_hat;
+            %                    theta_hat;
+            %                    psi_hat];
+
+            %try with quaternions
+            measurementModel = [p; q];
 
             H_star = jacobian(measurementModel, x);
 
