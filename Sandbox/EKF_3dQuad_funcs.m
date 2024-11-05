@@ -2,7 +2,7 @@ classdef EKF_3dQuad_funcs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [x_new, P_new] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta)
+        function [x_new, P_new, processTerm_k] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta)
         %Extended Kalman filter for a 3D quad. Must run iteratively
         %for each time step.
         
@@ -49,7 +49,7 @@ classdef EKF_3dQuad_funcs
         %----------- STEP 1: DYNAMICS UPDATE -------------
         
             %Predict new state (a priori) and get prev jacobian 
-            [x_new_hat, F_k, L_k] = EKF_2dQuad_funcs.dyn_update(x_k, u_k, t_delta);
+            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_funcs.dyn_update(x_k, u_k, t_delta);
             
             %Predict new state covariance (in state space)
             P_new_hat = F_k * P_k * transpose(F_k) + L_k * Q * transpose(L_k);
@@ -59,7 +59,7 @@ classdef EKF_3dQuad_funcs
         %*************************************************
         %ONLY RUN CORRECTION IF A NEW MEASUREMENT HAS BEEN DETECTED
 
-            if isnan(z_new)
+            if isnan(z_k)
                 x_new = x_new_hat;
                 P_new = P_new_hat;
             else
@@ -67,10 +67,10 @@ classdef EKF_3dQuad_funcs
 
                 %Predict new measurement z (may differ from actual measurement) and get
                 %jacobian H
-                [z_new_hat, H_new] = EKF_2dQuad_funcs.meas_predict(x_new_hat);
+                [z_new_hat, H_new] = EKF_3dQuad_funcs.meas_predict(x_new_hat);
             
                 %Calculate measurement residual y
-                y_new = z_new - z_new_hat;
+                y_new = z_k - z_new_hat;
             
                 %Compute predicted measurement covariance S
                 S_new_hat = H_new * P_new_hat * transpose(H_new) + W;
@@ -89,12 +89,17 @@ classdef EKF_3dQuad_funcs
                 I =  eye(size(H_new,2), size(H_new,2)); %make identity matrix of appropriate size
                 P_new = (I - K_new * H_new) * P_new_hat;
             end
+
+            %normalise orientation quaternion
+            q_new = x_new(4:7,1);
+            q_new_unit = q_new/norm(q_new);
+            x_new(4:7,1)=q_new_unit;
         
         end
 
    %------------------------------------------------------------%
 
-        function [x_next_hat, F_k, L_k] = dyn_update(x_k, u_k, t_delta)
+   function [x_next_hat, F_k, L_k, proTerm_k] = dyn_update(x_k, u_k, t_delta)
             %F_DYN_2DQUAD_NL Summary of this function goes here
             %   Detailed explanation goes here
             
@@ -116,28 +121,36 @@ classdef EKF_3dQuad_funcs
             %g= [0; -9.81];
             %FAKE IMU DOES NOT READ g:
             g = [0; 0; 0];
-            
-            %% Calculate model
-            [processDE, F_star, L_star, symbols] = EKF_3dQuad_funcs.calcProcessModel();
 
-            %% Extract useful variables
+
+            %% CALC MODEL EVERY TIME
+            % Calculate model
+            [processDE, F_star, L_star, R_star, symbols] = EKF_3dQuad_funcs.calcProcessModel();
+
+            % Extract useful variables
             q_k = x_k(4:7, 1);
+                        
 
             %Extract variables to match symbolic toolbox output
             numerics = [x_k; u_k];
 
-            %% Predict next state
+            % Predict next state
 
             % next state
-            x_next_hat = x_k + t_delta * (double(subs(processDE, symbols, numerics)));
+            processDE_num = (double(subs(processDE, symbols, numerics)));
+            proTerm_k =  processDE_num;
             
+            x_next_hat = x_k + t_delta * processDE_num;
+
             % process covariance
             F_k = double(subs(F_star, symbols, numerics));
-            
+
             %And L, the input noise covariance: will be used to transform
             %covariance in the noise space into the state space. Also
             %called the "noise influence matrix"
             L_k = double(subs(L_star, symbols, numerics));
+
+            R_k = double(subs(R_star, symbols, numerics));
 
         end
            
@@ -147,7 +160,7 @@ classdef EKF_3dQuad_funcs
             %Get measurement model and associated covariance (symbolic)
             [measModel, H_star, symbols] = EKF_3dQuad_funcs.calcMeasurementModel();
 
-            %set up values to substitutre
+            %set up values to substitute
             numerics = x_new_hat;
 
             %Get predicted measurement
@@ -161,7 +174,7 @@ classdef EKF_3dQuad_funcs
 
   %------------------------------------------------------------%
         
-        function [processDE, F_star, L_star, symbols] = calcProcessModel()
+        function [processDE, F_star, L_star, R, symbols] = calcProcessModel()
         %Function using symbolic toolbox to calculate the matrices involved in
         %the quad process model.
         
@@ -186,22 +199,40 @@ classdef EKF_3dQuad_funcs
             z = [p_c; theta_c];
 
             %quaternion right matrix operator
-            q_u = [0; u_g]; %turn gyro reading into a quaternion
-            Omega = [q_u(1) -q_u(2) -q_u(3) -q_u(4);
-                       q_u(2) q_u(1) q_u(4) -q_u(3);
-                       q_u(3) -q_u(4) q_u(1) q_u(2);
-                       q_u(4) q_u(3) -q_u(2) q_u(1)];
+             q_u = [0; u_g]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
+             Omega = [q_u(1) -q_u(2) -q_u(3) -q_u(4);
+                        q_u(2) q_u(1) q_u(4) -q_u(3);
+                        q_u(3) -q_u(4) q_u(1) q_u(2);
+                        q_u(4) q_u(3) -q_u(2) q_u(1)];
+             
+
 
             %rotation matrix for orientation quaternion
-            R = [1 - 2*q(3)^2 - 2*q(4)^2, 2*q(2)*q(3) - 2*q(1)*q(4), 2*q(2)*q(4) + 2*q(1)*q(3);
-                 2*q(2)*q(3) + 2*q(1)*q(4), 1 - 2*q(2)^2 - 2*q(4)^2, 2*q(3)*q(4) - 2*q(1)*q(2);
-                 2*q(2)*q(4) - 2*q(1)*q(3), 2*q(3)*q(4) + 2*q(1)*q(2), 1 - 2*q(2)^2 - 2*q(3)^2];
+            % R = [1 - 2*q(3)^2 - 2*q(4)^2, 2*q(2)*q(3) - 2*q(1)*q(4), 2*q(2)*q(4) + 2*q(1)*q(3);
+            %      2*q(2)*q(3) + 2*q(1)*q(4), 1 - 2*q(2)^2 - 2*q(4)^2, 2*q(3)*q(4) - 2*q(1)*q(2);
+            %      2*q(2)*q(4) - 2*q(1)*q(3), 2*q(3)*q(4) + 2*q(1)*q(2), 1 - 2*q(2)^2 - 2*q(3)^2];
+            
+            %R = [2*(q(1)^2 + q(2)^2)-1, 2*q(2)*q(3) - 2*q(1)*q(4), 2*(q(2)*q(4) + q(1)*q(3));
+            %    2*(q(2)*q(3) + q(1)*q(4)), 2*(q(1)^2 + q(3)^2)-1, 2*(q(3)*q(4)-q(1)*q(2));
+            %    2*(q(2)*q(4)-q(1)*q(3)), 2*(q(3)*q(4) + q(1)*q(2)), 2*(q(1)^2 + q(4)^2)-1];
 
+            R = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
+                2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
+                2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
+            
 
+            %Manual quaternion rotation
+            q_u_dyn = [q(1)*q_u(1) - q(2)*q_u(2) - q(3)*q_u(3) - q(4)*(q_u(4));
+                       q(1)*q_u(2) + q_u(1)*q(2) + q(3)*q_u(4) - q_u(3)*q(4);
+                       q(1)*q_u(3) + q_u(1)*q(3) + q_u(2)*q(4) - q(2)*q_u(4);
+                       q(1)*q_u(4) + q_u(1)*q(4) + q(2)*q_u(3) - q_u(2)*q(3)];
+
+            % processDE = [v;
+            %             0.5 * Omega * q;
+            %             R * u_a + g];
             processDE = [v;
-                        0.5 * Omega * q;
-                        R * u_a + g];
-
+                         0.5 * q_u_dyn;
+                         R * u_a + g];
 
             F_star = jacobian(processDE, x); 
 

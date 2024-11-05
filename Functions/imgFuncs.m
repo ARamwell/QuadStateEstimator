@@ -9,11 +9,12 @@ classdef imgFuncs
             
             simData = load(fullFile);
             numLogPoints = size((simData.out.camState_GT.signals.values), 3);
+            stateDimensions = size((simData.out.camState_GT.signals.values), 2);
 
             %Initialise output variables
             rtHist = zeros(3,4,numLogPoints-1);%-1 to skip t0
             state_timeHist = zeros(1, (numLogPoints-1));
-            stateHist =zeros(9, (numLogPoints-1));
+            stateHist =zeros(stateDimensions, (numLogPoints-1));
             imuHist =zeros(7, (numLogPoints-1));
 
 
@@ -29,29 +30,36 @@ classdef imgFuncs
                 trans_cam = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
                 trans_cam = trans_cam; %In m
              
-                % Import rotation log
-                yaw = simData.out.camState_GT.signals.values(1,6,i);
-                pitch = simData.out.camState_GT.signals.values(1,5,i);
-                roll = simData.out.camState_GT.signals.values(1,4,i);
+                % %If in Euler angles
+                %     % Import rotation log
+                %     yaw = simData.out.camState_GT.signals.values(1,6,i);
+                %     pitch = simData.out.camState_GT.signals.values(1,5,i);
+                %     roll = simData.out.camState_GT.signals.values(1,4,i);
+                %     j=7; %index to start velocity
+                % 
+                %     %Convert euler angles to rotation matrix
+                %     eul = [roll, pitch, yaw];
+                %     R_cam = eul2rotm(eul,"XYZ");
+                %     orient = transpose(eul);
+                % 
+                %If in quaternions (new implementation)
+                    %import orientation log
+                    q = simData.out.camState_GT.signals.values(1, 4:7, i);
+                    j = 8;
+                    orient = transpose(q);
+
+                    %convert to rotation matrix
+                    R_cam = quat2rotm(q);
 
                 % Import velocity log
-                x_dot = simData.out.camState_GT.signals.values(1,7,i);
-                y_dot = simData.out.camState_GT.signals.values(1,8,i);
-                z_dot = simData.out.camState_GT.signals.values(1,9,i);
-
-                %Convert euler angles to rotation matrix
-                eul = [roll, pitch, yaw];
-                R_cam = eul2rotm(eul,"XYZ");
-
-                %Convert sim-camera coords to more conventional system
-                %Sim Camera has z-up, x-forward. General model has
-                %z-forward, y-down
+                x_dot = simData.out.camState_GT.signals.values(1,j,i);
+                y_dot = simData.out.camState_GT.signals.values(1,j+1,i);
+                z_dot = simData.out.camState_GT.signals.values(1,j+2,i);
                 
                 %Buld ground truth Rt history
-
                 rtHist(1:3,1:3,i) = R_cam;
                 rtHist(1:3,4,i) = trans_cam;
-                stateHist(:,i) = ([trans_cam; roll; pitch; yaw; x_dot; y_dot; z_dot]);
+                stateHist(:,i) = ([trans_cam; orient; x_dot; y_dot; z_dot]);
                 
                 %% Import IMU data
                 % Import imu log
