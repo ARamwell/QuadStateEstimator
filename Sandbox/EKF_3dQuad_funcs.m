@@ -179,7 +179,7 @@ classdef EKF_3dQuad_funcs
         %Function using symbolic toolbox to calculate the matrices involved in
         %the quad process model.
         
-            g = [0; 0; 0];
+            g = [0; 0; -9.81];
         
             %Define symbolic variables
 
