@@ -179,7 +179,7 @@ classdef EKF_3dQuad_funcs
         %Function using symbolic toolbox to calculate the matrices involved in
         %the quad process model.
         
-            g = [0; 0; -9.81];
+            g = [0; 0; -9.81];  %body frame
         
             %Define symbolic variables
 
@@ -233,7 +233,7 @@ classdef EKF_3dQuad_funcs
             %             R * u_a + g];
             processDE = [v;
                          0.5 * q_u_dyn;
-                         R * u_a + g];
+                         R * u_a - g];
 
             F_star = jacobian(processDE, x); 
 
