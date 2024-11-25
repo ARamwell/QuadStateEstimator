@@ -2,7 +2,7 @@ classdef EKF_3dQuad_funcs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [x_new, P_new, processTerm_k, x_new_hat, z_new_hat] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta)
+        function [x_new, P_new, processTerm_k, x_new_hat, z_new_hat] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta, Rt_imu2rq)
         %Extended Kalman filter for a 3D quad. Must run iteratively
         %for each time step.
         
@@ -49,7 +49,7 @@ classdef EKF_3dQuad_funcs
         %----------- STEP 1: DYNAMICS UPDATE -------------
         
             %Predict new state (a priori) and get prev jacobian 
-            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_funcs.dyn_update(x_k, u_k, t_delta);
+            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_funcs.dyn_update(x_k, u_k, t_delta, Rt_imu2rq);
             
             %Predict new state covariance (in state space)
             P_new_hat = F_k * P_k * transpose(F_k) + L_k * Q * transpose(L_k);
@@ -100,7 +100,7 @@ classdef EKF_3dQuad_funcs
 
    %------------------------------------------------------------%
 
-   function [x_next_hat, F_k, L_k, proTerm_k] = dyn_update(x_k, u_k, t_delta)
+   function [x_next_hat, F_k, L_k, proTerm_k] = dyn_update(x_k, u_k, t_delta, Rt_imu2rq)
             %F_DYN_2DQUAD_NL Summary of this function goes here
             %   Detailed explanation goes here
             
@@ -126,7 +126,7 @@ classdef EKF_3dQuad_funcs
 
             %% CALC MODEL EVERY TIME
             % Calculate model
-            [processDE, F_star, L_star, R_star, symbols] = EKF_3dQuad_funcs.calcProcessModel();
+            [processDE, F_star, L_star, R_star, symbols] = EKF_3dQuad_funcs.calcProcessModel(Rt_imu2rq);
 
             % Extract useful variables
             q_k = x_k(4:7, 1);
@@ -175,12 +175,14 @@ classdef EKF_3dQuad_funcs
 
   %------------------------------------------------------------%
         
-        function [processDE, F_star, L_star, R, symbols] = calcProcessModel()
+        function [processDE, F_star, L_star, R_rq2rw, symbols] = calcProcessModel(Rt_imu2rq)
         %Function using symbolic toolbox to calculate the matrices involved in
         %the quad process model.
         
-            g = [0; 0; -9.81];  %body frame
-        
+            g = [0; 0; 9.81];  %world frame
+            R_imu2rq =Rt_imu2rq(1:3, 1:3);
+            t_imu2rq =Rt_imu2rq(1:3, 4);
+                    
             %Define symbolic variables
 
             %state
@@ -217,7 +219,7 @@ classdef EKF_3dQuad_funcs
             %    2*(q(2)*q(3) + q(1)*q(4)), 2*(q(1)^2 + q(3)^2)-1, 2*(q(3)*q(4)-q(1)*q(2));
             %    2*(q(2)*q(4)-q(1)*q(3)), 2*(q(3)*q(4) + q(1)*q(2)), 2*(q(1)^2 + q(4)^2)-1];
 
-            R = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
+            R_rq2rw = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
                 2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
                 2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
             
@@ -228,12 +230,20 @@ classdef EKF_3dQuad_funcs
                        q(1)*q_u(3) + q_u(1)*q(3) + q_u(2)*q(4) - q(2)*q_u(4);
                        q(1)*q_u(4) + q_u(1)*q(4) + q(2)*q_u(3) - q_u(2)*q(3)];
 
+
+            %If IMU is not at drone centre, the rotational component of the
+            %acceleration must be removed
+            %assuming omega_dot is negligible
+            omega_dot = [0 ; 0; 0];
+            a_rot = cross(omega_dot, t_imu2rq) + cross(u_g, cross(u_g, t_imu2rq));
+
             % processDE = [v;
             %             0.5 * Omega * q;
             %             R * u_a + g];
+            omega_rq = 0.5 * q_u_dyn;
             processDE = [v;
                          0.5 * q_u_dyn;
-                         R * u_a - g];
+                         R_rq2rw * (transpose(R_imu2rq) * (u_a - a_rot) ) + g];
 
             F_star = jacobian(processDE, x); 
 
