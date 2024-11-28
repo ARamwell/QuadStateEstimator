@@ -2,7 +2,7 @@ classdef EKF_3dQuad_funcs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [x_new, P_new, processTerm_k, x_new_hat, z_new_hat] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta, Rt_imu2rq)
+        function [x_new, P_new, processTerm_k, x_new_hat, z_new_hat] = EKF_loop(x_k, P_k, u_k, Q, z_k, W, t_delta, Rt_imu2rq, Rt_rc2rq)
         %Extended Kalman filter for a 3D quad. Must run iteratively
         %for each time step.
         
@@ -68,7 +68,7 @@ classdef EKF_3dQuad_funcs
 
                 %Predict new measurement z (may differ from actual measurement) and get
                 %jacobian H
-                [z_new_hat, H_new] = EKF_3dQuad_funcs.meas_predict(x_new_hat);
+                [z_new_hat, H_new] = EKF_3dQuad_funcs.meas_predict(x_new_hat, Rt_rc2rq);
             
                 %Calculate measurement residual y
                 y_new = z_k - z_new_hat;
@@ -156,10 +156,10 @@ classdef EKF_3dQuad_funcs
         end
            
   %------------------------------------------------------------%
-        function [z_new_hat, H_new] = meas_predict(x_new_hat)
+        function [z_new_hat, H_new] = meas_predict(x_new_hat, Rt_rc2rq)
         
             %Get measurement model and associated covariance (symbolic)
-            [measModel, H_star, symbols] = EKF_3dQuad_funcs.calcMeasurementModel();
+            [measModel, H_star, symbols] = EKF_3dQuad_funcs.calcMeasurementModel(Rt_rc2rq);
 
             %set up values to substitute
             numerics = x_new_hat;
@@ -175,13 +175,15 @@ classdef EKF_3dQuad_funcs
 
   %------------------------------------------------------------%
         
-        function [processDE, F_star, L_star, R_rq2rw, symbols] = calcProcessModel(Rt_imu2rq)
+        function [processDE, F_star, L_star, R_rw2rq, symbols] = calcProcessModel(Rt_imu2rq)
         %Function using symbolic toolbox to calculate the matrices involved in
         %the quad process model.
         
-            g = [0; 0; 9.81];  %world frame
+            g = [0; 0; -9.81];  %world frame
             R_imu2rq =Rt_imu2rq(1:3, 1:3);
             t_imu2rq =Rt_imu2rq(1:3, 4);
+            q_imu2rq = (rotm2quat(R_imu2rq));
+            q_imu2rq = transpose(q_imu2rq);
                     
             %Define symbolic variables
 
@@ -203,10 +205,17 @@ classdef EKF_3dQuad_funcs
 
             %quaternion right matrix operator
              q_u = [0; u_g]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
-             Omega = [q_u(1) -q_u(2) -q_u(3) -q_u(4);
+             rmo_q_u = [q_u(1) -q_u(2) -q_u(3) -q_u(4);
                         q_u(2) q_u(1) q_u(4) -q_u(3);
                         q_u(3) -q_u(4) q_u(1) q_u(2);
                         q_u(4) q_u(3) -q_u(2) q_u(1)];
+
+            %will also need left matrix operator of q
+            lmo_q = [q(1) -q(2) -q(3) -q(4)
+                    q(2) q(1) -q(4) q(3)
+                    q(3) q(4) q(1) -q(2)
+                    q(4) -q(3) q(2) q(1)];
+
              
 
 
@@ -219,16 +228,21 @@ classdef EKF_3dQuad_funcs
             %    2*(q(2)*q(3) + q(1)*q(4)), 2*(q(1)^2 + q(3)^2)-1, 2*(q(3)*q(4)-q(1)*q(2));
             %    2*(q(2)*q(4)-q(1)*q(3)), 2*(q(3)*q(4) + q(1)*q(2)), 2*(q(1)^2 + q(4)^2)-1];
 
-            R_rq2rw = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
+            R_rw2rq = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
                 2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
                 2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
             
 
             %Manual quaternion rotation
-            q_u_dyn = [q(1)*q_u(1) - q(2)*q_u(2) - q(3)*q_u(3) - q(4)*(q_u(4));
-                       q(1)*q_u(2) + q_u(1)*q(2) + q(3)*q_u(4) - q_u(3)*q(4);
-                       q(1)*q_u(3) + q_u(1)*q(3) + q_u(2)*q(4) - q(2)*q_u(4);
-                       q(1)*q_u(4) + q_u(1)*q(4) + q(2)*q_u(3) - q_u(2)*q(3)];
+            q_u_rq = [q_imu2rq(1)*q_u(1) - q_imu2rq(2)*q_u(2) - q_imu2rq(3)*q_u(3) - q_imu2rq(4)*(q_u(4));
+                       q_imu2rq(1)*q_u(2) + q_u(1)*q_imu2rq(2) + q_imu2rq(3)*q_u(4) - q_u(3)*q_imu2rq(4);
+                       q_imu2rq(1)*q_u(3) + q_u(1)*q_imu2rq(3) + q_u(2)*q_imu2rq(4) - q_imu2rq(2)*q_u(4);
+                       q_imu2rq(1)*q_u(4) + q_u(1)*q_imu2rq(4) + q_imu2rq(2)*q_u(3) - q_u(2)*q_imu2rq(3)];
+
+            q_u_rw = [q(1)*q_u_rq(1) - q(2)*q_u_rq(2) - q(3)*q_u_rq(3) - q(4)*(q_u_rq(4));
+                       q(1)*q_u_rq(2) + q_u_rq(1)*q(2) + q(3)*q_u_rq(4) - q_u_rq(3)*q(4);
+                       q(1)*q_u_rq(3) + q_u_rq(1)*q(3) + q_u_rq(2)*q(4) - q(2)*q_u_rq(4);
+                       q(1)*q_u_rq(4) + q_u_rq(1)*q(4) + q(2)*q_u_rq(3) - q_u_rq(2)*q(3)];
 
 
             %If IMU is not at drone centre, the rotational component of the
@@ -240,10 +254,10 @@ classdef EKF_3dQuad_funcs
             % processDE = [v;
             %             0.5 * Omega * q;
             %             R * u_a + g];
-            omega_rq = 0.5 * q_u_dyn;
+            omega_rq = 0.5 * q_u_rw;
             processDE = [v;
-                         0.5 * q_u_dyn;
-                         R_rq2rw * (transpose(R_imu2rq) * (u_a - a_rot) ) + g];
+                         0.5* lmo_q * (rmo_q_u * q_imu2rq);
+                         (transpose(transpose(R_rw2rq) *R_imu2rq) * u_a) + g];
 
             F_star = jacobian(processDE, x); 
 
@@ -254,11 +268,15 @@ classdef EKF_3dQuad_funcs
         end
 
   %------------------------------------------------------------%
-        function [measurementModel, H_star, symbols] = calcMeasurementModel()
+        function [measurementModel, H_star, symbols] = calcMeasurementModel(Rt_rc2rq)
             %Function using symbolic toolbox to calculate the matrices involved in
             %the CAMERA measurement model.
            
-            
+            %Extract useful variables
+            R_rc2rq = (Rt_rc2rq(1:3, 1:3));
+            t_rc2rq = Rt_rc2rq(1:3, 4);
+            q_rc2rq = rotm2quat(R_rc2rq);
+
             %Define symbolic variables
             
             %state
@@ -266,39 +284,26 @@ classdef EKF_3dQuad_funcs
             v = sym("v", [3,1]);
             q = sym("q", [4,1]);
             x = [p; q; v];
+
+            %Extract rotation matrix
+            R_rq2rw = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
+                2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
+                2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
                       
+
+            %Manual quaternion rotation: q*q
+            q_rc2rw = [q(1)*q_rc2rq(1) - q(2)*q_rc2rq(2) - q(3)*q_rc2rq(3) - q(4)*(q_rc2rq(4));
+                       q(1)*q_rc2rq(2) + q_rc2rq(1)*q(2) + q(3)*q_rc2rq(4) - q_rc2rq(3)*q(4);
+                       q(1)*q_rc2rq(3) + q_rc2rq(1)*q(3) + q_rc2rq(2)*q(4) - q(2)*q_rc2rq(4);
+                       q(1)*q_rc2rq(4) + q_rc2rq(1)*q(4) + q(2)*q_rc2rq(3) - q_rc2rq(2)*q(3)];
+
             %measurements (cam)
-            p_c  = sym("p_c", [3,1]);
-            syms phi theta psik
-            ori_c = [phi; theta; psik];
-            z = [p_c; ori_c];
-        
-            %roll 
-            phi_hat = atan2((2 * (q(1)*q(2) + q(3)*q(4))), 1 - 2*((q(2)^2 + q(3)^2)));
+            p_z = R_rq2rw * t_rc2rq + p;
+            q_z = q_rc2rw;
             
-            % Pitch (rotation around y-axis)
-            % Clamp the input to the asin function to handle gimbal lock
-            sinp = 2 * (q(1)*q(3) - q(4)*q(2));
-            theta_hat = asin(sinp);
-            %theta_hat = piecewise(abs(sinp)>=1, sign(sinp) * pi / 2, abs(sinp)<1, asin(sinp));
-            % if abs(sinp) >= 1
-            %     theta_hat = sign(sinp) * pi / 2; % Use 90 degrees if out of range
-            % else
-            %     theta_hat = asin(sinp);
-            % end
-
-            %psi_hat = atan2(2 * (q(1) * q(4) + q(2) * q(3)), 1 - 2 * (q(3)^2 + q(4)^2));
-            psi_hat = atan2(2 * (q(1) * q(4) - q(2) * q(3)), 1 - 2 * (q(3)^2 + q(4)^2));
-
-
-
-            %measurementModel = [p;
-            %                    phi_hat;
-            %                    theta_hat;
-            %                    psi_hat];
-
+        
             %try with quaternions
-            measurementModel = [p; q];
+            measurementModel = [p_z; q_z];
 
             H_star = jacobian(measurementModel, x);
 

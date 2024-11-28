@@ -2,14 +2,14 @@ classdef imgFuncs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [rtHist, state_timeHist, stateHist, imuHist] = importSimLog(fullFile, R_sim2W)
+        function [rtHist, state_timeHist, stateHist, cam_timeHist, imuHist] = importSimLog(fullFile, R_sim2W)
         %Basic function to import all logged trajectory data (as .m file). 
         %Does not consider time alignment with other data (i.e., imports 
         %all logged points, does not skip any)
             
             simData = load(fullFile);
-            numLogPoints = size((simData.out.camState_GT.signals.values), 3);
-            stateDimensions = size((simData.out.camState_GT.signals.values), 2);
+            numLogPoints = size((simData.out.quadState.signals.values), 3);
+            stateDimensions = size((simData.out.quadState.signals.values), 2);
 
             %Initialise output variables
             rtHist = zeros(3,4,numLogPoints-1);%-1 to skip t0
@@ -21,46 +21,64 @@ classdef imgFuncs
             %For each logged time - skip t0, where there is no data
             for i=1:numLogPoints
 
-                %% Import Ground Truth data
+                %% Import Camera Ground Truth data
+                % %Import time history
+                 cam_times = simData.out.camState_GT.time(i,1);
+                 cam_timeHist(1,(i)) = cam_times;
+                % 
+                % % Import position log
+                % trans_cam = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
+                % trans_cam = trans_cam; %In m
+                % 
+
+                % 
+                % %If in quaternions (new implementation)
+                %     %import orientation log
+                %     q = simData.out.camState_GT.signals.values(1, 4:7, i);
+                %     j = 8;
+                %     orient = transpose(q);
+                % 
+                %     %convert to rotation matrix
+                %     R_cam = quat2rotm(q);
+                % 
+                % % Import velocity log
+                % x_dot = simData.out.camState_GT.signals.values(1,j,i);
+                % y_dot = simData.out.camState_GT.signals.values(1,j+1,i);
+                % z_dot = simData.out.camState_GT.signals.values(1,j+2,i);
+                % 
+                % %Buld ground truth Rt history
+                % rtHist(1:3,1:3,i) = R_cam;
+                % rtHist(1:3,4,i) = trans_cam;
+                % stateHist(:,i) = ([trans_cam; orient; x_dot; y_dot; z_dot]);
+                
+                 %% Import Quad Ground Truth data
                 %Import time history
-                state_times = simData.out.camState_GT.time(i,1);
+                state_times = simData.out.quadState.time(i,1);
                 state_timeHist(1,(i)) = state_times;
 
                 % Import position log
-                trans_cam = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
-                trans_cam = trans_cam; %In m
+                trans_quad = transpose(simData.out.quadState.signals.values(1,1:3,i)); %in m
              
-                % %If in Euler angles
-                %     % Import rotation log
-                %     yaw = simData.out.camState_GT.signals.values(1,6,i);
-                %     pitch = simData.out.camState_GT.signals.values(1,5,i);
-                %     roll = simData.out.camState_GT.signals.values(1,4,i);
-                %     j=7; %index to start velocity
-                % 
-                %     %Convert euler angles to rotation matrix
-                %     eul = [roll, pitch, yaw];
-                %     R_cam = eul2rotm(eul,"XYZ");
-                %     orient = transpose(eul);
-                % 
                 %If in quaternions (new implementation)
-                    %import orientation log
-                    q = simData.out.camState_GT.signals.values(1, 4:7, i);
-                    j = 8;
-                    orient = transpose(q);
+                %import orientation log
+                q = simData.out.quadState.signals.values(1, 4:7, i);
+                j = 8;
+                orient = transpose(q);
 
-                    %convert to rotation matrix
-                    R_cam = quat2rotm(q);
+                %convert to rotation matrix
+                R_quad =(quat2rotm(q));
 
                 % Import velocity log
-                x_dot = simData.out.camState_GT.signals.values(1,j,i);
-                y_dot = simData.out.camState_GT.signals.values(1,j+1,i);
-                z_dot = simData.out.camState_GT.signals.values(1,j+2,i);
+                x_dot = simData.out.quadState.signals.values(1,j,i);
+                y_dot = simData.out.quadState.signals.values(1,j+1,i);
+                z_dot = simData.out.quadState.signals.values(1,j+2,i);
                 
                 %Buld ground truth Rt history
-                rtHist(1:3,1:3,i) = R_cam;
-                rtHist(1:3,4,i) = trans_cam;
-                stateHist(:,i) = ([trans_cam; orient; x_dot; y_dot; z_dot]);
+                rtHist(1:3,1:3,i) = R_quad;
+                rtHist(1:3,4,i) = trans_quad;
+                stateHist(:,i) = ([trans_quad; orient; x_dot; y_dot; z_dot]);
                 
+                               
                 %% Import IMU data
                 % Import imu log
                 imu = simData.out.IMU.signals.values(:,:,i);
