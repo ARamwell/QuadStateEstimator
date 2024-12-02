@@ -98,7 +98,8 @@ classdef checker < worldObject
             texture = imrotate(texture, 90);
             texture = cat(3, texture, texture, texture); %rgb
 
-            imgFile = strcat("C:/Users/alyss/OneDrive - University of Cape Town/Sandbox/PnP/Pnp_solver/GitClone/Resources/checkerboardTexture_", string(identifier), ".png");
+            imgFileName = strcat("checkerboardTexture_", string(identifier), ".png");
+            imgFile = fullfile('.', 'Resources', imgFileName);
             
             imwrite(texture, imgFile);
             

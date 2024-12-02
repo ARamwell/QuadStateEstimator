@@ -73,7 +73,7 @@ classdef april < worldObject
             dpmm = round((dpi/2.54), 0);%pixels per mm
 
             %Read april tag image from file
-            sourceFile = 'C:\Users\alyss\OneDrive - University of Cape Town\Sandbox\Resources\AprilTags\apriltag-imgs\tagStandard41h12';
+            sourceFile = fullfile('.', 'Resources\AprilTags\apriltag-imgs\tagStandard41h12');
             fileName = strcat('tag41_12_', (num2str(number, '%05d')));
             sourceImg = imread(strcat(sourceFile, '\', fileName), 'png');
             
@@ -83,7 +83,7 @@ classdef april < worldObject
             texture = imrotate(resizedImg, -90);
 
             %Save image
-            targetFolder= 'C:\Users\alyss\OneDrive - University of Cape Town\Sandbox\PnP\Pnp_solver\GitClone\Resources';
+            targetFolder= fullfile('.', 'Resources');
             targetName = strcat('texture_', name, '.png');
             imgFile = strcat(targetFolder, '\', targetName);
             imwrite(texture, imgFile);

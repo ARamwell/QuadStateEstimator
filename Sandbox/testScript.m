@@ -1,57 +1,29 @@
+eul_imu2rq = [0 0 -90];
+eul_rw2rq = [(180) 0 0];
+w = [0 0 0 0];
+a = [12; 2; 10];
+g = [0; 0; -9.81];
 
 
+q_imu2rq = eul2quat(deg2rad(eul_imu2rq), 'XYZ');
+q_rw2rq = eul2quat(deg2rad(eul_rw2rq), 'XYZ');
+q = q_rw2rq;
 
+lmo_imu2rq =  [q_imu2rq(1) -q_imu2rq(2) -q_imu2rq(3) -q_imu2rq(4)
+                q_imu2rq(2) q_imu2rq(1) -q_imu2rq(4) q_imu2rq(3)
+                q_imu2rq(3) q_imu2rq(4) q_imu2rq(1) -q_imu2rq(2)
+                q_imu2rq(4) -q_imu2rq(3) q_imu2rq(2) q_imu2rq(1)];
 
-[a, b, c] = calcProcessDE;
-numerics = [1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14; 15; 16];
-d = double(subs(a, c, numerics));
+q_rq2rw = [q(1) -q(2) -q(3) -q(4)];
+lmo_rq2rw = [q_rq2rw(1) -q_rq2rw(2) -q_rq2rw(3) -q_rq2rw(4)
+            q_rq2rw(2) q_rq2rw(1) -q_rq2rw(4) q_rq2rw(3)
+            q_rq2rw(3) q_rq2rw(4) q_rq2rw(1) -q_rq2rw(2)
+            q_rq2rw(4) -q_rq2rw(3) q_rq2rw(2) q_rq2rw(1)];
 
-        function [processModel, F_star, symbols] = calcProcessDE()
-        %Function using symbolic toolbox to calculate the matrices involved in
-        %the quad process model.
-        
-            g = [0; 0; 0];
-        
-            %Define symbolic variables
+R_rw2rq = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
+    2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
+    2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
 
-            %state
-            p = sym("p", [3,1]);
-            v = sym("v", [3,1]);
-            q = sym("q", [4,1]);
-            x = [p; q; v];
+a1 = ((transpose(R_rw2rq) * R_imu2rq) * (- a) + g)
 
-            %"control input"
-            u_g = sym("u_g", [3,1]);
-            u_a = sym("u_a", [3,1]);
-            u = [u_g; u_a];
-
-            %measurements (cam)
-            p_c  = sym("p_c", [3,1]);
-            theta_c = sym("theta_c", [3,1]);
-            z = [p_c; theta_c];
-
-            %quaternion right matrix operator
-            q_u = [0; u_g]; %turn gyro reading into a quaternion
-            Omega = [q_u(1) -q_u(2) -q_u(3) -q_u(4);
-                       q_u(2) q_u(1) q_u(4) -q_u(3);
-                       q_u(3) -q_u(4) q_u(1) q_u(2);
-                       q_u(4) q_u(3) -q_u(2) q_u(1)];
-
-            %rotation matrix for orientation quaternion
-            R = [1 - 2*q(3)^2 - 2*q(4)^2, 2*q(2)*q(3) - 2*q(1)*q(4), 2*q(2)*q(4) + 2*q(1)*q(3);
-                 2*q(2)*q(3) + 2*q(1)*q(4), 1 - 2*q(2)^2 - 2*q(4)^2, 2*q(3)*q(4) - 2*q(1)*q(2);
-                 2*q(2)*q(4) - 2*q(1)*q(3), 2*q(3)*q(4) + 2*q(1)*q(2), 1 - 2*q(2)^2 - 2*q(3)^2];
-
-
-            processModel = [v;
-                        0.5 * Omega * q;
-                        R * u_a + g];
-
-
-            F_star = jacobian(processModel, x); 
-
-            L_star = jacobian(processModel, u);
-
-            symbols = [x; u];
-
-        end
+a2 =  [-1 0 0; 0 -1 0; 0 0 1] * ((transpose(R_rw2rq) * R_imu2rq) *( -a) + g)
