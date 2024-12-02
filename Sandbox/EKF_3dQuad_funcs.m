@@ -204,12 +204,15 @@ classdef EKF_3dQuad_funcs
             z = [p_c; theta_c];
 
             %rotations
-            q_u = [0; u_g]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
+            %get angular accel in quad frame
+            w_Q = R_imu2rq * u_g;
+            %turn angular accel into a quaternion
+            q_u = [0; w_Q]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
 
-            lmo_imu2rq =  [q_imu2rq(1) -q_imu2rq(2) -q_imu2rq(3) -q_imu2rq(4)
-                        q_imu2rq(2) q_imu2rq(1) -q_imu2rq(4) q_imu2rq(3)
-                        q_imu2rq(3) q_imu2rq(4) q_imu2rq(1) -q_imu2rq(2)
-                        q_imu2rq(4) -q_imu2rq(3) q_imu2rq(2) q_imu2rq(1)];
+            % lmo_imu2rq =  [q_imu2rq(1) -q_imu2rq(2) -q_imu2rq(3) -q_imu2rq(4)
+            %             q_imu2rq(2) q_imu2rq(1) -q_imu2rq(4) q_imu2rq(3)
+            %             q_imu2rq(3) q_imu2rq(4) q_imu2rq(1) -q_imu2rq(2)
+            %             q_imu2rq(4) -q_imu2rq(3) q_imu2rq(2) q_imu2rq(1)];
 
             %will also need left matrix operator of q
             q_inv = [q(1) -q(2) -q(3) -q(4)];
@@ -220,44 +223,43 @@ classdef EKF_3dQuad_funcs
 
              
 
-
+            % 
             R_rw2rq = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
                 2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
                 2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
-            
+            % 
 
-            %Manual quaternion rotation
-            q_u_rq = [q_imu2rq(1)*q_u(1) - q_imu2rq(2)*q_u(2) - q_imu2rq(3)*q_u(3) - q_imu2rq(4)*(q_u(4));
-                       q_imu2rq(1)*q_u(2) + q_u(1)*q_imu2rq(2) + q_imu2rq(3)*q_u(4) - q_u(3)*q_imu2rq(4);
-                       q_imu2rq(1)*q_u(3) + q_u(1)*q_imu2rq(3) + q_u(2)*q_imu2rq(4) - q_imu2rq(2)*q_u(4);
-                       q_imu2rq(1)*q_u(4) + q_u(1)*q_imu2rq(4) + q_imu2rq(2)*q_u(3) - q_u(2)*q_imu2rq(3)];
-
-            q_u_rw = [q(1)*q_u_rq(1) - q(2)*q_u_rq(2) - q(3)*q_u_rq(3) - q(4)*(q_u_rq(4));
-                       q(1)*q_u_rq(2) + q_u_rq(1)*q(2) + q(3)*q_u_rq(4) - q_u_rq(3)*q(4);
-                       q(1)*q_u_rq(3) + q_u_rq(1)*q(3) + q_u_rq(2)*q(4) - q(2)*q_u_rq(4);
-                       q(1)*q_u_rq(4) + q_u_rq(1)*q(4) + q(2)*q_u_rq(3) - q_u_rq(2)*q(3)];
+            % %Manual quaternion rotation
+            % q_u_rq = [q_imu2rq(1)*q_u(1) - q_imu2rq(2)*q_u(2) - q_imu2rq(3)*q_u(3) - q_imu2rq(4)*(q_u(4));
+            %            q_imu2rq(1)*q_u(2) + q_u(1)*q_imu2rq(2) + q_imu2rq(3)*q_u(4) - q_u(3)*q_imu2rq(4);
+            %            q_imu2rq(1)*q_u(3) + q_u(1)*q_imu2rq(3) + q_u(2)*q_imu2rq(4) - q_imu2rq(2)*q_u(4);
+            %            q_imu2rq(1)*q_u(4) + q_u(1)*q_imu2rq(4) + q_imu2rq(2)*q_u(3) - q_u(2)*q_imu2rq(3)];
+            % 
+            % q_u_rw = [q(1)*q_u_rq(1) - q(2)*q_u_rq(2) - q(3)*q_u_rq(3) - q(4)*(q_u_rq(4));
+            %            q(1)*q_u_rq(2) + q_u_rq(1)*q(2) + q(3)*q_u_rq(4) - q_u_rq(3)*q(4);
+            %            q(1)*q_u_rq(3) + q_u_rq(1)*q(3) + q_u_rq(2)*q(4) - q(2)*q_u_rq(4);
+            %            q(1)*q_u_rq(4) + q_u_rq(1)*q(4) + q(2)*q_u_rq(3) - q_u_rq(2)*q(3)];
 
 
             %If IMU is not at drone centre, the rotational component of the
             %acceleration must be removed
             %assuming omega_dot is negligible
-            omega_dot = [0 ; 0; 0];
-            a_rot = cross(omega_dot, t_imu2rq) + cross(u_g, cross(u_g, t_imu2rq));
+            % omega_dot = [0 ; 0; 0];
+            % a_rot = cross(omega_dot, t_imu2rq) + cross(u_g, cross(u_g, t_imu2rq));
 
             % processDE = [v;
             %             0.5 * Omega * q;
             %             R * u_a + g];
-            angvel_rotationOperator =  lmo_rq2rw * lmo_imu2rq;
-            angvel_frobenius_norm = sqrt(sum(sum(angvel_rotationOperator.^2)));
-            angvel_rotationOperatorNormed = angvel_rotationOperator/angvel_frobenius_norm;
+            % angvel_rotationOperator =  lmo_rq2rw * lmo_imu2rq;
+            % angvel_frobenius_norm = sqrt(sum(sum(angvel_rotationOperator.^2)));
+            % angvel_rotationOperatorNormed = angvel_rotationOperator/angvel_frobenius_norm;
+            % 
+            % linacc_rotationOperator =  transpose(R_rw2rq) * R_imu2rq;
 
-            linacc_rotationOperator =  transpose(R_rw2rq) * R_imu2rq;
 
-
-            omega_rq = 0.5 * q_u_rw;
+            %omega_rq = 0.5 * q_u_rw;
             processDE = [v;
-                         0.5* angvel_rotationOperator * q_u;
-                         %linacc_rotationOperator *  [-1 0 0; 0 -1 0; 0 0 1] *(-u_a) + g];
+                         0.5* lmo_rq2rw * q_u;
                          ((transpose(R_rw2rq) * R_imu2rq) * ( -u_a) + g)];
 
             F_star = jacobian(processDE, x); 
