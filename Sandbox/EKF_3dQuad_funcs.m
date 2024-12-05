@@ -221,8 +221,6 @@ classdef EKF_3dQuad_funcs
                         q_inv(3) q_inv(4) q_inv(1) -q_inv(2)
                         q_inv(4) -q_inv(3) q_inv(2) q_inv(1)];
 
-             
-
             % 
             R_rw2rq = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
                 2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
@@ -244,8 +242,8 @@ classdef EKF_3dQuad_funcs
             %If IMU is not at drone centre, the rotational component of the
             %acceleration must be removed
             %assuming omega_dot is negligible
-            % omega_dot = [0 ; 0; 0];
-            % a_rot = cross(omega_dot, t_imu2rq) + cross(u_g, cross(u_g, t_imu2rq));
+            %omega_dot = [0 ; 0; 0];
+            %a_rot = cross(omega_dot, t_imu2rq) + cross(u_g, cross(u_g, t_imu2rq));
 
             % processDE = [v;
             %             0.5 * Omega * q;
@@ -259,7 +257,7 @@ classdef EKF_3dQuad_funcs
 
             %omega_rq = 0.5 * q_u_rw;
             processDE = [v;
-                         0.5* lmo_rq2rw * q_u;
+                         0.5 * lmo_rq2rw * q_u;
                          ((transpose(R_rw2rq) * R_imu2rq) * ( -u_a) + g)];
 
             F_star = jacobian(processDE, x); 

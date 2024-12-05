@@ -9,7 +9,7 @@ classdef april < worldObject
     end
     
     methods
-        function obj = april(edgeLength, tagNum, position, orientation, identifier)
+        function obj = april(edgeLength, tagNum, position, orientation, identifier, parentFile)
             %CHECKERBOARD Construct an instance of this class 
             %   Detailed explanation goes here
 
@@ -41,7 +41,7 @@ classdef april < worldObject
 
             %Set subclass properties
             obj.TagNum = tagNum;
-            obj.ImgFile = april.generate41h12TagImg(identifier, tagNum, edgeLength);
+            obj.ImgFile = april.generate41h12TagImg(parentFile, identifier, tagNum, edgeLength);
 
             obj.Corners = april.calcAprilEdgeCoords(edgeLength, Rt_B2W); 
 
@@ -67,13 +67,13 @@ classdef april < worldObject
             outputArg = obj.Property1 + inputArg;
         end
 
-        function imgFile = generate41h12TagImg(name, number, targetSize)
+        function imgFile = generate41h12TagImg(parentFile, name, number, targetSize)
             %Define some useful variables
             dpi = 80; %dots per inch
             dpmm = round((dpi/2.54), 0);%pixels per mm
 
             %Read april tag image from file
-            sourceFile = fullfile('.', 'Resources\AprilTags\apriltag-imgs\tagStandard41h12');
+            sourceFile = fullfile('.', 'Resources\tagStandard41h12');
             fileName = strcat('tag41_12_', (num2str(number, '%05d')));
             sourceImg = imread(strcat(sourceFile, '\', fileName), 'png');
             
@@ -83,7 +83,7 @@ classdef april < worldObject
             texture = imrotate(resizedImg, -90);
 
             %Save image
-            targetFolder= fullfile('.', 'Resources');
+            targetFolder= fullfile(parentFile, 'Resources');
             targetName = strcat('texture_', name, '.png');
             imgFile = strcat(targetFolder, '\', targetName);
             imwrite(texture, imgFile);

@@ -10,7 +10,7 @@ classdef checker < worldObject
     end
     
     methods
-        function obj = checker(checkerSize, squareSize, position, orientation, identifier)
+        function obj = checker(checkerSize, squareSize, position, orientation, identifier, parentFile)
             %CHECKERBOARD Construct an instance of this class 
             %   Detailed explanation goes here
 
@@ -31,7 +31,7 @@ classdef checker < worldObject
             % %Calculate external dimensions of board
             height = squareSize*checkerSize(1);
             width = squareSize*checkerSize(2);
-            dim = [width/1000, height/1000, 0.000];
+            dim = [width/1000, height/1000, 0.001];
 
             %Calculate transformation from Body to World
             Rt_B2W = worldObject.calcTransformB2W(orientation, position);
@@ -54,7 +54,7 @@ classdef checker < worldObject
 
             obj.Corners = checker.calcCheckerEdgeCoords_W(checkerSize, squareSize, Rt_B2W); 
 
-            obj.ImageFile = checker.generateCheckerboardImg(checkerSize, squareSize, identifier);
+            obj.ImageFile = checker.generateCheckerboardImg(parentFile, checkerSize, squareSize, identifier);
 
             %Create 3D actor
             orientation_rad = deg2rad(orientation);
@@ -71,7 +71,7 @@ classdef checker < worldObject
     methods (Static)
         
 
-        function imgFile = generateCheckerboardImg(checkerSize, squareSize, identifier)
+        function imgFile = generateCheckerboardImg(parentFile, checkerSize, squareSize, identifier)
             %Create checkerboard
              
             %Define some useful variables
@@ -95,11 +95,11 @@ classdef checker < worldObject
             %texture = padarray(board, padding_size, 1, 'both');
             texture = (board_hires*254);
             texture = transpose(texture);
-            texture = imrotate(texture, 90);
+            texture = imrotate(texture, -90);
             texture = cat(3, texture, texture, texture); %rgb
 
             imgFileName = strcat("checkerboardTexture_", string(identifier), ".png");
-            imgFile = fullfile('.', 'Resources', imgFileName);
+            imgFile = fullfile(parentFile, 'Resources', imgFileName);
             
             imwrite(texture, imgFile);
             
