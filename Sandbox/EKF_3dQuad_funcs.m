@@ -50,7 +50,8 @@ classdef EKF_3dQuad_funcs
         
             %Predict new state (a priori) and get prev jacobian 
             [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_funcs.dyn_update(x_k, u_k, t_delta, Rt_imu2rq);
-            
+
+                       
             %Predict new state covariance (in state space)
             P_new_hat = F_k * P_k * transpose(F_k) + L_k * Q * transpose(L_k);
         
@@ -121,7 +122,7 @@ classdef EKF_3dQuad_funcs
             %% Initialisations
             %g= [0; -9.81];
             %FAKE IMU DOES NOT READ g:
-            g = [0; 0; 0];
+            g = [0; 0; -9.81];
 
 
             %% CALC MODEL EVERY TIME
@@ -130,6 +131,12 @@ classdef EKF_3dQuad_funcs
 
             % Extract useful variables
             q_k = x_k(4:7, 1);
+
+            for i=1:size(u_k,2)
+                if abs(u_k(i,1))>50
+                    u_k(i,1) = 0;
+                end
+            end
                         
 
             %Extract variables to match symbolic toolbox output
@@ -138,8 +145,11 @@ classdef EKF_3dQuad_funcs
             % Predict next state
 
             % next state
+            R_star_num = (double(subs(R_star, symbols, numerics)));
             processDE_num = (double(subs(processDE, symbols, numerics)));
             proTerm_k =  processDE_num;
+            
+
             
             x_next_hat = x_k + t_delta * processDE_num;
 
@@ -208,7 +218,7 @@ classdef EKF_3dQuad_funcs
             w_Q = R_imu2rq * u_g;
             %turn angular accel into a quaternion
             q_u = [0; w_Q]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
-
+            
             % lmo_imu2rq =  [q_imu2rq(1) -q_imu2rq(2) -q_imu2rq(3) -q_imu2rq(4)
             %             q_imu2rq(2) q_imu2rq(1) -q_imu2rq(4) q_imu2rq(3)
             %             q_imu2rq(3) q_imu2rq(4) q_imu2rq(1) -q_imu2rq(2)
@@ -217,9 +227,14 @@ classdef EKF_3dQuad_funcs
             %will also need left matrix operator of q
             q_inv = [q(1) -q(2) -q(3) -q(4)];
             lmo_rq2rw = [q_inv(1) -q_inv(2) -q_inv(3) -q_inv(4)
-                        q_inv(2) q_inv(1) -q_inv(4) q_inv(3)
-                        q_inv(3) q_inv(4) q_inv(1) -q_inv(2)
-                        q_inv(4) -q_inv(3) q_inv(2) q_inv(1)];
+                        q_inv(2) q_inv(1) q_inv(4) -q_inv(3)
+                        q_inv(3) -q_inv(4) q_inv(1) q_inv(2)
+                        q_inv(4) q_inv(3) -q_inv(2) q_inv(1)];
+
+            lmo_rw2rq = [q(1) -q(2) -q(3) -q(4)
+                        q(2) q(1) q(4) q(3)
+                        q(3) q(4) q(1) -q(2)
+                        q(4) -q(3) q(2) q(1)];
 
             % 
             R_rw2rq = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
@@ -227,17 +242,12 @@ classdef EKF_3dQuad_funcs
                 2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
             % 
 
+            
             % %Manual quaternion rotation
-            % q_u_rq = [q_imu2rq(1)*q_u(1) - q_imu2rq(2)*q_u(2) - q_imu2rq(3)*q_u(3) - q_imu2rq(4)*(q_u(4));
-            %            q_imu2rq(1)*q_u(2) + q_u(1)*q_imu2rq(2) + q_imu2rq(3)*q_u(4) - q_u(3)*q_imu2rq(4);
-            %            q_imu2rq(1)*q_u(3) + q_u(1)*q_imu2rq(3) + q_u(2)*q_imu2rq(4) - q_imu2rq(2)*q_u(4);
-            %            q_imu2rq(1)*q_u(4) + q_u(1)*q_imu2rq(4) + q_imu2rq(2)*q_u(3) - q_u(2)*q_imu2rq(3)];
-            % 
-            % q_u_rw = [q(1)*q_u_rq(1) - q(2)*q_u_rq(2) - q(3)*q_u_rq(3) - q(4)*(q_u_rq(4));
-            %            q(1)*q_u_rq(2) + q_u_rq(1)*q(2) + q(3)*q_u_rq(4) - q_u_rq(3)*q(4);
-            %            q(1)*q_u_rq(3) + q_u_rq(1)*q(3) + q_u_rq(2)*q(4) - q(2)*q_u_rq(4);
-            %            q(1)*q_u_rq(4) + q_u_rq(1)*q(4) + q(2)*q_u_rq(3) - q_u_rq(2)*q(3)];
-
+            q_dot = 0.5 * [q(2)*w_Q(1)-q(3)*w_Q(2)-q(4)*w_Q(3);
+                         q(1)*w_Q(1)+q(3)*w_Q(3)-q(4)*w_Q(2);
+                         q(1)*w_Q(2)+q(4)*w_Q(1)-q(2)*w_Q(3);
+                         q(1)*w_Q(3)+q(2)*w_Q(2)-q(3)*w_Q(1)]; 
 
             %If IMU is not at drone centre, the rotational component of the
             %acceleration must be removed
@@ -248,17 +258,20 @@ classdef EKF_3dQuad_funcs
             % processDE = [v;
             %             0.5 * Omega * q;
             %             R * u_a + g];
-            % angvel_rotationOperator =  lmo_rq2rw * lmo_imu2rq;
-            % angvel_frobenius_norm = sqrt(sum(sum(angvel_rotationOperator.^2)));
-            % angvel_rotationOperatorNormed = angvel_rotationOperator/angvel_frobenius_norm;
+             angvel_rotationOperator =  lmo_rq2rw;
+             angvel_frobenius_norm = sqrt(sum(sum(angvel_rotationOperator.^2)));
+             angvel_rotationOperatorNormed = angvel_rotationOperator/angvel_frobenius_norm;
             % 
             % linacc_rotationOperator =  transpose(R_rw2rq) * R_imu2rq;
 
 
             %omega_rq = 0.5 * q_u_rw;
             processDE = [v;
-                         0.5 * lmo_rq2rw * q_u;
-                         ((transpose(R_rw2rq) * R_imu2rq) * ( -u_a) + g)];
+                         %0.5 * lmo_rq2rw * q_u;
+                         q_dot;
+                         %((transpose(R_rw2rq) * R_imu2rq) * ( u_a) + g)];
+                         (((R_rw2rq) * R_imu2rq) * ( u_a) + g)];
+                        
 
             F_star = jacobian(processDE, x); 
 
