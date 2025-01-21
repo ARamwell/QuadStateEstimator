@@ -112,7 +112,7 @@ classdef EKF_3dQuad_funcs
             %     x_k -   state vector for time k: 
             %               x_k= [x; y; z; q_w; q_x; q_y; q_z; x_dot; y_dot; z_dot]
             %     u_k - control input vector for current time step k: 
-            %               u_k = [x, ] 
+            %               u_k = [w_x; w_y; w_z; a_x; a_y; a_z] 
             
             %
             % OUTPUTS:
@@ -132,11 +132,11 @@ classdef EKF_3dQuad_funcs
             % Extract useful variables
             q_k = x_k(4:7, 1);
 
-            for i=1:size(u_k,2)
-                if abs(u_k(i,1))>50
-                    u_k(i,1) = 0;
-                end
-            end
+            % for i=1:size(u_k,2)
+            %     if abs(u_k(i,1))>50
+            %         u_k(i,1) = 0;
+            %     end
+            % end
                         
 
             %Extract variables to match symbolic toolbox output
@@ -185,7 +185,7 @@ classdef EKF_3dQuad_funcs
 
   %------------------------------------------------------------%
         
-        function [processDE, F_star, L_star, R_rw2rq, symbols] = calcProcessModel(Rt_imu2rq)
+        function [processDE, F_star, L_star, R_rq2rw, symbols] = calcProcessModel(Rt_imu2rq)
         %Function using symbolic toolbox to calculate the matrices involved in
         %the quad process model.
         
@@ -218,36 +218,25 @@ classdef EKF_3dQuad_funcs
             w_Q = R_imu2rq * u_g;
             %turn angular accel into a quaternion
             q_u = [0; w_Q]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
-            
-            % lmo_imu2rq =  [q_imu2rq(1) -q_imu2rq(2) -q_imu2rq(3) -q_imu2rq(4)
-            %             q_imu2rq(2) q_imu2rq(1) -q_imu2rq(4) q_imu2rq(3)
-            %             q_imu2rq(3) q_imu2rq(4) q_imu2rq(1) -q_imu2rq(2)
-            %             q_imu2rq(4) -q_imu2rq(3) q_imu2rq(2) q_imu2rq(1)];
-
-            %will also need left matrix operator of q
-            q_inv = [q(1) -q(2) -q(3) -q(4)];
-            lmo_rq2rw = [q_inv(1) -q_inv(2) -q_inv(3) -q_inv(4)
-                        q_inv(2) q_inv(1) q_inv(4) -q_inv(3)
-                        q_inv(3) -q_inv(4) q_inv(1) q_inv(2)
-                        q_inv(4) q_inv(3) -q_inv(2) q_inv(1)];
-
-            lmo_rw2rq = [q(1) -q(2) -q(3) -q(4)
-                        q(2) q(1) q(4) q(3)
+          
+            lmo_rq2rw = [q(1) -q(2) -q(3) -q(4)
+                        q(2) q(1) -q(4) q(3)
                         q(3) q(4) q(1) -q(2)
                         q(4) -q(3) q(2) q(1)];
 
             % 
-            R_rw2rq = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
+            R_rq2rw = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1));
                 2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
                 2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
             % 
 
             
             % %Manual quaternion rotation
-            q_dot = 0.5 * [q(2)*w_Q(1)-q(3)*w_Q(2)-q(4)*w_Q(3);
+            q_dot = 0.5 * [-q(2)*w_Q(1)-q(3)*w_Q(2)-q(4)*w_Q(3);
                          q(1)*w_Q(1)+q(3)*w_Q(3)-q(4)*w_Q(2);
                          q(1)*w_Q(2)+q(4)*w_Q(1)-q(2)*w_Q(3);
                          q(1)*w_Q(3)+q(2)*w_Q(2)-q(3)*w_Q(1)]; 
+            q_dot = 0.5 * lmo_rq2rw * q_u;
 
             %If IMU is not at drone centre, the rotational component of the
             %acceleration must be removed
@@ -255,22 +244,10 @@ classdef EKF_3dQuad_funcs
             %omega_dot = [0 ; 0; 0];
             %a_rot = cross(omega_dot, t_imu2rq) + cross(u_g, cross(u_g, t_imu2rq));
 
-            % processDE = [v;
-            %             0.5 * Omega * q;
-            %             R * u_a + g];
-             angvel_rotationOperator =  lmo_rq2rw;
-             angvel_frobenius_norm = sqrt(sum(sum(angvel_rotationOperator.^2)));
-             angvel_rotationOperatorNormed = angvel_rotationOperator/angvel_frobenius_norm;
-            % 
-            % linacc_rotationOperator =  transpose(R_rw2rq) * R_imu2rq;
-
-
             %omega_rq = 0.5 * q_u_rw;
             processDE = [v;
-                         %0.5 * lmo_rq2rw * q_u;
                          q_dot;
-                         %((transpose(R_rw2rq) * R_imu2rq) * ( u_a) + g)];
-                         (((R_rw2rq) * R_imu2rq) * ( u_a) + g)];
+                         ((R_rq2rw * R_imu2rq *  u_a) + g)];
                         
 
             F_star = jacobian(processDE, x); 
