@@ -1,6 +1,6 @@
 
 %function img = stream()
-cam = ipcam('http://192.168.104.67:81/stream');
+cam = ipcam('http://192.168.159.121:81/stream');
 
 %preview(cam)
 
@@ -8,7 +8,7 @@ cam = ipcam('http://192.168.104.67:81/stream');
 %imshow(img)
 saveDir = uigetdir();
 %fps = 2;
-nFrames = 100;
+nFrames = 40;
 %recordVideo('http://192.168.225.121:81/stream', 1, 1, folder)
 %recordVideo(cam, 1, 1, folder)
 

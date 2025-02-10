@@ -1,0 +1,29 @@
+%IMU LISTENER
+
+%% ROS2 INITIALISATIONS
+ekfNode = ros2node("ekf_node");
+
+% create subscriber
+%imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', @imuReceiveCallback, Reliability="besteffort");
+imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', Reliability="besteffort");
+%p3pSub = ros2subscriber(ekfNode, '/p3p', @p3pReceiveCallback, Reliability="besteffort");
+
+imuParams = [0 0 0 0 0 0;       % CAL_GYRO0_XOFF CAL_GYRO0_YOFF CAL_GYRO0_ZOFF CAL_GYRO0_XSCALE CAL_GYRO0_YSCALE CAL_GYRO0_ZSCALE
+             0 0 0 0 0 0;       % CAL_ACC0_XOFF.... CAL_ACC0_XSCALE...(X/Y/Z)
+             0 0 0 0 0 0];      % CAL_MAG0_XOFF CAL_MAG0_XSCALE ...(X/Y/Z) 
+
+imuHist = [];
+
+for i=1:1000
+    newImuMsg = receive(imuSub, 2);
+    newImuData = [newImuMsg .gyro_rad; newImuMsg .accelerometer_m_s2];
+
+    imuHist(i,:) = newImuData;
+    
+    disp(transpose(newImuData));
+    
+    pause(0.05);
+end
+
+imuHist = [imuParams; imuHist];
+writematrix(imuHist, fullfile('.', '/Testers/imuCalib/imuHist_.csv'))
