@@ -1,27 +1,34 @@
 %% ROS initialisations
 
-% %create ros node
-% camNode = ros2node('cam_node');
-% 
-% %create ros publisher
-% imgPub = ros2publisher(camNode, '/img', "sensor_msgs/Image");
-% 
-% %create ros2 message
-% imgMsg = ros2message("sensor_msgs/Image");
+clear all
+
+%create ros node
+camNode = ros2node('cam_node');
+
+%create ros publishers
+%imgPub = ros2publisher(camNode, '/img', "sensor_msgs/Image");
+p3pPub = ros2publisher(camNode, '/p3p', "geometry_msgs/Pose", Reliability="besteffort");
+
+%create ros2 message
+%imgMsg = ros2message("sensor_msgs/Image");
+p3pMsg =  ros2message("geometry_msgs/Pose");
+send(p3pPub, p3pMsg);
+%%
 
 %% Camera initialisations
 
-% intrinsics
-K = [605.8071 0 316.6903; 0 608.4646 256.6409; 0 0 1.0000];
+%% intrinsics
+K = [ 267.7991 0 159.5525; 0 278.1177 109.0253; 0 0 1]; %esp32cam low res
+imageSize=[240 320];
 
 %create ip cam
-cam = ipcam('http://192.168.159.121:81/stream');
+cam = ipcam('http://192.168.0.103:81/stream');
 %img = imread(fullfile('C:\Users\Alyssa\OneDrive - University of Cape Town\Projects\MSc\QuadStateEstimator\QuadSimEnv\Results\Traj-0007\3750.jpg'));
 
 %p3p variables
 p3pResult = struct();
 inlierThreshold = 0.5;
-
+rtRounding = 10;
 %% Map initialisations
 
 %INITIALISE WORLD MAP
@@ -41,15 +48,18 @@ Rt_imu2rq = map.worldObjectStruct.transforms.rt_imu2genquad;
 %plot
 plotStruct = initPlots('KneipN');
 p3pPlotting.addCheckerboard(plotStruct.traj.Ax, X_pnts_W);
-
 %% Data
-%get image
-[img, timestamp] = snapshot(cam);
+
 
 %% Run p3p
-for i=1:10
+
+for i=1:1000
+    %get image
+    [imgRGB, timestamp] = snapshot(cam);
+    img = rgb2gray(imgRGB);
+
     %Detect checkerboard corners
-    [x_pnts_i, checkerSize_detected] = detectCheckerboardPoints(rgb2gray(img));
+    [x_pnts_i, checkerSize_detected] = detectCheckerboardPoints(img);
     x_pnts_i = transpose(x_pnts_i);    
     
     %discard any frames where too few corners have been detected
@@ -61,18 +71,30 @@ for i=1:10
     p3pResult = runP3P(p3pResult, i, x_pnts_i, X_pnts_W, K, imageSize, checkerSize, inlierThreshold, rtRounding,  'KneipN');
     plotStruct.traj = updatePlot(plotStruct.traj, p3pResult);
 
-        %Display checkerboard image for this iteration - for troubleshooting
-    if (checkerSize_detected(1) <= checkerSize(1)) || (checkerSize_detected(2) <= checkerSize(1)) 
-        if i==1
-            checkerFig = figure();
-            checkerAx = axes('Parent', checkerFig);
-            checkerImg = imshow(imgFuncs.markDetectedCheckers(I, x_pnts_i), 'Parent', checkerAx);
-        else
-            checkerImg.CData = (imgFuncs.markDetectedCheckers(I, x_pnts_i));
-            drawnow;
-        end 
-    end
+    %Display checkerboard image for this iteration - for troubleshooting
+    % if (checkerSize_detected(1) <= checkerSize(1)) || (checkerSize_detected(2) <= checkerSize(1)) 
+    %     if i==1
+    %         checkerFig = figure();
+    %         checkerAx = axes('Parent', checkerFig);
+    %         checkerImg = imshow(imgFuncs.markDetectedCheckers(img, x_pnts_i), 'Parent', checkerAx);
+    %     else
+    %         checkerImg.CData = (imgFuncs.markDetectedCheckers(img, x_pnts_i));
+    %         drawnow;
+    %     end 
+    % end
     
+    %populate p3p message
+    orient = rotm2quat(p3pResult.KneipN.Rt(1:3, 1:3, end));
+    p3pMsg.position.x = p3pResult.KneipN.Rt(1, 4, end);
+    p3pMsg.position.y = p3pResult.KneipN.Rt(2, 4, end);
+    p3pMsg.position.z = p3pResult.KneipN.Rt(3, 4, end);
+    p3pMsg.orientation.w = orient(1);
+    p3pMsg.orientation.x = orient(2);
+    p3pMsg.orientation.y = orient(3);
+    p3pMsg.orientation.z = orient(4);
+
+    send(p3pPub, p3pMsg);
+
     % %populate img message
     % imgMsg.height = uint32(500);
     % imgMsg.width = uint32(800);
@@ -95,6 +117,5 @@ for i=1:10
     % % end
     % % 
     % % clear all
-    pause(1);
-end
 
+end

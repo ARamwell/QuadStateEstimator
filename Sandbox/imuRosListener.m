@@ -8,15 +8,19 @@ ekfNode = ros2node("ekf_node");
 imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', Reliability="besteffort");
 %p3pSub = ros2subscriber(ekfNode, '/p3p', @p3pReceiveCallback, Reliability="besteffort");
 
-imuParams = [0 0 0 0 0 0;       % CAL_GYRO0_XOFF CAL_GYRO0_YOFF CAL_GYRO0_ZOFF CAL_GYRO0_XSCALE CAL_GYRO0_YSCALE CAL_GYRO0_ZSCALE
-             0 0 0 0 0 0;       % CAL_ACC0_XOFF.... CAL_ACC0_XSCALE...(X/Y/Z)
-             0 0 0 0 0 0];      % CAL_MAG0_XOFF CAL_MAG0_XSCALE ...(X/Y/Z) 
+%imuParams = [0 0 0 0 0 0;       % CAL_GYRO0_XOFF CAL_GYRO0_YOFF CAL_GYRO0_ZOFF CAL_GYRO0_XSCALE CAL_GYRO0_YSCALE CAL_GYRO0_ZSCALE
+%             0 0 0 0 0 0;       % CAL_ACC0_XOFF.... CAL_ACC0_XSCALE...(X/Y/Z)
+%             0 0 0 0 0 0];      % CAL_MAG0_XOFF CAL_MAG0_XSCALE ...(X/Y/Z) 
 
 imuHist = [];
 
 for i=1:1000
     newImuMsg = receive(imuSub, 2);
-    newImuData = [newImuMsg .gyro_rad; newImuMsg .accelerometer_m_s2];
+    newImuData_gyro = newImuMsg .gyro_rad;
+    newImuData_accel = newImuMsg .accelerometer_m_s2;
+
+    %cal_accel = transpose(transpose(newImuData_accel) * A + b); 
+    newImuData = [newImuData_gyro; newImuData_accel];
 
     imuHist(i,:) = newImuData;
     
@@ -25,5 +29,5 @@ for i=1:1000
     pause(0.05);
 end
 
-imuHist = [imuParams; imuHist];
+%imuHist = [imuParams; imuHist];
 writematrix(imuHist, fullfile('.', '/Testers/imuCalib/imuHist_.csv'))
