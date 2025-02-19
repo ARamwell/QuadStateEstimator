@@ -7,11 +7,11 @@ camNode = ros2node('cam_node');
 
 %create ros publishers
 %imgPub = ros2publisher(camNode, '/img', "sensor_msgs/Image");
-p3pPub = ros2publisher(camNode, '/p3p', "geometry_msgs/Pose", Reliability="besteffort");
+p3pPub = ros2publisher(camNode, '/p3p', "geometry_msgs/PoseStamped", Reliability="besteffort");
 
 %create ros2 message
 %imgMsg = ros2message("sensor_msgs/Image");
-p3pMsg =  ros2message("geometry_msgs/Pose");
+p3pMsg =  ros2message("geometry_msgs/PoseStamped");
 send(p3pPub, p3pMsg);
 %%
 
@@ -82,40 +82,26 @@ for i=1:1000
     %         drawnow;
     %     end 
     % end
+
+    %extract time
+    timestamp_arr = datestr(timestamp, 'YYYY/mm/dd HH:MM:SS:FFF');
+    timestamp_split = strsplit(timestamp_arr, ':');
+    timestamp_s = str2double(timestamp_split{3});
+    timestamp_ms = str2double(timestamp_split{4});
+    timestamp_ns = timestamp_ms * 1000000;
     
     %populate p3p message
     orient = rotm2quat(p3pResult.KneipN.Rt(1:3, 1:3, end));
-    p3pMsg.position.x = p3pResult.KneipN.Rt(1, 4, end);
-    p3pMsg.position.y = p3pResult.KneipN.Rt(2, 4, end);
-    p3pMsg.position.z = p3pResult.KneipN.Rt(3, 4, end);
-    p3pMsg.orientation.w = orient(1);
-    p3pMsg.orientation.x = orient(2);
-    p3pMsg.orientation.y = orient(3);
-    p3pMsg.orientation.z = orient(4);
+    p3pMsg.pose.position.x = p3pResult.KneipN.Rt(1, 4, end);
+    p3pMsg.pose.position.y = p3pResult.KneipN.Rt(2, 4, end);
+    p3pMsg.pose.position.z = p3pResult.KneipN.Rt(3, 4, end);
+    p3pMsg.pose.orientation.w = orient(1);
+    p3pMsg.pose.orientation.x = orient(2);
+    p3pMsg.pose.orientation.y = orient(3);
+    p3pMsg.pose.orientation.z = orient(4);
+    p3pMsg.header.stamp.sec = int32(timestamp_s);
+    p3pMsg.header.stamp.nanosec = uint32(timestamp_ns);
 
     send(p3pPub, p3pMsg);
-
-    % %populate img message
-    % imgMsg.height = uint32(500);
-    % imgMsg.width = uint32(800);
-    % %imgMsg.encoding = "rgb8";
-    % imgMsg.data= img;
-    % 
-    % send(imgPub,imgMsg);
-    % 
-    % %maybe run p3p here?
-    % 
-    % % %preview(cam)
-    % % 
-    % % n=1;
-    % % nFrames = 1000;
-    % % 
-    % % while (n<nFrames) 
-    % % 
-    % %     [img, timestamp] = snapshot(cam); %capture image
-    % %     n = n+1;
-    % % end
-    % % 
-    % % clear all
 
 end

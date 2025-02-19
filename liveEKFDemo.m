@@ -47,11 +47,14 @@ newP3pData = [];
 numFrames = 0;
 newImuFlag = 0;
 newImuData = [];
+trans = [0; 0; 0];
+t_p3p = 0;
 
-parpool(1);
+%parpool(1);
 
-f1 = parfeval(@run, 0, 'streamCamP3pToRos');
-pause(10);
+%f1 = parfeval(@run, 0, 'streamCamP3pToRos');
+%pause(10);
+disp('Starting EKF');
 
 % create subscriber
 %imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', @imuReceiveCallback, Reliability="besteffort");
@@ -100,12 +103,18 @@ for i=1:1000
     %if new image is received, incorporate it
     if newP3pFlag == 1
         newP3pFlag = 0;
-        z_k = newP3pData;
+        quat = [newP3pData.pose.orientation.w; newP3pData.pose.orientation.x;  newP3pData.pose.orientation.y; newP3pData.pose.orientation.z];
+        trans_prev = trans;
+        t_p3p_prev = t_p3p;
+        trans = [newP3pData.pose.position.x; newP3pData.pose.position.y; newP3pData.pose.position.z];
+        t_p3p = newP3pData.header.stamp.sec + (newP3pData.header.stamp.nanosec*(10e-6));
+        vel = (trans - trans_prev)/(t_p3p - t_p3p_prev);
+        z_k = [trans; quat];
         p3pResult.KneipN.Rt(:,:,end+1) = [quat2rotm(transpose(z_k(4:7, 1))), (z_k(1:3, 1))];
         plotStruct.traj = updatePlot(plotStruct.traj, p3pResult);
         p3pHist(:,:, end+1) = z_k;
         %get velocity pseudo-measurement
-        v = 
+        %v = 
     else
         z_k = NaN;
     end
@@ -154,9 +163,9 @@ function p3pReceiveCallback(message)
         global newP3pFlag;
         global newP3pData;
         newP3pFlag = 1;
-        q = [message.orientation.w; message.orientation.x;  message.orientation.y; message.orientation.z];
-        t = [message.position.x; message.position.y; message.position.z];
-        newP3pData = [t; q];
+        %q = [message.orientation.w; message.orientation.x;  message.orientation.y; message.orientation.z];
+        %t = [message.position.x; message.position.y; message.position.z];
+        newP3pData = message;
     end
 end
 
