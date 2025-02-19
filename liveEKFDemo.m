@@ -67,14 +67,14 @@ p3pSub = ros2subscriber(ekfNode, '/p3p', @p3pReceiveCallback, Reliability="beste
 %% EKF constants
 
 %Initial State covariance
-P_k = diag([0.1, 0.1, 0.1, 0.1, 0.1,  0.1, 0.1, 0.1, 0.1, 0.1]); %Initial
+P_k = diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]); %Initial
 
 %process noise covariance (noise space)
 %If low
-Q = diag([0.5, 0.5, 0.5, 0.3, 0.3, 0.3]);
+Q = diag([0.1, 0.1, 0.1, 0.05, 0.05, 0.05]);
 
 %and measurement covariance
-W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]);
+W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.05, 0.05, 0.05]);
 
 
 %% EKF loop
@@ -107,9 +107,9 @@ for i=1:1000
         trans_prev = trans;
         t_p3p_prev = t_p3p;
         trans = [newP3pData.pose.position.x; newP3pData.pose.position.y; newP3pData.pose.position.z];
-        t_p3p = newP3pData.header.stamp.sec + (newP3pData.header.stamp.nanosec*(10e-6));
+        t_p3p = double(newP3pData.header.stamp.sec) + double(newP3pData.header.stamp.nanosec*(10e-6));
         vel = (trans - trans_prev)/(t_p3p - t_p3p_prev);
-        z_k = [trans; quat];
+        z_k = [trans; quat; vel];
         p3pResult.KneipN.Rt(:,:,end+1) = [quat2rotm(transpose(z_k(4:7, 1))), (z_k(1:3, 1))];
         plotStruct.traj = updatePlot(plotStruct.traj, p3pResult);
         p3pHist(:,:, end+1) = z_k;

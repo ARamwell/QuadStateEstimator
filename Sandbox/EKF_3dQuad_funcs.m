@@ -360,11 +360,11 @@ classdef EKF_3dQuad_funcs
             %measurements (cam)
             p_z = R_rq2rw * t_rc2rq + p;
             q_z = q_rc2rw;
-            %v_z = v;         %incorporate pseudo-measurement of velocity
+            v_z = v;         %incorporate pseudo-measurement of velocity
             
         
             %try with quaternions
-            measurementModel = [p_z; q_z];
+            measurementModel = [p_z; q_z; v_z];
 
             H_star = jacobian(measurementModel, x);
 
