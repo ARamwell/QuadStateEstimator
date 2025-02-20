@@ -22,7 +22,7 @@ K = [ 267.7991 0 159.5525; 0 278.1177 109.0253; 0 0 1]; %esp32cam low res
 imageSize=[240 320];
 
 %create ip cam
-cam = ipcam('http://192.168.0.103:81/stream');
+cam = ipcam('http://192.168.0.100:81/stream');
 %img = imread(fullfile('C:\Users\Alyssa\OneDrive - University of Cape Town\Projects\MSc\QuadStateEstimator\QuadSimEnv\Results\Traj-0007\3750.jpg'));
 
 %p3p variables
@@ -53,7 +53,7 @@ p3pPlotting.addCheckerboard(plotStruct.traj.Ax, X_pnts_W);
 
 %% Run p3p
 
-for i=1:1000
+for i=1:3000
     %get image
     [imgRGB, timestamp] = snapshot(cam);
     img = rgb2gray(imgRGB);

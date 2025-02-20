@@ -35,6 +35,8 @@ rtHist_ekf = [];
 dt_hist = [];
 dynterm_hist = [];
 p3pHist = [];
+xHat_hist = [];
+z_hist =[];
 
 %% ROS2 INITIALISATIONS
 ekfNode = ros2node("ekf_node");
@@ -113,16 +115,18 @@ for i=1:1000
         p3pResult.KneipN.Rt(:,:,end+1) = [quat2rotm(transpose(z_k(4:7, 1))), (z_k(1:3, 1))];
         plotStruct.traj = updatePlot(plotStruct.traj, p3pResult);
         p3pHist(:,:, end+1) = z_k;
+        z_hist(:, end+1) = z_k;
         %get velocity pseudo-measurement
         %v = 
     else
         z_k = NaN;
+        z_hist(:, end+1) = transpose([0 0 0 0 0 0 0 0 0 0]);
     end
     
     
     %If new sensor data is received, predict next state
     %if newImuFlag == 1
-    newImuMsg = receive(imuSub, 2);
+    newImuMsg = receive(imuSub, 5);
     % newImuData_gyro = newImuMsg .gyro_rad;
     % newImuData_accel = newImuMsg .accelerometer_m_s2;
     % cal_accel = transpose(transpose(newImuData_accel) * A + b); 
@@ -144,6 +148,7 @@ for i=1:1000
         ekfHist(:,end+1) = x_k;
         rtHist_ekf(:,4,end+1)= [(x_k(1:3,1))];
         rtHist_ekf(:,1:3,end)= (quat2rotm(transpose(x_k(4:7, 1))));
+        xHat_hist(:,end+1) = xHat_k;
         dynterm_hist(:,end+1) = proTerm_k;
   
         % Plot data
