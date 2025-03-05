@@ -8,23 +8,25 @@ classdef imgFuncs
         %all logged points, does not skip any)
             
             simData = load(fullFile);
-            numLogPoints = size((simData.out.quadState.signals.values), 3);
+            numQuadLogPoints = size((simData.out.quadState.signals.values), 3);
             stateDimensions = size((simData.out.quadState.signals.values), 2);
 
             %Initialise output variables
-            rtHist = zeros(3,4,numLogPoints-1);%-1 to skip t0
-            state_timeHist = zeros(1, (numLogPoints-1));
-            stateHist =zeros(stateDimensions, (numLogPoints-1));
-            imuHist =zeros(7, (numLogPoints-1));
+            rtHist = zeros(3,4,numQuadLogPoints-1);%-1 to skip t0
+            state_timeHist = zeros(1, (numQuadLogPoints-1));
+            stateHist =zeros(stateDimensions, (numQuadLogPoints-1));
+            imuHist =zeros(7, (numQuadLogPoints-1));
 
-
-            %For each logged time - skip t0, where there is no data
-            for i=1:numLogPoints
-
-                %% Import Camera Ground Truth data
-                % %Import time history
+             % %Import time history
+             for i=1:size((simData.out.camState_GT.signals.values), 3)
                  cam_times = simData.out.camState_GT.time(i,1);
                  cam_timeHist(1,(i)) = cam_times;
+             end
+
+            %For each logged time - skip t0, where there is no data
+            for i=1:numQuadLogPoints
+
+                %% Import Camera Ground Truth data
                 % 
                 % % Import position log
                 % trans_cam = transpose(simData.out.camState_GT.signals.values(1,1:3,i));

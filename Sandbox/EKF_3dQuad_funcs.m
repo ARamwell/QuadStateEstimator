@@ -122,79 +122,79 @@ classdef EKF_3dQuad_funcs
             %% Initialisations
             
             % CALC MODEL EVERY TIME
-            % Calculate model
-            [processDE, F_star, L_star, R_star, symbols] = EKF_3dQuad_funcs.calcProcessModel(Rt_imu2rq);
-
-            % Extract useful variables
-            q_k = x_k(4:7, 1); 
-
-            %Extract variables to match symbolic toolbox output
-            numerics = [x_k; u_k];
-
-            % Predict next state
-
-            % next state
-            R_star_num = (double(subs(R_star, symbols, numerics)));
-            processDE_num = (double(subs(processDE, symbols, numerics)));
-
-            % process covariance
-            F_k = double(subs(F_star, symbols, numerics));
-
-            %And L, the input noise covariance: will be used to transform
-            %covariance in the noise space into the state space. Also
-            %called the "noise influence matrix"
-            L_k = double(subs(L_star, symbols, numerics));
+            % % Calculate model
+            % [processDE, F_star, L_star, R_star, symbols] = EKF_3dQuad_funcs.calcProcessModel(Rt_imu2rq);
+            % 
+            % % Extract useful variables
+            % q_k = x_k(4:7, 1); 
+            % 
+            % %Extract variables to match symbolic toolbox output
+            % numerics = [x_k; u_k];
+            % 
+            % % Predict next state
+            % 
+            % % next state
+            % R_star_num = (double(subs(R_star, symbols, numerics)));
+            % processDE_num = (double(subs(processDE, symbols, numerics)));
+            % 
+            % % process covariance
+            % F_k = double(subs(F_star, symbols, numerics));
+            % 
+            % %And L, the input noise covariance: will be used to transform
+            % %covariance in the noise space into the state space. Also
+            % %called the "noise influence matrix"
+            % L_k = double(subs(L_star, symbols, numerics));
 
             %% Use precalculated model
-            % p1 = x_k(1);
-            % p2 = x_k(2);
-            % p3 = x_k(3);
-            % q1 = x_k(4);
-            % q2 = x_k(5);
-            % q3 = x_k(6);
-            % q4 = x_k(7);
-            % v1 = x_k(8);
-            % v2 = x_k(9);
-            % v3 = x_k(10);
-            % u_g1 = u_k(1);
-            % u_g2 = u_k(2);
-            % u_g3 = u_k(3);
-            % u_a1 = u_k(4);
-            % u_a2 = u_k(5);
-            % u_a3 = u_k(6);
-            % 
-            % processDE_num = [                                                                            v1;
-            %                                                                                             v2;
-            %                                                                                             v3;
-            %                                                      - (q2*u_g1)/2 - (q3*u_g2)/2 - (q4*u_g3)/2;
-            %                                                        (q1*u_g1)/2 + (q3*u_g3)/2 - (q4*u_g2)/2;
-            %                                                        (q1*u_g2)/2 - (q2*u_g3)/2 + (q4*u_g1)/2;
-            %                                                        (q1*u_g3)/2 + (q2*u_g2)/2 - (q3*u_g1)/2;
-            %               u_a3*(2*q1*q3 + 2*q2*q4) - u_a2*(2*q1*q4 - 2*q2*q3) - u_a1*(2*q3^2 + 2*q4^2 - 1);
-            %               u_a1*(2*q1*q4 + 2*q2*q3) - u_a2*(2*q2^2 + 2*q4^2 - 1) - u_a3*(2*q1*q2 - 2*q3*q4);
-            %     u_a2*(2*q1*q2 + 2*q3*q4) - u_a1*(2*q1*q3 - 2*q2*q4) - u_a3*(2*q2^2 + 2*q3^2 - 1) - 981/100];
-            % 
-            % F_k = [0, 0, 0,                     0,                                 0,                                 0,                                 0, 1, 0, 0
-            %         0, 0, 0,                     0,                                 0,                                 0,                                 0, 0, 1, 0;
-            %         0, 0, 0,                     0,                                 0,                                 0,                                 0, 0, 0, 1;
-            %         0, 0, 0,                     0,                           -u_g1/2,                           -u_g2/2,                           -u_g3/2, 0, 0, 0;
-            %         0, 0, 0,                u_g1/2,                                 0,                            u_g3/2,                           -u_g2/2, 0, 0, 0;
-            %         0, 0, 0,                u_g2/2,                           -u_g3/2,                                 0,                            u_g1/2, 0, 0, 0;
-            %         0, 0, 0,                u_g3/2,                            u_g2/2,                           -u_g1/2,                                 0, 0, 0, 0;
-            %         0, 0, 0, 2*q3*u_a3 - 2*q4*u_a2,             2*q3*u_a2 + 2*q4*u_a3, 2*q1*u_a3 + 2*q2*u_a2 - 4*q3*u_a1, 2*q2*u_a3 - 2*q1*u_a2 - 4*q4*u_a1, 0, 0, 0;
-            %         0, 0, 0, 2*q4*u_a1 - 2*q2*u_a3, 2*q3*u_a1 - 4*q2*u_a2 - 2*q1*u_a3,             2*q2*u_a1 + 2*q4*u_a3, 2*q1*u_a1 + 2*q3*u_a3 - 4*q4*u_a2, 0, 0, 0;
-            %         0, 0, 0, 2*q2*u_a2 - 2*q3*u_a1, 2*q1*u_a2 - 4*q2*u_a3 + 2*q4*u_a1, 2*q4*u_a2 - 4*q3*u_a3 - 2*q1*u_a1,             2*q2*u_a1 + 2*q3*u_a2, 0, 0, 0];
-            % 
-            % L_k = [    0,     0,     0,                     0,                     0,                     0;
-            %             0,     0,     0,                     0,                     0,                     0;
-            %             0,     0,     0,                     0,                     0,                     0;
-            %         -q2/2, -q3/2, -q4/2,                     0,                     0,                     0;
-            %          q1/2, -q4/2,  q3/2,                     0,                     0,                     0;
-            %          q4/2,  q1/2, -q2/2,                     0,                     0,                     0;
-            %         -q3/2,  q2/2,  q1/2,                     0,                     0,                     0;
-            %             0,     0,     0, - 2*q3^2 - 2*q4^2 + 1,     2*q2*q3 - 2*q1*q4,     2*q1*q3 + 2*q2*q4;
-            %             0,     0,     0,     2*q1*q4 + 2*q2*q3, - 2*q2^2 - 2*q4^2 + 1,     2*q3*q4 - 2*q1*q2;
-            %             0,     0,     0,     2*q2*q4 - 2*q1*q3,     2*q1*q2 + 2*q3*q4, - 2*q2^2 - 2*q3^2 + 1];
+            p1 = x_k(1);
+            p2 = x_k(2);
+            p3 = x_k(3);
+            q1 = x_k(4);
+            q2 = x_k(5);
+            q3 = x_k(6);
+            q4 = x_k(7);
+            v1 = x_k(8);
+            v2 = x_k(9);
+            v3 = x_k(10);
+            u_g1 = u_k(1);
+            u_g2 = u_k(2);
+            u_g3 = u_k(3);
+            u_a1 = u_k(4);
+            u_a2 = u_k(5);
+            u_a3 = u_k(6);
+
+            processDE_num = [                                                                                       v1;
+                                                                                                                    v2;
+                                                                                                                    v3;
+                                                                             - (q2*u_g1)/2 - (q3*u_g2)/2 - (q4*u_g3)/2;
+                                                                               (q1*u_g1)/2 + (q3*u_g3)/2 - (q4*u_g2)/2;
+                                                                               (q1*u_g2)/2 - (q2*u_g3)/2 + (q4*u_g1)/2;
+                                                                               (q1*u_g3)/2 + (q2*u_g2)/2 - (q3*u_g1)/2;
+                                      u_a3*(2*q1*q3 + 2*q2*q4) - u_a2*(2*q1*q4 - 2*q2*q3) - u_a1*(2*q3^2 + 2*q4^2 - 1);
+                                      u_a1*(2*q1*q4 + 2*q2*q3) - u_a2*(2*q2^2 + 2*q4^2 - 1) - u_a3*(2*q1*q2 - 2*q3*q4);
+                            u_a2*(2*q1*q2 + 2*q3*q4) - u_a1*(2*q1*q3 - 2*q2*q4) - u_a3*(2*q2^2 + 2*q3^2 - 1) - 981/100];
+
+             F_k = [0, 0, 0,                     0,                                 0,                                 0,                                 0, 1, 0, 0;
+                    0, 0, 0,                     0,                                 0,                                 0,                                 0, 0, 1, 0;
+                    0, 0, 0,                     0,                                 0,                                 0,                                 0, 0, 0, 1;
+                    0, 0, 0,                     0,                           -u_g1/2,                           -u_g2/2,                           -u_g3/2, 0, 0, 0;
+                    0, 0, 0,                u_g1/2,                                 0,                            u_g3/2,                           -u_g2/2, 0, 0, 0;
+                    0, 0, 0,                u_g2/2,                           -u_g3/2,                                 0,                            u_g1/2, 0, 0, 0;
+                    0, 0, 0,                u_g3/2,                            u_g2/2,                           -u_g1/2,                                 0, 0, 0, 0;
+                    0, 0, 0, 2*q3*u_a3 - 2*q4*u_a2,             2*q3*u_a2 + 2*q4*u_a3, 2*q1*u_a3 + 2*q2*u_a2 - 4*q3*u_a1, 2*q2*u_a3 - 2*q1*u_a2 - 4*q4*u_a1, 0, 0, 0;
+                    0, 0, 0, 2*q4*u_a1 - 2*q2*u_a3, 2*q3*u_a1 - 4*q2*u_a2 - 2*q1*u_a3,             2*q2*u_a1 + 2*q4*u_a3, 2*q1*u_a1 + 2*q3*u_a3 - 4*q4*u_a2, 0, 0, 0;
+                    0, 0, 0, 2*q2*u_a2 - 2*q3*u_a1, 2*q1*u_a2 - 4*q2*u_a3 + 2*q4*u_a1, 2*q4*u_a2 - 4*q3*u_a3 - 2*q1*u_a1,             2*q2*u_a1 + 2*q3*u_a2, 0, 0, 0];
+
+             L_k = [    0,     0,     0,                     0,                     0,                     0;
+                        0,     0,     0,                     0,                     0,                     0;
+                        0,     0,     0,                     0,                     0,                     0;
+                    -q2/2, -q3/2, -q4/2,                     0,                     0,                     0;
+                     q1/2, -q4/2,  q3/2,                     0,                     0,                     0;
+                     q4/2,  q1/2, -q2/2,                     0,                     0,                     0;
+                    -q3/2,  q2/2,  q1/2,                     0,                     0,                     0;
+                        0,     0,     0, - 2*q3^2 - 2*q4^2 + 1,     2*q2*q3 - 2*q1*q4,     2*q1*q3 + 2*q2*q4;
+                        0,     0,     0,     2*q1*q4 + 2*q2*q3, - 2*q2^2 - 2*q4^2 + 1,     2*q3*q4 - 2*q1*q2;
+                        0,     0,     0,     2*q2*q4 - 2*q1*q3,     2*q1*q2 + 2*q3*q4, - 2*q2^2 - 2*q3^2 + 1];
 
             %% Predict
             x_next_hat = x_k + t_delta * processDE_num;
@@ -208,45 +208,45 @@ classdef EKF_3dQuad_funcs
         function [z_new_hat, H_new] = meas_predict(x_new_hat, Rt_rc2rq)
         
             %% get measurement model every time
-            %Get measurement model and associated covariance (symbolic)
-            [measModel, H_star, symbols] = EKF_3dQuad_funcs.calcMeasurementModel(Rt_rc2rq);
-
-            %set up values to substitute
-            numerics = x_new_hat;
-
-            %Get predicted measurement
-            z_new_hat = double(subs(measModel, symbols, numerics));
-
-            %Get predicted measurement covariance
-            H_new = double(subs(H_star, symbols, numerics));
+            % %Get measurement model and associated covariance (symbolic)
+            % [measModel, H_star, symbols] = EKF_3dQuad_funcs.calcMeasurementModel(Rt_rc2rq);
+            % 
+            % %set up values to substitute
+            % numerics = x_new_hat;
+            % 
+            % %Get predicted measurement
+            % z_new_hat = double(subs(measModel, symbols, numerics));
+            % 
+            % %Get predicted measurement covariance
+            % H_new = double(subs(H_star, symbols, numerics));
 
             %% Use precalculated matrices
-            % p1 = x_new_hat(1);
-            % p2 = x_new_hat(2);
-            % p3 = x_new_hat(3);
-            % q1 = x_new_hat(4);
-            % q2 = x_new_hat(5);
-            % q3 = x_new_hat(6);
-            % q4 = x_new_hat(7);
-            % v1 = x_new_hat(8);
-            % v2 = x_new_hat(9);
-            % v3 = x_new_hat(10);
-            % 
-            % z_new_hat = [                             p1;
-            %                                          p2;
-            %                                          p3;
-            %             (2^(1/2)*q1)/2 - (2^(1/2)*q4)/2;
-            %             (2^(1/2)*q2)/2 + (2^(1/2)*q3)/2;
-            %             (2^(1/2)*q3)/2 - (2^(1/2)*q2)/2;
-            %             (2^(1/2)*q1)/2 + (2^(1/2)*q4)/2];
-            % 
-            % H_new = [1, 0, 0,         0,          0,         0,          0, 0, 0, 0;
-            %         0, 1, 0,         0,          0,         0,          0, 0, 0, 0;
-            %         0, 0, 1,         0,          0,         0,          0, 0, 0, 0;
-            %         0, 0, 0, 2^(1/2)/2,          0,         0, -2^(1/2)/2, 0, 0, 0;
-            %         0, 0, 0,         0,  2^(1/2)/2, 2^(1/2)/2,          0, 0, 0, 0;
-            %         0, 0, 0,         0, -2^(1/2)/2, 2^(1/2)/2,          0, 0, 0, 0;
-            %         0, 0, 0, 2^(1/2)/2,          0,         0,  2^(1/2)/2, 0, 0, 0];
+            p1 = x_new_hat(1);
+            p2 = x_new_hat(2);
+            p3 = x_new_hat(3);
+            q1 = x_new_hat(4);
+            q2 = x_new_hat(5);
+            q3 = x_new_hat(6);
+            q4 = x_new_hat(7);
+            v1 = x_new_hat(8);
+            v2 = x_new_hat(9);
+            v3 = x_new_hat(10);
+
+            z_new_hat = [                             p1;
+                                                     p2;
+                                                     p3;
+                        (2^(1/2)*q1)/2 - (2^(1/2)*q4)/2;
+                        (2^(1/2)*q2)/2 + (2^(1/2)*q3)/2;
+                        (2^(1/2)*q3)/2 - (2^(1/2)*q2)/2;
+                        (2^(1/2)*q1)/2 + (2^(1/2)*q4)/2];
+
+            H_new = [1, 0, 0,         0,          0,         0,          0, 0, 0, 0;
+                    0, 1, 0,         0,          0,         0,          0, 0, 0, 0;
+                    0, 0, 1,         0,          0,         0,          0, 0, 0, 0;
+                    0, 0, 0, 2^(1/2)/2,          0,         0, -2^(1/2)/2, 0, 0, 0;
+                    0, 0, 0,         0,  2^(1/2)/2, 2^(1/2)/2,          0, 0, 0, 0;
+                    0, 0, 0,         0, -2^(1/2)/2, 2^(1/2)/2,          0, 0, 0, 0;
+                    0, 0, 0, 2^(1/2)/2,          0,         0,  2^(1/2)/2, 0, 0, 0];
 
         
         end

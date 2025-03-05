@@ -122,11 +122,11 @@ classdef p3pRun
             %     Rt_WC_arr(:,:,j) = p3pFuncs.invertRt(Rt_CW_arr(:,:,j));
             % end 
 
-            %[Rt_WC, Err] = p3pFuncs.chooseRtWithMinReprojErrorWC(K, Rt_WC_Arr, x_D_i, X_D_W);
-            %[Rt_CW, Err] = p3pFuncs.chooseRtWithMinReprojErrorCW(K, Rt_CW_Arr, x_D_i, X_D_W);
+            [Rt_WC, Err] = p3pFuncs.chooseRtWithMinReprojErrorWC(K, Rt_WC_Arr, x_D_i, X_D_W);
+            [Rt_CW, Err] = p3pFuncs.chooseRtWithMinReprojErrorCW(K, Rt_CW_Arr, x_D_i, X_D_W);
             
-            [Rt_WC, Err] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
-            [Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            %[Rt_WC, Err] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            %[Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
             
             
             Rt_CW_der = p3pFuncs.invertRt(Rt_WC);
