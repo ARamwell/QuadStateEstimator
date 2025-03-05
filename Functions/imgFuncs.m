@@ -9,13 +9,17 @@ classdef imgFuncs
             
             simData = load(fullFile);
             numQuadLogPoints = size((simData.out.quadState.signals.values), 3);
-            stateDimensions = size((simData.out.quadState.signals.values), 2);
+            quadStateDimensions = size((simData.out.quadState.signals.values), 2);
+
+            numCamLogPoints = size((simData.out.camState_GT.signals.values), 3);
+            
+            numImuLogPoints = size(simData.out.IMU.signals.values, 3);
 
             %Initialise output variables
             rtHist = zeros(3,4,numQuadLogPoints-1);%-1 to skip t0
             state_timeHist = zeros(1, (numQuadLogPoints-1));
-            stateHist =zeros(stateDimensions, (numQuadLogPoints-1));
-            imuHist =zeros(7, (numQuadLogPoints-1));
+            stateHist =zeros(quadStateDimensions, (numQuadLogPoints-1));
+            imuHist =zeros(7, (numImuLogPoints-1));
 
              % %Import time history
              for i=1:size((simData.out.camState_GT.signals.values), 3)
@@ -24,7 +28,7 @@ classdef imgFuncs
              end
 
             %For each logged time - skip t0, where there is no data
-            for i=1:numQuadLogPoints
+            for i=1:numCamLogPoints
 
                 %% Import Camera Ground Truth data
                 % 
@@ -52,9 +56,12 @@ classdef imgFuncs
                 % rtHist(1:3,1:3,i) = R_cam;
                 % rtHist(1:3,4,i) = trans_cam;
                 % stateHist(:,i) = ([trans_cam; orient; x_dot; y_dot; z_dot]);
-                
+            end
+            
+
                  %% Import Quad Ground Truth data
-                %Import time history
+            for i=1:numQuadLogPoints
+                 %Import time history
                 state_times = simData.out.quadState.time(i,1);
                 state_timeHist(1,(i)) = state_times;
 
@@ -79,9 +86,13 @@ classdef imgFuncs
                 rtHist(1:3,1:3,i) = R_quad;
                 rtHist(1:3,4,i) = trans_quad;
                 stateHist(:,i) = ([trans_quad; orient; x_dot; y_dot; z_dot]);
-                
+            end
+            
+            
                                
                 %% Import IMU data
+
+            for i=1:numImuLogPoints
                 % Import imu log
                 imu = simData.out.IMU.signals.values(:,:,i);
                 imu_time = simData.out.IMU.time(i,1);
