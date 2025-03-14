@@ -1,6 +1,8 @@
 
 
 %% GENERAL INITIALISATIONS
+global g;
+g = [0; 0; -9.7952];
 
 % Import map
 map = load('./Resources/map.mat');
@@ -73,7 +75,7 @@ P_k = diag([0.1, 0.1, 0.1, 0.1, 0.1,  0.1, 0.1, 0.1, 0.1, 0.1]); %Initial
 
 %process noise covariance (noise space)
 %If low
-Q = diag([0.5, 0.5, 0.5, 0.3, 0.3, 0.3]);
+Q = diag([0.1, 0.1, 0.1, 0.3, 0.3, 0.3]);
 
 %and measurement covariance
 W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]);
@@ -131,7 +133,8 @@ for i=1:1000
     % newImuData_accel = newImuMsg .accelerometer_m_s2;
     % cal_accel = transpose(transpose(newImuData_accel) * A + b); 
     % newImuData = [newImuData_gyro; cal_accel];
-    newImuData = [newImuMsg.gyro_rad; newImuMsg.accelerometer_m_s2];
+    newImuData = [newImuMsg.gyro_rad; imuCorrect(newImuMsg.accelerometer_m_s2)];
+    disp(newImuData');
 
         dt = toc;
         tic;
