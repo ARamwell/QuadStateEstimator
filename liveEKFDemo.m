@@ -1,6 +1,8 @@
 
 
 %% GENERAL INITIALISATIONS
+global g;
+g = [0; 0; -9.7952];
 
 % Import map
 map = load('./Resources/map.mat');
@@ -36,7 +38,11 @@ dt_hist = [];
 dynterm_hist = [];
 p3pHist = [];
 xHat_hist = [];
+<<<<<<< HEAD
 z_hist =[];
+=======
+z_hist = [];
+>>>>>>> Alyssa_feedqdot
 
 %% ROS2 INITIALISATIONS
 ekfNode = ros2node("ekf_node");
@@ -61,7 +67,7 @@ disp('Starting EKF');
 % create subscriber
 %imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', @imuReceiveCallback, Reliability="besteffort");
 imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', Reliability="besteffort");
-p3pSub = ros2subscriber(ekfNode, '/p3p', @p3pReceiveCallback, Reliability="besteffort");
+%p3pSub = ros2subscriber(ekfNode, '/p3p', @p3pReceiveCallback, Reliability="besteffort");
 
 
 
@@ -73,7 +79,11 @@ P_k = diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]); %Initial
 
 %process noise covariance (noise space)
 %If low
+<<<<<<< HEAD
 Q = diag([0.1, 0.1, 0.1, 0.05, 0.05, 0.05]);
+=======
+Q = diag([0.1, 0.1, 0.1, 0.3, 0.3, 0.3]);
+>>>>>>> Alyssa_feedqdot
 
 %and measurement covariance
 W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.05, 0.05, 0.05]);
@@ -120,7 +130,11 @@ for i=1:1000
         %v = 
     else
         z_k = NaN;
+<<<<<<< HEAD
         z_hist(:, end+1) = transpose([0 0 0 0 0 0 0 0 0 0]);
+=======
+        z_hist(:, end+1) = transpose([0 0 0 0 0 0 0]);
+>>>>>>> Alyssa_feedqdot
     end
     
     
@@ -131,7 +145,8 @@ for i=1:1000
     % newImuData_accel = newImuMsg .accelerometer_m_s2;
     % cal_accel = transpose(transpose(newImuData_accel) * A + b); 
     % newImuData = [newImuData_gyro; cal_accel];
-    newImuData = [newImuMsg.gyro_rad; newImuMsg.accelerometer_m_s2];
+    newImuData = [newImuMsg.gyro_rad; imuCorrect(newImuMsg.accelerometer_m_s2)];
+    disp(newImuData');
 
         dt = toc;
         tic;
@@ -150,6 +165,7 @@ for i=1:1000
         rtHist_ekf(:,1:3,end)= (quat2rotm(transpose(x_k(4:7, 1))));
         xHat_hist(:,end+1) = xHat_k;
         dynterm_hist(:,end+1) = proTerm_k;
+        xHat_hist(:, end+1) = xHat_k;
   
         % Plot data
         plotStruct.traj.plotLines.EKF.Data = rtHist_ekf;

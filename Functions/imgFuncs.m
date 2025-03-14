@@ -2,29 +2,38 @@ classdef imgFuncs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [rtHist, state_timeHist, stateHist, cam_timeHist, imuHist] = importSimLog(fullFile, R_sim2W)
+        function [rtHist, quadStateHist_times, quadStateHist, cam_timeHist, imuReadHist] = importSimLog(fullFile, R_sim2W)
         %Basic function to import all logged trajectory data (as .m file). 
         %Does not consider time alignment with other data (i.e., imports 
         %all logged points, does not skip any)
             
             simData = load(fullFile);
-            numLogPoints = size((simData.out.quadState.signals.values), 3);
-            stateDimensions = size((simData.out.quadState.signals.values), 2);
+            numQuadLogPoints = size((simData.out.quadState.signals.values), 3);
+            quadStateDimensions = size((simData.out.quadState.signals.values), 2);
+
+            numCamLogPoints = size((simData.out.camState_GT.signals.values), 3);
+            
+            numImuReadPoints = size(simData.out.IMU.signals.values, 3);
+
+            %numImuLogPoints = size(simData.out.IMUstate.signals.values, 3);
 
             %Initialise output variables
-            rtHist = zeros(3,4,numLogPoints-1);%-1 to skip t0
-            state_timeHist = zeros(1, (numLogPoints-1));
-            stateHist =zeros(stateDimensions, (numLogPoints-1));
-            imuHist =zeros(7, (numLogPoints-1));
+            rtHist = zeros(3,4,numQuadLogPoints-1);%-1 to skip t0
+            quadStateHist_times = zeros(1, (numQuadLogPoints-1));
+            quadStateHist =zeros(quadStateDimensions, (numQuadLogPoints-1));
+            imuReadHist =zeros(7, (numImuReadPoints-1));
+            %imuStateHist = zeros(10+1, (numImuLogPoints-1));
 
-
-            %For each logged time - skip t0, where there is no data
-            for i=1:numLogPoints
-
-                %% Import Camera Ground Truth data
-                % %Import time history
+             % %Import time history
+             for i=1:size((simData.out.camState_GT.signals.values), 3)
                  cam_times = simData.out.camState_GT.time(i,1);
                  cam_timeHist(1,(i)) = cam_times;
+             end
+
+            %For each logged time - skip t0, where there is no data
+            for i=1:numCamLogPoints
+
+                %% Import Camera Ground Truth data
                 % 
                 % % Import position log
                 % trans_cam = transpose(simData.out.camState_GT.signals.values(1,1:3,i));
@@ -50,11 +59,14 @@ classdef imgFuncs
                 % rtHist(1:3,1:3,i) = R_cam;
                 % rtHist(1:3,4,i) = trans_cam;
                 % stateHist(:,i) = ([trans_cam; orient; x_dot; y_dot; z_dot]);
-                
+            end
+            
+
                  %% Import Quad Ground Truth data
-                %Import time history
+            for i=1:numQuadLogPoints
+                 %Import time history
                 state_times = simData.out.quadState.time(i,1);
-                state_timeHist(1,(i)) = state_times;
+                quadStateHist_times(1,(i)) = state_times;
 
                 % Import position log
                 trans_quad = transpose(simData.out.quadState.signals.values(1,1:3,i)); %in m
@@ -76,20 +88,38 @@ classdef imgFuncs
                 %Buld ground truth Rt history
                 rtHist(1:3,1:3,i) = R_quad;
                 rtHist(1:3,4,i) = trans_quad;
-                stateHist(:,i) = ([trans_quad; orient; x_dot; y_dot; z_dot]);
-                
+                quadStateHist(:,i) = ([trans_quad; orient; x_dot; y_dot; z_dot]);
+            end
+            
+            
                                
-                %% Import IMU data
+            %% Import IMU readings
+
+            for i=1:numImuReadPoints
                 % Import imu log
-                imu = simData.out.IMU.signals.values(:,:,i);
-                imu_time = simData.out.IMU.time(i,1);
+                imuState = simData.out.IMU.signals.values(:,:,i);
+                imuState_time = simData.out.IMU.time(i,1);
 
 
                 %build Rt history
-                imuHist(1,i)=imu_time;
-                imuHist(2:end, i)=transpose(imu); 
+                imuReadHist(1,i)=imuState_time;
+                imuReadHist(2:end, i)=transpose(imuState); 
 
             end
+
+            % %% Import IMU log data
+            % 
+            % for i=1:numImuLogPoints
+            %     % Import imu log
+            %     imuState = simData.out.IMUstate.signals.values(:,:,i);
+            %     imuState_time = simData.out.IMUstate.time(i,1);
+            % 
+            % 
+            %     %build Rt history
+            %     imuStateHist(1,i)=imuState_time;
+            %     imuReadHist(2:end, i)=transpose(imuState); 
+            % 
+            % end
         end
 
 

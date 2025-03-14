@@ -14,7 +14,7 @@ imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', Reliability="bestef
 
 imuHist = [];
 
-for i=1:1000
+for i=1:100
     newImuMsg = receive(imuSub, 2);
     newImuData_gyro = newImuMsg .gyro_rad;
     newImuData_accel = newImuMsg .accelerometer_m_s2;
@@ -22,12 +22,21 @@ for i=1:1000
     %cal_accel = transpose(transpose(newImuData_accel) * A + b); 
     newImuData = [newImuData_gyro; newImuData_accel];
 
-    imuHist(i,:) = newImuData;
     
-    disp(transpose(newImuData));
+
+    %TRY CORRECT
+
+    newImuData_accel_corr = transpose( imuCorrect(newImuData_accel));
+    imuHist(i,:) = [newImuData_accel];
+
+    %imuHist(i,:) = newImuData;
+
+    disp(newImuData_accel_corr);  
+    %disp(imuHist(i,:));
+    %disp(newImuData');
     
     pause(0.05);
 end
 
 %imuHist = [imuParams; imuHist];
-writematrix(imuHist, fullfile('.', '/Testers/imuCalib/imuHist_.csv'))
+%writematrix(imuHist, fullfile('.', '/Testers/imuCalib/imuHist_imu2_static_20250313_1311.csv'))
