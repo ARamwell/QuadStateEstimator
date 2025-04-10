@@ -11,9 +11,9 @@ filepath = fullfile(pathname, filename);
 data_imu = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
 
 % Isolate accelerometer values
-x = data_imu(:, 4);
-y = data_imu(:, 5);
-z = data_imu(:, 6);
+x = data_imu(:, 2);
+y = data_imu(:, 3);
+z = data_imu(:, 4);
 accel_uncalib = [x, y, z];
 
 %Plot uncalibrated values
@@ -73,8 +73,8 @@ biasSeparate = gain*bias;
 
 accelCalibrationStruct= struct('gain', gainMatrix, 'bias', biasSeparate);
 
-%save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
-save(fullfile('.', '/Resources/accelerometerCalibration'), "accelCalibrationStruct");
+% %save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
+% save(fullfile('.', '/Resources/accelerometerCalibration'), "accelCalibrationStruct");
 
 % Ask user if they want to save the file
 choice = input('Do you want to save the data? (y/n): ', 's');

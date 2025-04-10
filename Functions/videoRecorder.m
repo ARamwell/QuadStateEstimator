@@ -1,6 +1,8 @@
+clear
 
 %function img = stream()
-cam = ipcam('http://192.168.159.121:81/stream');
+%cam = ipcam('http://192.168.159.121:81/stream');
+cam = ipcam('http://192.168.175.121:81/stream');
 
 %preview(cam)
 
@@ -29,11 +31,12 @@ while (n<nFrames)
 %    imshow(ss);
     
     fileName = sprintf("%03d",n)+".jpg";
-    [img, timestamp] = snapshot(cam); %capture image
+    timestamp_pc = datetime();
+    [img, timestamp_cam] = snapshot(cam); %capture image
     imshow(img)
     pause(0.3)
     %image(img);
-    imwrite(img, fullfile(saveDir,fileName), 'jpg','Comment', string(timestamp));
+    imwrite(img, fullfile(saveDir,fileName), 'jpg','Comment', string(timestamp_cam));
     %step(hVideoIn,ss)
     n = n+1;
 end

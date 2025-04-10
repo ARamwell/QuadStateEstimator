@@ -1,13 +1,13 @@
-% %Select a .csv file
-% [filename, pathname] = uigetfile('*.csv', 'Select a CSV file to import');
-% if isequal(filename,0)
-%     disp('User canceled file selection.');
-%     return;
-% end
-% filepath = fullfile(pathname, filename);
+%Select a .csv file
+[filename, pathname] = uigetfile('*.csv', 'Select a CSV file to import');
+if isequal(filename,0)
+    disp('User canceled file selection.');
+    return;
+end
+filepath = fullfile(pathname, filename);
+% filepath = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_raw_20Hz_20250317_0909.csv';
 
 % Import the data
-filepath = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_20250313_1311.csv';
 raw_accel = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
 
 % calibrate
@@ -16,6 +16,7 @@ for row=1:size(raw_accel, 1)
     calib_accel_column = imuCorrect(raw_accel_column);
     calib_accel(row, :) = calib_accel_column';
 end
+% calib_accel = raw_accel;
 
 means = mean(calib_accel, 1);
 
@@ -38,6 +39,6 @@ rotAxis_SS = [0 -rotAxis(3) rotAxis(2);
 R_imu2rq = eye(3) + sin(rotAngle) * rotAxis_SS + (1-cos(rotAngle)) * (rotAxis_SS)^2;
 
 %Rotate measurements
-for row=1:size(accel_calib, 1)
-    accel_corr(row, :) = transpose( R_imu2rq * (accel_calib(row, :))' );
+for row=1:size(calib_accel, 1)
+    accel_corr(row, :) = transpose( R_imu2rq * (calib_accel(row, :))' );
 end 

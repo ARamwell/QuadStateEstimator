@@ -14,29 +14,40 @@ imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', Reliability="bestef
 
 imuHist = [];
 
-for i=1:100
+%record at a fixed frequency of 20Hz
+%rateCtrlr = rateControl(20);
+%reset(rateCtrlr); 
+tic
+
+for i=1:2000
+    
     newImuMsg = receive(imuSub, 2);
+    %t = rateCtrlr.TotalElapsedTime;
     newImuData_gyro = newImuMsg .gyro_rad;
     newImuData_accel = newImuMsg .accelerometer_m_s2;
 
     %cal_accel = transpose(transpose(newImuData_accel) * A + b); 
-    newImuData = [newImuData_gyro; newImuData_accel];
+    %newImuData = [newImuData_gyro; newImuData_accel];
 
     
 
     %TRY CORRECT
 
     newImuData_accel_corr = transpose( imuCorrect(newImuData_accel));
-    imuHist(i,:) = [newImuData_accel];
+    t = toc;
+    %imuHist(i,:) = [rateCtrlr.TotalElapsedTime, newImuData_accel'];
+    imuHist(i,:) = [t, newImuData_accel'];
+
 
     %imuHist(i,:) = newImuData;
 
-    disp(newImuData_accel_corr);  
-    %disp(imuHist(i,:));
-    %disp(newImuData');
+    %disp(newImuData_accel');  
+ 
+    disp([newImuData_accel_corr, newImuData_accel']);
     
-    pause(0.05);
+    %pause(0.05);
+    %waitfor(rateCtrlr);
 end
 
 %imuHist = [imuParams; imuHist];
-%writematrix(imuHist, fullfile('.', '/Testers/imuCalib/imuHist_imu2_static_20250313_1311.csv'))
+%writematrix(imuHist, fullfile('.', '/Testers/imuCalib/Px6C_imuHist_static_zdown_room2_raw_20250404_1102.csv'))

@@ -38,11 +38,7 @@ dt_hist = [];
 dynterm_hist = [];
 p3pHist = [];
 xHat_hist = [];
-<<<<<<< HEAD
-z_hist =[];
-=======
 z_hist = [];
->>>>>>> Alyssa_feedqdot
 
 %% ROS2 INITIALISATIONS
 ekfNode = ros2node("ekf_node");
@@ -79,11 +75,7 @@ P_k = diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]); %Initial
 
 %process noise covariance (noise space)
 %If low
-<<<<<<< HEAD
-Q = diag([0.1, 0.1, 0.1, 0.05, 0.05, 0.05]);
-=======
 Q = diag([0.1, 0.1, 0.1, 0.3, 0.3, 0.3]);
->>>>>>> Alyssa_feedqdot
 
 %and measurement covariance
 W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.05, 0.05, 0.05]);
@@ -130,11 +122,7 @@ for i=1:1000
         %v = 
     else
         z_k = NaN;
-<<<<<<< HEAD
-        z_hist(:, end+1) = transpose([0 0 0 0 0 0 0 0 0 0]);
-=======
-        z_hist(:, end+1) = transpose([0 0 0 0 0 0 0]);
->>>>>>> Alyssa_feedqdot
+
     end
     
     
