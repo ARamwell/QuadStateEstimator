@@ -9,29 +9,19 @@ url = 'http://192.168.175.121/capture';
 saveDir = uigetdir();
 
 %% Stream
-
-disp('Recording in...');
-disp('3');
-pause(1);
-disp('2');
-pause(1);
-disp('1');
-pause(1)
-disp('0');
+% 
+% disp('Recording in...');
+% disp('3');
+% pause(1);
+% disp('2');
+% pause(1);
+% disp('1');
+% pause(1)
+% disp('0');
 
 startTime = datetime('now','Format','d-MMM-y HH:mm:ss:SSS');
 while (n<nFrames)
-    img = webread(url);
-
-    timestamp_pc = datetime('now', 'Format', 'yyyyMMdd_HHmmss_SSS');
-%    imgHist(:,:,:,n) = img
-%    imgHist_timestamps(n) = t;
-%    imshow(img)
-
-    fileName = ['esp32_' char(timestamp_pc) '.jpg'];
-    %fileName = sprintf("%03d",n)+".jpg";
-    imwrite(img, fullfile(saveDir,fileName), 'jpg','Comment', char(timestamp_pc));
-    
+    esp32_captureAndSave(url, saveDir);
     n=n+1;
 end
 

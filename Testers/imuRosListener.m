@@ -17,11 +17,13 @@ imuHist = [];
 %record at a fixed frequency of 20Hz
 %rateCtrlr = rateControl(20);
 %reset(rateCtrlr); 
-tic
+%tic
 
 for i=1:2000
     
     newImuMsg = receive(imuSub, 2);
+    timestamp_pc = datetime('now', 'Format', 'yyyyMMdd_HHmmss_SSS');
+
     %t = rateCtrlr.TotalElapsedTime;
     newImuData_gyro = newImuMsg .gyro_rad;
     newImuData_accel = newImuMsg .accelerometer_m_s2;
@@ -33,17 +35,17 @@ for i=1:2000
 
     %TRY CORRECT
 
-    newImuData_accel_corr = transpose( imuCorrect(newImuData_accel));
-    t = toc;
+    %newImuData_accel_corr = transpose( imuCorrect(newImuData_accel));
+    %t = toc;
     %imuHist(i,:) = [rateCtrlr.TotalElapsedTime, newImuData_accel'];
-    imuHist(i,:) = [t, newImuData_accel'];
+    imuHist(i,:) = [timestamp_pc, newImuData_accel'];
 
 
     %imuHist(i,:) = newImuData;
 
     %disp(newImuData_accel');  
  
-    disp([newImuData_accel_corr, newImuData_accel']);
+    %disp([newImuData_accel_corr, newImuData_accel']);
     
     %pause(0.05);
     %waitfor(rateCtrlr);

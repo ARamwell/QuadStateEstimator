@@ -84,11 +84,16 @@ classdef imgFuncs
                 x_dot = simData.out.quadState.signals.values(1,j,i);
                 y_dot = simData.out.quadState.signals.values(1,j+1,i);
                 z_dot = simData.out.quadState.signals.values(1,j+2,i);
+
+                % Import bias log
+                j=11;
+                b_a = simData.out.quadState.signals.values(1,j:j+2,i);
+                b_g = simData.out.quadState.signals.values(1,j+3:j+5,i);
                 
                 %Buld ground truth Rt history
                 rtHist(1:3,1:3,i) = R_quad;
                 rtHist(1:3,4,i) = trans_quad;
-                quadStateHist(:,i) = ([trans_quad; orient; x_dot; y_dot; z_dot]);
+                quadStateHist(:,i) = ([trans_quad; orient; x_dot; y_dot; z_dot; b_a'; b_g']);
             end
             
             

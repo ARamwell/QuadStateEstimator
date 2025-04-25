@@ -72,13 +72,14 @@ imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', Reliability="bestef
 
 %Initial State covariance
 P_k = diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]); %Initial
+P_k = 0.1 * eye(16); %Initial 16-element
 
 %process noise covariance (noise space)
 %If low
 Q = diag([0.1, 0.1, 0.1, 0.3, 0.3, 0.3]);
 
 %and measurement covariance
-W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.05, 0.05, 0.05]);
+W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01]);
 
 
 %% EKF loop
@@ -88,12 +89,20 @@ W =diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.05, 0.05, 0.05]);
 %     pause(0.2);
 % end   
 % newP3pFlag = 0;
-% x_k = [newP3pData; 0; 0; 0];
+% 10 element state vector:
+% x_k = [newP3pData; 0; 0; 0];  
 x_k = [0; 0; 0; 0; 1; 0; 0; 0; 0; 0];
 %x_k = [0; 0; 0; 0.7071; 0; -0.7071; 0; 0; 0; 0]; %on rear
 %x_k = [0; 0; 0; 0.7071; 0; 0.7071; 0; 0; 0; 0]; %on nose
 %x_k = [0; 0; 0; 0.7071; -0.7071; 0; 0; 0; 0; 0]; %on left
 %x_k = [0; 0; 0; 0.7071; 0.7071; 0; 0; 0; 0; 0]; %on right
+
+% 16 element state vector:
+ba_calib = [0.008886812007048;-0.010189404948922;-0.243946398446385];
+bg_calib = [0.01; 0.01; 0.01];
+x_k = [0; 0; 0; 0; 1; 0; 0; 0; 0; 0; ba_calib; bg_calib];
+
+% Initialise logging variables
 ekfHist(:, 1) = x_k;
 rtHist_ekf(:,4,1)= [(x_k(1:3,1))];
 rtHist_ekf(:,1:3,1)= (quat2rotm(transpose(x_k(4:7, 1))));
