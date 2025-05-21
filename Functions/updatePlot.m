@@ -36,7 +36,7 @@ function plot_updated = updatePlot(plotIn, data)
                     %oldDataSeries = plotIn.plotLines.(currentLine).Data;
                     %newDataPnt = data.(currentLine).Rt;
                     %newDataSeries = cat(3, oldDataSeries, newDataPnt);
-                    newDataSeries = data.(currentLine).Rt;
+                    newDataSeries = data.(currentLine).mostInliers.Rt;
                     plotIn.plotLines.(currentLine).Data = newDataSeries;
 
                     p3pPlotting.updateTraj(plotIn.plotLines.(currentLine).line, plotIn.plotLines.(currentLine).frameText, plotIn.plotLines.(currentLine).frameLines, newDataSeries);

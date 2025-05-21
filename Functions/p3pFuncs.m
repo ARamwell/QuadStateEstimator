@@ -355,13 +355,13 @@ classdef p3pFuncs
         %------------------------------------------------------------%
 
 
-        function pose = rtToPose(Rt, rotOrder)
+        function pose = rtToPose(Rt)
             
             pos = Rt(1:3,4);
 
-            orient = rotm2eul(Rt(1:3, 1:3), rotOrder);
+            orient = rotm2quat(Rt(1:3, 1:3));
 
-            pose = [pos; transpose(orient)];
+            pose = [pos; orient'];
             
         end
 
@@ -381,6 +381,14 @@ classdef p3pFuncs
             x_projected(1,1) = x_projected_homo(1,1)/norm(x_projected_homo(3,1)); 
             x_projected(2,1) = x_projected_homo(2,1)/norm(x_projected_homo(3,1));
 
+        end
+
+        function rt_out = transformPose(rt_a, rt_b)
+            
+            rt_temp = ([rt_a; 0 0 0 1] * [rt_b; 0 0 0 1]);
+        
+            rt_out = rt_temp(1:3, 1:4);
+            
         end
     end
     

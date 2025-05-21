@@ -50,7 +50,7 @@ classdef checker < worldObject
             Rt_A2S = worldObject.calcTransformA2S(Rt_B2W, Rt_A2B);
 
             orient_S_rad = (rotm2eul(Rt_A2S(1:3, 1:3), 'XYZ'));
-            pos_S = transpose(Rt_A2S(1:3, 4))/1000;
+            pos_S = transpose(Rt_A2S(1:3, 4));
 
             obj.Corners = checker.calcCheckerEdgeCoords_W(checkerSize, squareSize, Rt_B2W); 
 

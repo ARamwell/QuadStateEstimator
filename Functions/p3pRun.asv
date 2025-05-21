@@ -1,7 +1,7 @@
 classdef p3pRun
     methods (Static)
         
-        function [Rt_CW_Grun, Err_Grun, Rt_CW_arr, Rt_WC_arr] = Grunert(x_pnts_i, X_pnts_W, K, checkerSize)
+        function [Rt_CW_Grun, Err_Grun, Rt_CW_arr, Rt_WC_arr] = Grunert(x_pnts_i, X_pnts_W, K, checkerSize,inlierThreshold)
 
            
             %Get outside corners
@@ -35,7 +35,7 @@ classdef p3pRun
         end
 
         
-        function [Rt, Err, Rt_CW_arr, Rt_WC_arr] = KneipA(x_pnts_i, X_pnts_W, K, checkerSize)
+        function [Rt, Err, Rt_CW_arr, Rt_WC_arr] = KneipA(x_pnts_i, X_pnts_W, K, checkerSize,inlierThreshold)
 
             %Get outside corners
             if size(X_pnts_W, 2) <=4
@@ -70,8 +70,8 @@ classdef p3pRun
             [Rt_CW, Err] = p3pFuncs.chooseRtWithMinReprojErrorCW(K, Rt_CW_arr, x_D_i, X_D_W);
             [Rt_WC, Err] = p3pFuncs.chooseRtWithMinReprojErrorWC(K, Rt_WC_arr, x_D_i, X_D_W);
             
-            %[Rt_WC, Err] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_arr, 0.5, x_pnts_i, X_pnts_W);
-            %[Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_arr, 0.5, x_pnts_i, X_pnts_W);
+            %[Rt_WC, Err] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            %[Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_arr, inlierThreshold, x_pnts_i, X_pnts_W);
 
             Rt_CW_der = p3pFuncs.invertRt(Rt_WC);
             Rt_WC_der = p3pFuncs.invertRt(Rt_CW);
@@ -80,7 +80,7 @@ classdef p3pRun
         end
 
 
-        function [Rt, Err, Rt_CW_Arr, Rt_WC_Arr] = KneipN(x_pnts_i, X_pnts_W, K, checkerSize)
+        function [Rt, Err, Rt_CW_Arr, Rt_WC_Arr] = KneipN(x_pnts_i, X_pnts_W, K, checkerSize,inlierThreshold)
 
             %Initialise variables
             Rt_CW_Arr = zeros(3,4,1);
@@ -122,11 +122,11 @@ classdef p3pRun
             %     Rt_WC_arr(:,:,j) = p3pFuncs.invertRt(Rt_CW_arr(:,:,j));
             % end 
 
-            %[Rt_WC, Err] = p3pFuncs.chooseRtWithMinReprojErrorWC(K, Rt_WC_Arr, x_D_i, X_D_W);
-            %[Rt_CW, Err] = p3pFuncs.chooseRtWithMinReprojErrorCW(K, Rt_CW_Arr, x_D_i, X_D_W);
+            [Rt_WC, Err] = p3pFuncs.chooseRtWithMinReprojErrorWC(K, Rt_WC_Arr, x_D_i, X_D_W);
+            [Rt_CW, Err] = p3pFuncs.chooseRtWithMinReprojErrorCW(K, Rt_CW_Arr, x_D_i, X_D_W);
             
-            [Rt_WC, Err] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
-            [Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_Arr, 0.5, x_pnts_i, X_pnts_W);
+            %[Rt_WC, Err] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            %[Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
             
             
             Rt_CW_der = p3pFuncs.invertRt(Rt_WC);
@@ -155,10 +155,14 @@ classdef p3pRun
 
             Rt_CW_Mat = [R t];
 
+            
+
         end
 
 
-        function Rt_CW_KneipO = KneipO(x_pnts_i, X_pnts_W, K, checkerSize)
+        function soln = KneipO(x_pnts_i, X_pnts_W, K, checkerSize, inlierThreshold)
+
+            soln = struct();
 
             %Initialise Rt
             Rt_CW_arr= zeros(3,4,1);
@@ -197,12 +201,19 @@ classdef p3pRun
             Rt_WC_arr = Rt_CW_arr;
             for j=1:size(Rt_CW_arr,3)
                 Rt_WC_arr(:,:,j) = p3pFuncs.invertRt(Rt_CW_arr(:,:,j));
+                pq_arr(:,j) = p3pFuncs.rtToPose(Rt_WC_arr(:,:,j));
             end 
 
-            [Rt_WC, Err] = p3pFuncs.chooseRtWithMinReprojErrorWC(K, Rt_WC_arr, x_D_i, X_D_W);
-            %[Rt_WC, Err] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_arr, 0.5, x_pnts_i, X_pnts_W);
+            [Rt_WC_minReprojErr, err] = p3pFuncs.chooseRtWithMinReprojErrorWC(K, Rt_WC_arr, x_D_i, X_D_W);
+            [Rt_WC_maxInlier,inlierCnt] = p3pFuncs.chooseRtWithMostInliersWC(K, Rt_WC_arr, inlierThreshold, x_pnts_i, X_pnts_W);
             
-            Rt_CW_KneipO = p3pFuncs.invertRt(Rt_WC);
+            %Output struct
+            soln.Rt_arr = Rt_CW_arr(:,:,:);
+            soln.poseArr = pq_arr;
+            soln.mostInliers.Rt = p3pFuncs.invertRt(Rt_WC_maxInlier);
+            soln.mostInliers.Num = inlierCnt;
+            soln.minReproj.Rt = p3pFuncs.invertRt(Rt_WC_minReprojErr);
+            soln.minReproj.Err = err;
 
         end
     end

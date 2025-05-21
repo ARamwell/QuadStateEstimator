@@ -3,7 +3,7 @@ import matlab.net.http.*
 
 
 %fps = 2;
-nFrames = 40;
+nFrames = 80;
 n = 0;
 url = 'http://192.168.175.121/capture';
 

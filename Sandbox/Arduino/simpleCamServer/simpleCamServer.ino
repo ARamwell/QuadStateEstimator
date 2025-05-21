@@ -2,8 +2,10 @@
 #include <WiFi.h>
 
 // Replace with your WiFi credentials
-const char* ssid = "Alyssa wifi";
-const char* password = "0826788787";
+//const char* ssid = "Alyssa wifi";
+//const char* password = "0826788787";
+const char* ssid = "HP-Inkjet-Pro";
+const char* password = "13451345";
 
 // AI Thinker camera pin definition
 #define PWDN_GPIO_NUM     32
@@ -50,7 +52,7 @@ void startCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   // Set resolution here (e.g., FRAMESIZE_QVGA = 320x240)
-  config.frame_size = FRAMESIZE_QVGA;
+  config.frame_size = FRAMESIZE_HVGA;
   config.fb_count = 1;
   config.jpeg_quality = 12;
 
