@@ -1,23 +1,27 @@
 
-% %Select a .csv file
-[filename, pathname] = uigetfile('*.csv', 'Select a CSV file to import');
-if isequal(filename,0)
-    disp('User canceled file selection.');
-    return;
-end
-filepath = fullfile(pathname, filename);
+% % %Select a .csv file
+% [filename, pathname] = uigetfile('*.csv', 'Select a CSV file to import');
+% if isequal(filename,0)
+%     disp('User canceled file selection.');
+%     return;
+% end
+% filepath = fullfile(pathname, filename);
 
 % Import the data
 % filepath = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_raw_20Hz_20250317_0909.csv';
 % filepath ='C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_raw_20Hz_20250317_0951-1014-1029.csv';
-rawdata = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
+%rawdata = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
+imu_calibData = load('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\imuReadings_static_74000.mat')
 
-if size(rawdata, 2) > 3
-    rawAccelData = rawdata(:,2:4);
-else
-    rawAccelData = rawdata;
-end
-Fs = 20; %frequency of accel data
+rawdata = imu_calibData.imuMsgLog;
+rawAccelData = imu_calibData.imuMsgLog(:, 4:6);
+
+% if size(rawdata, 2) > 3
+%     rawAccelData = rawdata(:,2:4);
+% else
+%     rawAccelData = rawdata;
+% end
+Fs = 16; %frequency of accel data
 
 %calAccelData = (imuCorrect(rawAccelData'))';
 [avar,tau] = allanvar(rawAccelData,'octave',Fs);

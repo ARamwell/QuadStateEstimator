@@ -35,7 +35,7 @@ classdef EKF_3dQuad_16el_funcs
         %----------- STEP 1: DYNAMICS UPDATE -------------
         
             %Predict new state (a priori) and get prev jacobian 
-            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_16el_funcs.dyn_update_rect(g, x_k, u_k, t_delta, Rt_imu2rq, reset);
+            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_16el_funcs.dyn_update_trap(g, x_k, u_k, t_delta, Rt_imu2rq, reset);
             
             %enforce quaternion continuity
             if dot(x_new_hat(4:7), x_k(4:7)) < 0
@@ -795,6 +795,67 @@ v3 + dt*(g3 - (u_a3 - ba3 + w_a3)*(2*q2^2 + 2*q3^2 - 1) - (2*q1*q3 - 2*q2*q4)*(u
                     xdot_prev = xdot_trap;
                     u_prev = u_k;
                 end
+        end
+
+        function [ekfResult, P_0, Q, W, t_delta] = initEKF(startTime, x_0)
+
+            %Define P_k - State covariance
+            P_0 = diag([0.001, 0.001, 0.001, ...
+            0.001, 0.001, 0.001, 0.001, ...
+            0.001, 0.001, 0.001, ...
+            0.2, 0.2, 0.2, ...
+            0.01, 0.01, 0.01]); %Initial, 16 el
+
+            %process noise covariance (noise space)            
+            %t_delta_dur = ((u_timeHist(1,2) - u_timeHist(1,1)));
+            %t_delta = milliseconds(t_delta_dur) * 0.001;
+            t_delta = 0.0623;  %average data rate
+            w_g = [(1.037e-03)^2, 0.001^2, 0.00129^2]' / t_delta; %from Allan variance
+            w_g = [0.0029^2, 0.005^2, 0.0037^2]';
+            w_a = [(5.809e-03)^2, 0.008^2, 0.011^2]' / t_delta; %from Allan variance
+            w_a = [0.0128^2, 0.0164^2, 0.0191^2 ]';
+            w_ba = [(1.081e-05)^2, (0.000001)^2, (6.55e-06)^2]' /t_delta; %from Allan variance
+            w_bg = [(1e-07)^2, (1e-07)^2, (1e-07)^2]' /t_delta; %from Allan variance
+            Q = diag([w_g; w_a; w_ba; w_bg]);
+
+            Q = diag([0.01, 0.01, 0.01, 0.2, 0.2, 0.2, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001]); %16 el - [w_g, w_acc, w_ba, w_ba]
+        
+            %and measurement covariance
+            W =diag([0.1506^2, 0.1506^2, 0.1506^2, 0.01, 0.007897, 0.007897, 0.007897]);  
+
+            
+            %initialise EKF output history (do it after first state to get sizes right)
+            ekfResult = struct();
+            ekfResult.time = createArray(1, 0, 'datetime');
+            ekfResult.time = datetime(ekfResult.time, 'Format', 'yyyyMMdd_HHmmss_SSS');
+            ekfResult.stateEst = createArray(size(x_0, 1), 0, 'double');
+            ekfResult.P = createArray(size(x_0, 1), size(x_0, 1), 0, 'double');
+            ekfResult.processTerm = createArray(size(x_0, 1), 0, 'double');
+            ekfResult.measPred = createArray(7, 0, 'double');
+            ekfResult.statePred = createArray(size(ekfResult.stateEst), 'double');
+            ekfResult.z = createArray(7,0, 'double');
+            ekfResult.input = createArray(6, 0, 'double');
+            ekfResult.error = createArray(2, 0, 'double'); %position, angle
+            ekfResult.Rt = zeros(3, 4, 0); %for plotting
+            ekfResult.zError = createArray(2, 0, 'double'); %position, angle
+            ekfResult.zHist = createArray(8, 0, 'double'); %include elapsed time in first position
+            ekfResult.elapsedTime = createArray(1,0, 'double');
+            ekfResult.timeSinceLastCorrection = createArray(1,0, 'double');
+
+            %Set first values
+            ekfResult.stateEst(:,1) = x_0;
+            ekfResult.time(:,1) = datetime(startTime, 'Format', 'yyyyMMdd_HHmmss_SSS');
+            ekfResult.elapsedTime(1,1) = 0;
+            ekfResult.P(:,:,1) = P_0;
+            ekfResult.processTerm(:,1) = zeros(size(x_0));
+            ekfResult.measPred(:,1) = zeros(7,1);
+            ekfResult.statePred(:,1) = zeros(size(x_0));
+            ekfResult.z(:,1) = NaN(7,1);
+            ekfResult.input(:,1) = zeros(6,1);
+            ekfResult.timeSinceLastCorrection(1,1) = 0;
+
+
+            
         end
     end
     

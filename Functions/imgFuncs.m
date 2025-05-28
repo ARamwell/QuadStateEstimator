@@ -2,11 +2,11 @@ classdef imgFuncs
     methods (Static)
 
         %------------------------------------------------------------%
-        function [rtHist, quadStateHist_times, quadStateHist, cam_timeHist, imuReadHist, imu_timeHist] = importSimLog(fullFile)
+        function [rtHist, quadStateHist_times, quadStateHist, cam_timeHist, imuReadHist, imu_timeHist] = importSimLog(fullFile, refTime)
         %Basic function to import all logged trajectory data (as .m file). 
         %Does not consider time alignment with other data (i.e., imports 
         %all logged points, does not skip any)
-            refTime = datetime(2000, 01, 01);
+            %refTime = datetime(2000, 01, 01);
 
             simData = load(fullFile);
             numQuadLogPoints = size((simData.out.quadState.signals.values), 3);
@@ -168,12 +168,10 @@ classdef imgFuncs
         %------------------------------------------------------------%
             
 
-        function [I_seq, I_seq_t] = importImageSeq(imgFolder, realTimestamps)
+        function [I_seq, I_seq_t] = importImageSeq(imgFolder, realTimestamps, refTime)
             %Function to import images from a folder into a big 3D array.
             %Also outputs the time (in ms), from the video start, to the
             %respective frame. 
-
-            refTime = datetime(2000, 01, 01);
 
             imgFiles_ds = fileDatastore(imgFolder, 'ReadFcn', @importdata, "FileExtensions",".jpg");
             imgNames = imgFiles_ds.Files;
