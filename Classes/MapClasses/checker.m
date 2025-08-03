@@ -29,8 +29,8 @@ classdef checker < worldObject
             Rt_A2B = [R_A2B t_A2B];
 
             % %Calculate external dimensions of board
-            height = squareSize*checkerSize(1);
-            width = squareSize*checkerSize(2);
+            height = squareSize*(checkerSize(1)+2);
+            width = squareSize*(checkerSize(2)+2);
             dim = [width/1000, height/1000, 0.001];
 
             %Calculate transformation from Body to World
@@ -81,6 +81,8 @@ classdef checker < worldObject
             doubleboard = checkerboard(squareSize, checkerSize(1), checkerSize(2)) >0.5;
             %board = doubleboard(square_size+1:(square_size*(num_squares(1)+1)), 1:(square_size*num_squares(2)));
             board = doubleboard(1:(squareSize*(checkerSize(1))), 1:(squareSize*checkerSize(2)));
+            padding_size = squareSize;
+            board_padded = padarray(board, [padding_size, padding_size], 1, 'both');
             
             
             %approx_checkerboard_dim_pixels = (checkerSize * squareSize);
@@ -89,10 +91,11 @@ classdef checker < worldObject
 
             
             scaleFactor = (dpmm);
-            board_hires = imresize(board, scaleFactor, "nearest");
-           
+            board_hires = imresize(board_padded, scaleFactor, "nearest");
+
             
-            %texture = padarray(board, padding_size, 1, 'both');
+                     
+            
             texture = (board_hires*254);
             texture = transpose(texture);
             texture = imrotate(texture, -90);

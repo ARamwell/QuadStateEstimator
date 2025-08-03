@@ -20,7 +20,6 @@ function plot_updated = updatePlot(plotIn, data)
                 % p3p methodName
                 linesToUpdate = fieldnames(plotIn.plotLines);
                
-
                 %for each method
                 for l = 1:length(linesToUpdate)
                     currentLine = linesToUpdate{l};
@@ -36,10 +35,10 @@ function plot_updated = updatePlot(plotIn, data)
                     %oldDataSeries = plotIn.plotLines.(currentLine).Data;
                     %newDataPnt = data.(currentLine).Rt;
                     %newDataSeries = cat(3, oldDataSeries, newDataPnt);
-                    newDataSeries = data.(currentLine).mostInliers.Rt;
+                    newDataSeries = data;
                     plotIn.plotLines.(currentLine).Data = newDataSeries;
 
-                    p3pPlotting.updateTraj(plotIn.plotLines.(currentLine).line, plotIn.plotLines.(currentLine).frameText, plotIn.plotLines.(currentLine).frameLines, newDataSeries);
+                    p3pPlotting.updateTraj(plotIn.plotLines.(currentLine), newDataSeries);
 
                 end
                                

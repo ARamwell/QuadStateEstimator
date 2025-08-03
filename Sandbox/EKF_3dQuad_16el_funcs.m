@@ -35,7 +35,7 @@ classdef EKF_3dQuad_16el_funcs
         %----------- STEP 1: DYNAMICS UPDATE -------------
         
             %Predict new state (a priori) and get prev jacobian 
-            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_16el_funcs.dyn_update_trap(g, x_k, u_k, t_delta, Rt_imu2rq, reset);
+            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_16el_funcs.dyn_update_rect(g, x_k, u_k, t_delta, Rt_imu2rq, reset);
             
             %enforce quaternion continuity
             if dot(x_new_hat(4:7), x_k(4:7)) < 0
@@ -839,6 +839,7 @@ v3 + dt*(g3 - (u_a3 - ba3 + w_a3)*(2*q2^2 + 2*q3^2 - 1) - (2*q1*q3 - 2*q2*q4)*(u
             ekfResult.Rt = zeros(3, 4, 0); %for plotting
             ekfResult.zError = createArray(2, 0, 'double'); %position, angle
             ekfResult.zHist = createArray(8, 0, 'double'); %include elapsed time in first position
+            ekfResult.zInHist = createArray(8, 0, 'double'); %include elapsed time in first position
             ekfResult.elapsedTime = createArray(1,0, 'double');
             ekfResult.timeSinceLastCorrection = createArray(1,0, 'double');
 

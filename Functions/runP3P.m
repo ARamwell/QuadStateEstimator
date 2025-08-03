@@ -1,4 +1,4 @@
-function [results, flags] = runP3P(results, time, imagePnts, worldPnts, K, rt_rc2rq, imageSize, squareSize, inlierThreshold, rtRounding, varargin)
+function [results, flags] = runP3P(results, time, imagePnts, worldPnts, K, rt_rc2rq, imageSize, squareSize, inlierThreshold, varargin)
 
     %This function runs the p3p method (or methods) of choice and returns
     %the resulting Rt matrix and reprojection error of each method inside a

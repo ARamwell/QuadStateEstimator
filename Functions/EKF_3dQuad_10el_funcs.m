@@ -411,7 +411,7 @@ classdef EKF_3dQuad_10el_funcs
                     w_k = zeros(6,1); %process noise assumed to be zero-mean gaussian
                            
             %% USE PRECALCULATED MATRICES
-                    [x_next_hat, F_k, L_k, proTerm_k] = EKF_3dQuad_10el_funcs.initProcessModelMatrices_trap(x_k, u_k, w_k, t_delta, g, reset);
+                    [x_next_hat, F_k, L_k, proTerm_k] = EKF_3dQuad_10el_funcs.initProcessModelMatrices_rect(x_k, u_k, w_k,t_delta, g);
 
              %% DERIVE PROCESS MODEL AT START
             % 
@@ -856,7 +856,7 @@ classdef EKF_3dQuad_10el_funcs
             %initialise EKF output history (do it after first state to get sizes right)
             ekfResult = struct();
             ekfResult.time = createArray(1, 0, 'datetime');
-            ekfResult.time = datetime(ekfResult.time, 'Format', 'yyyyMMdd_HHmmss_SSS');
+            ekfResult.time = datetime(ekfResult.time, 'Format', 'yyyyMMdd_HHmmss_SSSSSS');
             ekfResult.stateEst = createArray(size(x_0, 1), 0, 'double');
             ekfResult.P = createArray(size(x_0, 1), size(x_0, 1), 0, 'double');
             ekfResult.processTerm = createArray(size(x_0, 1), 0, 'double');
@@ -873,7 +873,7 @@ classdef EKF_3dQuad_10el_funcs
 
             %Set first values
             ekfResult.stateEst(:,1) = x_0;
-            ekfResult.time(:,1) = datetime(startTime, 'Format', 'yyyyMMdd_HHmmss_SSS');
+            ekfResult.time(:,1) = datetime(startTime, 'Format', 'yyyyMMdd_HHmmss_SSSSSS');
             ekfResult.elapsedTime(1,1) = 0;
             ekfResult.P(:,:,1) = P_0;
             ekfResult.processTerm(:,1) = zeros(size(x_0));

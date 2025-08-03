@@ -57,22 +57,29 @@ classdef p3pPlotting
         end
 
         %------------------------------------------------------------%
+%plotStruct.traj.plotLines.Verification
+        %function updateTraj(lineObj, arr_axTextObj, arr_axLineObj, poseHist)
+        function plotLine_updated = updateTraj(plotLine, poseHist)
 
-        function updateTraj(lineObj, arr_axTextObj, arr_axLineObj, rtHist)
-
-            tHist_x(:) =rtHist(1,4,:)*1000; %in mm
-            tHist_y(:) =rtHist(2,4,:)*1000; %in mm
-            tHist_z(:) =rtHist(3,4,:)*1000; %in mm
+            tHist_x(:) =poseHist(1,:)*1000; %in mm
+            tHist_y(:) =poseHist(2,:)*1000; %in mm
+            tHist_z(:) =poseHist(3,:)*1000; %in mm
 
             %Extract final point
-            t = rtHist(:,4,end)*1000; %in mm
-            R = rtHist(:,1:3,end);
+            t = poseHist(1:3,end)*1000; %in mm
+            q =  poseHist(4:7, end);
+            R = quat2rotm(q');
             
             coordAxEnd = t + (R* [100 0 0; 0 100 0; 0 0 100]);
 
             xAxData = [t coordAxEnd(:,1)];
             yAxData = [t coordAxEnd(:,2)];
             zAxData = [t coordAxEnd(:,3)];
+
+            %Get objects to update
+            lineObj = plotLine.line;
+            arr_axTextObj= plotLine.frameText;
+            arr_axLineObj= plotLine.frameLines;
 
             %Update trajectory line
             set(lineObj, 'XData',  tHist_x, 'YData', tHist_y, 'ZData', tHist_z);
@@ -87,16 +94,9 @@ classdef p3pPlotting
             set(arr_axTextObj(2), 'Position', transpose(coordAxEnd(:,2)));
             set(arr_axTextObj(3), 'Position', transpose(coordAxEnd(:,3)));
 
-            
+            plotLine_updated = plotLine;
 
         end
-
-        %------------------------------------------------------------%
-        function plotImagePlaneOutline(Ax, imgRes, Rt)
-        
-        
-        end
-
 
        %------------------------------------------------------------%
         function plotImagePlanePnts(Ax, x_pnts_i, Rt, K)
@@ -106,7 +106,6 @@ classdef p3pPlotting
             x_pnts_i_hom = [(x_pnts_i); ones(1, size(x_pnts_i, 2))];
             x_pnts_i_cam = inv(K) * x_pnts_i_hom;
 
-
             x_pnts_i_world = R_C2W*x_pnts_i_cam + t_C2W;
 
             %stretch x and y coordinates for visibility
@@ -115,6 +114,57 @@ classdef p3pPlotting
             scatterObj = scatter3(Ax,transpose(x_pnts_i_world_exp(1,:)), transpose(x_pnts_i_world_exp(2,:)),transpose(x_pnts_i_world_exp(3,:)), 4, "black", "filled");
         end
         %------------------------------------------------------------%
+        function plot_updated = updatePlot(plotIn, data)
+        
+            %Define a list of valid method names
+            validPlots = {'trajectory', 'verification'}; %if you add to this, you must also add a switch case
+            
+            %Initialise output struct
+            plot_updated = plotIn;
+        
+            %% MAIN
+          
+            %Get name of plot type
+            plotType = plotIn.Type;
+        
+            if any(strcmp(plotType, validPlots))
+        
+                %Apply suitable update method
+                switch plotType
+                    case 'trajectory'
+                        %'data' should be a struct of new Rt values, indexed by
+                        % p3p methodName
+                        linesToUpdate = fieldnames(plotIn.plotLines);
+                       
+                        %for each method
+                        for l = 1:length(linesToUpdate)
+                            currentLine = linesToUpdate{l};
+                            
+                            if any(strcmp(currentLine, 'Verification'))
+                                continue;
+                            end
+                            if any(strcmp(currentLine, 'EKF'))
+                                continue;
+                            end
+                            
+                            %update trajectory data
+                            %oldDataSeries = plotIn.plotLines.(currentLine).Data;
+                            %newDataPnt = data.(currentLine).Rt;
+                            %newDataSeries = cat(3, oldDataSeries, newDataPnt);
+                            newDataSeries = data.(currentLine).mostInliers.Rt;
+                            plotIn.plotLines.(currentLine).Data = newDataSeries;
+        
+                            p3pPlotting.updateTraj(plotIn.plotLines.(currentLine).line, plotIn.plotLines.(currentLine).frameText, plotIn.plotLines.(currentLine).frameLines, newDataSeries);
+        
+                        end
+                                       
+                end
+        
+            end
+        
+        plot_updated = plotIn;
+        
+        end
 
 
     end
