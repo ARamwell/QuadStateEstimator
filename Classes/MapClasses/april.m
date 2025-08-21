@@ -24,13 +24,13 @@ classdef april < worldObject
             t_A2B = [(edgeLength/9)*(7/2);
                      (edgeLength/9)*(7/2);
                       0]/1000;
-            Rt_A2B = [R_A2B t_A2B];
+            T_A2B = [R_A2B t_A2B; 0 0 0 1];
 
             %Calculate transformation from Body to World
-            Rt_B2W = worldObject.calcTransformB2W(orientation, position);
+            T_B2W = worldObject.calcTransformB2W(orientation, position);
 
              %Get transformatiion for Actor in Sim
-            Rt_A2S = worldObject.calcTransformA2S(Rt_B2W, Rt_A2B);
+            Rt_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B);
 
             % %Calculate external dimensions
             dim = [edgeLength, edgeLength, 0.001];
@@ -43,7 +43,7 @@ classdef april < worldObject
             obj.TagNum = tagNum;
             obj.ImgFile = april.generate41h12TagImg(parentFile, identifier, tagNum, edgeLength);
 
-            obj.Corners = april.calcAprilEdgeCoords(edgeLength, Rt_B2W); 
+            obj.Corners = april.calcAprilEdgeCoords(edgeLength, T_B2W); 
 
             orient_S_rad = (rotm2eul(Rt_A2S(1:3, 1:3), 'XYZ'));
             pos_S = transpose(Rt_A2S(1:3, 4));

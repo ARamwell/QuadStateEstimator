@@ -11,10 +11,12 @@
 % filepath = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_raw_20Hz_20250317_0909.csv';
 % filepath ='C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_raw_20Hz_20250317_0951-1014-1029.csv';
 %rawdata = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
-imu_calibData = load('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\imuReadings_static_74000.mat')
 
+%from MATLAB
+imu_calibData = load('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\imuReadings_static_74000.mat')
 rawdata = imu_calibData.imuMsgLog;
 rawAccelData = imu_calibData.imuMsgLog(:, 4:6);
+
 
 % if size(rawdata, 2) > 3
 %     rawAccelData = rawdata(:,2:4);
@@ -22,6 +24,8 @@ rawAccelData = imu_calibData.imuMsgLog(:, 4:6);
 %     rawAccelData = rawdata;
 % end
 Fs = 16; %frequency of accel data
+
+%% Do allan variance for acceleration
 
 %calAccelData = (imuCorrect(rawAccelData'))';
 [avar,tau] = allanvar(rawAccelData,'octave',Fs);
@@ -104,3 +108,10 @@ fprintf('Bias Instability (BI) occurs at τ = %.3e , %.3f , %.3g , sec: %.3e , %
 fprintf('Bias Instability in m/s^3/sqrt(Hz): %.3e , %.3f , %.3g \n', BI_x_hz, BI_y_hz, BI_z_hz);
 fprintf('Rate Random Walk (RRW) occurs at τ = %.3e , %.3f , %.3g , sec: %.3e , %.3f , %.3g units\n', RRW_x_tau, RRW_y_tau, RRW_z_tau, RRW_x, RRW_y, RRW_z);
 fprintf('Rate Random Walk in m/s^3 / sqrt(Hz): %.3e , %.3f , %.3g \n', RRW_x_hz, RRW_y_hz, RRW_z_hz);
+
+function [allanPar, figHandle] = getAllanVar(rawData)
+
+    allanPar.vrw = 
+
+
+end

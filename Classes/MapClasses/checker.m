@@ -26,7 +26,7 @@ classdef checker < worldObject
             %         (squareSize*(checkerSize(1)-2)/2);
             %          0];
             t_A2B = [0;0;0];
-            Rt_A2B = [R_A2B t_A2B];
+            T_A2B = [R_A2B t_A2B; 0 0 0 1];
 
             % %Calculate external dimensions of board
             height = squareSize*(checkerSize(1)+2);
@@ -34,7 +34,7 @@ classdef checker < worldObject
             dim = [width/1000, height/1000, 0.001];
 
             %Calculate transformation from Body to World
-            Rt_B2W = worldObject.calcTransformB2W(orientation, position);
+            T_B2W = worldObject.calcTransformB2W(orientation, position);
 
             
             % %Create superclass instance
@@ -47,12 +47,12 @@ classdef checker < worldObject
             obj.SquareSize = squareSize;
 
             %Get transformatiion for Actor in Sim
-            Rt_A2S = worldObject.calcTransformA2S(Rt_B2W, Rt_A2B);
+            T_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B);
 
-            orient_S_rad = (rotm2eul(Rt_A2S(1:3, 1:3), 'XYZ'));
-            pos_S = transpose(Rt_A2S(1:3, 4));
+            orient_S_rad = (rotm2eul(T_A2S(1:3, 1:3), 'XYZ'));
+            pos_S = transpose(T_A2S(1:3, 4));
 
-            obj.Corners = checker.calcCheckerEdgeCoords_W(checkerSize, squareSize, Rt_B2W); 
+            obj.Corners = checker.calcCheckerEdgeCoords_W(checkerSize, squareSize, T_B2W); 
 
             obj.ImageFile = checker.generateCheckerboardImg(parentFile, checkerSize, squareSize, identifier);
 
@@ -111,15 +111,15 @@ classdef checker < worldObject
             %disp(approx_checkerboard_dim + "cm")
         end
 
-        function corners = calcCheckerEdgeCoords_W(checkerSize, squareEdgeLength, Rt_B2W)
+        function corners = calcCheckerEdgeCoords_W(checkerSize, squareEdgeLength, T_B2W)
         
             boardWidth = checkerSize(2);
             boardHeight = checkerSize(1);
             X_pnts_W = zeros(3,(boardWidth-1)*(boardHeight-1));
             X_pnts_B = zeros(3,(boardWidth-1)*(boardHeight-1));
         
-            R_B2W = Rt_B2W(1:3,1:3);
-            t_B2W = Rt_B2W(1:3,4)*1000;
+            R_B2W = T_B2W(1:3,1:3);
+            t_B2W = T_B2W(1:3,4)*1000;
 
             x_offset = ((boardWidth-2)*squareEdgeLength)/2;
             y_offset = ((boardHeight-2)*squareEdgeLength)/2;

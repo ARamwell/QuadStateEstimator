@@ -783,7 +783,7 @@ v3 + dt*(g3 - (u_a3 - ba3 + w_a3)*(2*q2^2 + 2*q3^2 - 1) - (2*q1*q3 - 2*q2*q4)*(u
                     u_trap = u_k;
                     u_trap(1:3) = ug_trap;
                     
-                    [x_rect, F_k, L_k, xdot_new] = EKF_3dQuad_16el_funcs.initProcessModelMatrices_rect(x_k, u_trap, w_k, t_delta, g);
+                    [x_rect, F_k, L_k, xdot_new] = EKF_3dQuad_16el_funcs.initProcessModelMatrices_trap(x_k, u_trap, w_k, t_delta, g);
                     
                     % TRAPEZ-ADISE
                     xdot_trap = (xdot_new + xdot_prev)/2; %average dynamic term

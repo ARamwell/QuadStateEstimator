@@ -47,7 +47,7 @@ classdef EKF_3dQuad_10el_funcs
         %----------- STEP 1: DYNAMICS UPDATE -------------
         
             %Predict new state (a priori) and get prev jacobian 
-            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_10el_funcs.dyn_update_trap(g, x_k, u_k, t_delta, Rt_imu2rq, reset);
+            [x_new_hat, F_k, L_k, processTerm_k] = EKF_3dQuad_10el_funcs.dyn_update_rect(g, x_k, u_k, t_delta, Rt_imu2rq, reset);
 
             %enforce quaternion continuity
             if dot(x_new_hat(4:7), x_k(4:7)) < 0
