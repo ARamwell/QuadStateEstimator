@@ -13,7 +13,7 @@
 %rawdata = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
 
 %from MATLAB
-imu_calibData = load('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\imuReadings_static_74000.mat')
+imu_calibData = load('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\imuReadings_static_74000.mat');
 rawdata = imu_calibData.imuMsgLog;
 rawAccelData = imu_calibData.imuMsgLog(:, 4:6);
 
