@@ -40,3 +40,8 @@ codegen/
 
 # Cloud based storage dotfile
 .MATLABDriveTag
+Resources/
+Sandbox/CamImgs/
+Sandbox/Jetson/
+Testers/imuCalib/
+Tests/

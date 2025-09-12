@@ -7,7 +7,7 @@
     fileName = '/imuReadings';
 
     %% ROS2 INITIALISATIONS
-    imuNode = ros2node("ekf_node", 1);
+    imuNode = ros2node("ekf_node", 0);
     
     % create subscriber
     %imuSub = ros2subscriber(ekfNode, '/fmu/out/sensor_combined', @imuReceiveCallback, Reliability="besteffort");
@@ -32,4 +32,4 @@
     end
   
     %saveFile = fullfile('.', '/Tests/RobMech/dynamic/imuReadings_ellipsoid');
-    save(strcat(saveFolder, fileName), 'timestamps_imu', 'imuMsgLog');
+    %save(strcat(saveFolder, fileName), 'timestamps_imu', 'imuMsgLog');

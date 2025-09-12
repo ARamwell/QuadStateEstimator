@@ -10,7 +10,7 @@ classdef p3pFuncs
             %and v is the "y" coordinate (vertical, down is positive); the origin of
             %the image is the top left corner. 
 
-            x_pnt_c_unit = zeros(3,1);
+            x_pnt_c_unit = createArray(3, size(x_pnt_i, 2));
         
             for j=1:size(x_pnt_i, 2)
                 x_pnt_i_aug = [x_pnt_i(:,j); 1];     %Augment vector to homogenise
@@ -132,63 +132,63 @@ classdef p3pFuncs
     
         %------------------------------------------------------------%
 
-        function [bestRt, minErr] = chooseRtWithMinReprojErrorWC(K, Rt_arr, x_pnt_i, X_pnt_W)
+        function [bestT, minErr] = chooseTWithMinReprojErrorWC(K, T_arr, x_pnt_i, X_pnt_W)
 
             %Initialise variables
             minErr = 10000000;%Arbitrarily large
-            bestRt = Rt_arr(:,:,1);
+            bestT = T_arr(:,:,1);
         
             %For each Rt in the array
-            for j=1:size(Rt_arr, 3)
+            for j=1:size(T_arr, 3)
 
-                Rt = Rt_arr(:,:,j);
+                Rt = T_arr(1:3,1:4,j);
 
                 err_j = p3pFuncs.calcReprojErrorWC(K, x_pnt_i, X_pnt_W, Rt);
 
                 %If new Rt has lower reproj error, choose it
                 if err_j < minErr
                     minErr = err_j;
-                    bestRt = Rt;
+                    bestT = T_arr(:,:,j);
                 end
             end
         end
 
         %------------------------------------------------------------%
 
-        function [bestRt, minErr] = chooseRtWithMinReprojErrorCW(K, Rt_arr, x_pnt_i, X_pnt_W)
+        function [bestT, minErr] = chooseTWithMinReprojErrorCW(K, T_arr, x_pnt_i, X_pnt_W)
 
             %Initialise variables
             minErr = 10000;%Arbitrarily large
-            bestRt = Rt_arr(:,:,1);
+            bestT = T_arr(:,:,1);
         
             %For each Rt in the array
-            for j=1:size(Rt_arr, 3)
+            for j=1:size(T_arr, 3)
 
-                Rt = Rt_arr(:,:,j);
+                Rt = T_arr(1:3,1:4,j);
 
                 err_j = p3pFuncs.calcReprojErrorCW(K, x_pnt_i, X_pnt_W, Rt);
 
                 %If new Rt has lower reproj error, choose it
                 if err_j < minErr
                     minErr = err_j;
-                    bestRt = Rt;
+                    bestT = T_arr(:,:,j);
                 end
             end
         end
 
         %------------------------------------------------------------%
 
-        function [bestRt, mostInliers] = chooseRtWithMostInliersWC(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W)
+        function [bestT, mostInliers] = chooseTWithMostInliersWC(K, T_arr, inlierThreshold, x_pnts_i, X_pnts_W)
 
             %Initialise variables
-            bestRt = Rt_arr(:,:,1);
+            bestT = T_arr(:,:,1);
             mostInliers = 0;
             
 
             %For each Rt in the array
-            for j=1:size(Rt_arr, 3)
+            for j=1:size(T_arr, 3)
 
-                Rt_j = Rt_arr(:,:,j);
+                Rt_j = T_arr(1:3,1:4,j);
                 numInliers_j = 0;
 
                 %Calculate reproj error for each set of points
@@ -209,7 +209,7 @@ classdef p3pFuncs
                 %check if this Rt is better than the last best
                 if numInliers_j > mostInliers
                     mostInliers = numInliers_j;
-                    bestRt = Rt_j;
+                    bestT = T_arr(:,:,j);
                 end
             end
         end
@@ -253,15 +253,16 @@ classdef p3pFuncs
         end
         %------------------------------------------------------------%
         
-        function Rt_inv = invertRt(Rt)
+        function T_inv = invertT(T)
 
-            R = Rt(1:3, 1:3);
-            t = Rt(1:3, 4);
+            R = T(1:3, 1:3);
+            t = T(1:3, 4);
 
             R_inv = transpose(R);
             t_inv = -1 * R_inv * t;
 
             Rt_inv = [R_inv t_inv];
+            T_inv = [Rt_inv; 0 0 0 1];
         end
 
         %------------------------------------------------------------%

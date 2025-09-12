@@ -47,7 +47,7 @@ function roots = solveQuartic( factors )
     
     P = -alpha_pw2/12-gamma;
     Q = -alpha_pw3/108+alpha*gamma/3-beta^2/8;
-    R = -Q/2+sqrt(Q^2/4+P^3/27);
+    R = -Q/2+sqrt(complex(Q^2/4+P^3/27)); %edited for codegen
     U = R^(1/3);
     
     if U == 0
@@ -58,9 +58,12 @@ function roots = solveQuartic( factors )
     
     w = sqrt(alpha+2*y);
     
-    roots(1,1) = -B/(4*A) + 0.5*(w+sqrt(-(3*alpha+2*y+2*beta/w)));
-    roots(2,1) = -B/(4*A) + 0.5*(w-sqrt(-(3*alpha+2*y+2*beta/w)));
-    roots(3,1) = -B/(4*A) + 0.5*(-w+sqrt(-(3*alpha+2*y-2*beta/w)));
-    roots(4,1) = -B/(4*A) + 0.5*(-w-sqrt(-(3*alpha+2*y-2*beta/w)));
+    roots = createArray(4,1); %added for codegen
+    roots(1,1) = real(-B/(4*A) + 0.5*(w+sqrt(-(3*alpha+2*y+2*beta/w)))); %edited to filter out complex
+    roots(2,1) = real(-B/(4*A) + 0.5*(w-sqrt(-(3*alpha+2*y+2*beta/w)))); %edited to filter out complex
+    roots(3,1) = real(-B/(4*A) + 0.5*(-w+sqrt(-(3*alpha+2*y-2*beta/w)))); %edited to filter out complex
+    roots(4,1) = real(-B/(4*A) + 0.5*(-w-sqrt(-(3*alpha+2*y-2*beta/w)))); %edited to filter out complex
+
+
     
 end
