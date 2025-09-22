@@ -7,18 +7,18 @@
             simData = load(fullFile);
            
             %% Initialise variables
-            numImuReadPoints = size(simData.out.IMU.signals.values, 3);
+            numImuReadPoints = size(simData.out.IMU.signals.values, 1);
             imu_readHist =zeros(6, numImuReadPoints);
             imu_timeHist = createArray(1, numImuReadPoints, 'datetime');
-            imu_timeHist = datetime(imu_timeHist, 'Format', 'yyyyMMdd_HHmmss_SSS');
+            imu_timeHist = datetime(imu_timeHist, 'Format', 'yyyyMMdd_HHmmss_SSSSSS');
                                          
             %% Import IMU readings
             for i=1:numImuReadPoints
                 % Import imu log
-                imuState = simData.out.IMU.signals.values(:,:,i);
-                imuState_time = simData.out.IMU.time(i,1);
+                imuState = simData.out.IMU.signals.values(i, :);
+                imuState_time = simData.out.IMU.time(i, 1);
                 %build history
-                imu_timeHist(1,i)= datetime(refTime+seconds(imuState_time), 'Format', 'yyyyMMdd_HHmmss_SSS');
+                imu_timeHist(1,i)= datetime(refTime+seconds(imuState_time), 'Format', 'yyyyMMdd_HHmmss_SSSSSS');
                 imu_readHist(1:end, i)=transpose(imuState); 
 
             end

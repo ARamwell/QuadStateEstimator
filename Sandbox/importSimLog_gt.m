@@ -8,7 +8,7 @@
             
             %% Initialise variables
             %Get data sizes
-            numQuadLogPoints = size((simData.out.quadState.signals.values), 3);
+            numQuadLogPoints = size((simData.out.quadState.signals.values), 1);
             quadStateDimensions = size((simData.out.quadState.signals.values), 2);
             %create arrays
             rtHist = zeros(3,4,numQuadLogPoints);%-1 to skip t0
@@ -23,11 +23,11 @@
                 quadStateHist_times(1,(i)) = datetime(refTime+seconds(state_time), 'Format', 'yyyyMMdd_HHmmss_SSS');
 
                 % Import position log
-                trans_quad = transpose(simData.out.quadState.signals.values(1,1:3,i)); %in m
+                trans_quad = transpose(simData.out.quadState.signals.values(i,1:3)); %in m
              
                 %If in quaternions (new implementation)
                 %import orientation log
-                q = simData.out.quadState.signals.values(1, 4:7, i);
+                q = simData.out.quadState.signals.values(i, 4:7);
                 j = 8;
                 orient = transpose(q);
 
@@ -35,14 +35,14 @@
                 R_quad =(quat2rotm(q));
 
                 % Import velocity log
-                x_dot = simData.out.quadState.signals.values(1,j,i);
-                y_dot = simData.out.quadState.signals.values(1,j+1,i);
-                z_dot = simData.out.quadState.signals.values(1,j+2,i);
+                x_dot = simData.out.quadState.signals.values(i,j);
+                y_dot = simData.out.quadState.signals.values(i,j+1);
+                z_dot = simData.out.quadState.signals.values(i,j+2);
 
                 % Import bias log
                 j=11;
-                b_a = simData.out.quadState.signals.values(1,j:j+2,i);
-                b_g = simData.out.quadState.signals.values(1,j+3:j+5,i);
+                b_a = simData.out.quadState.signals.values(i,j:j+2);
+                b_g = simData.out.quadState.signals.values(i,j+3:j+5);
                 
                 %Buld ground truth Rt history
                 rtHist(1:3,1:3,i) = R_quad;
