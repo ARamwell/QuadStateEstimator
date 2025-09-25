@@ -9,7 +9,7 @@ classdef april < worldObject
     end
     
     methods
-        function obj = april(edgeLength, tagNum, position, orientation, identifier, parentFile)
+        function obj = april(edgeLength, tagNum, position, orientation, identifier, parentFile, T_W2S)
             %CHECKERBOARD Construct an instance of this class 
             %   Detailed explanation goes here
 
@@ -30,7 +30,7 @@ classdef april < worldObject
             T_B2W = worldObject.calcTransformB2W(orientation, position);
 
              %Get transformatiion for Actor in Sim
-            Rt_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B);
+            Rt_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B, T_W2S);
 
             % %Calculate external dimensions
             dim = [edgeLength, edgeLength, 0.001];

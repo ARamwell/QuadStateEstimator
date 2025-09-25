@@ -10,7 +10,7 @@ classdef checker < worldObject
     end
     
     methods
-        function obj = checker(checkerSize, squareSize, position, orientation, identifier, parentFile)
+        function obj = checker(checkerSize, squareSize, position, orientation, identifier, parentFile, T_W2S)
             %CHECKERBOARD Construct an instance of this class 
             %   Detailed explanation goes here
 
@@ -35,6 +35,7 @@ classdef checker < worldObject
 
             %Calculate transformation from Body to World
             T_B2W = worldObject.calcTransformB2W(orientation, position);
+            
 
             
             % %Create superclass instance
@@ -47,7 +48,7 @@ classdef checker < worldObject
             obj.SquareSize = squareSize;
 
             %Get transformatiion for Actor in Sim
-            T_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B);
+            T_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B, T_W2S);
 
             orient_S_rad = (rotm2eul(T_A2S(1:3, 1:3), 'XYZ'));
             pos_S = transpose(T_A2S(1:3, 4));

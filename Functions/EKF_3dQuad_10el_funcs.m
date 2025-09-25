@@ -411,47 +411,47 @@ classdef EKF_3dQuad_10el_funcs
                     w_k = zeros(6,1); %process noise assumed to be zero-mean gaussian
                            
             %% USE PRECALCULATED MATRICES
-                    [x_next_hat, F_k, L_k, proTerm_k] = EKF_3dQuad_10el_funcs.initProcessModelMatrices_rect(x_k, u_k, w_k,t_delta, g);
+            %        [x_next_hat, F_k, L_k, proTerm_k] = EKF_3dQuad_10el_funcs.initProcessModelMatrices_rect(x_k, u_k, w_k,t_delta, g);
 
              %% DERIVE PROCESS MODEL AT START
             % 
-            %     if reset == 1
-            %         clear persistent;
-            %     end
-            % 
-            %     %Extract variables to match symbolic toolbox output
-            %     numerics = [x_k; u_k; w_k; t_delta; g];
-            % 
-            %     % Persistent variables
-            %     persistent F_star;
-            %     persistent L_star;
-            %     persistent processDE;
-            %     persistent xdot_star;
-            %     persistent xdot_num;
-            %     persistent x_prev;
-            %     persistent u_prev;
-            %     persistent symbols;
-            % 
-            %     if isempty(processDE) %if first iteration
-            %         % Calculate model
-            %         [processDE, F_star, L_star, xdot_star, R_star, symbols] = EKF_3dQuad_10el_funcs.calcProcessModel(g, Rt_imu2rq);
-            %     end
-            % 
-            %     %Use rectangular integration (no previous measurements
-            %     %to average)
-            %     xdot_num = (double(subs(xdot_star, symbols, numerics)));
-            %     x_next_hat = x_k + t_delta * xdot_num;
-            %     u_prev = u_k;
-            %     x_prev = x_k;
-            %     proTerm_k =  xdot_num;
-            % 
-            %     % process covariance
-            %     F_k = double(subs(F_star, symbols, numerics));
-            % 
-            %     %And L, the input noise covariance: will be used to transform
-            %     %covariance in the noise space into the state space. Also
-            %     %called the "noise influence matrix"
-            %     L_k = double(subs(L_star, symbols, numerics));
+                if reset == 1
+                    clear persistent;
+                end
+
+                %Extract variables to match symbolic toolbox output
+                numerics = [x_k; u_k; w_k; t_delta; g];
+
+                % Persistent variables
+                persistent F_star;
+                persistent L_star;
+                persistent processDE;
+                persistent xdot_star;
+                persistent xdot_num;
+                persistent x_prev;
+                persistent u_prev;
+                persistent symbols;
+
+                if isempty(processDE) %if first iteration
+                    % Calculate model
+                    [processDE, F_star, L_star, xdot_star, R_star, symbols] = EKF_3dQuad_10el_funcs.calcProcessModel(g, Rt_imu2rq);
+                end
+
+                %Use rectangular integration (no previous measurements
+                %to average)
+                xdot_num = (double(subs(xdot_star, symbols, numerics)));
+                x_next_hat = x_k + t_delta * xdot_num;
+                u_prev = u_k;
+                x_prev = x_k;
+                proTerm_k =  xdot_num;
+
+                % process covariance
+                F_k = double(subs(F_star, symbols, numerics));
+
+                %And L, the input noise covariance: will be used to transform
+                %covariance in the noise space into the state space. Also
+                %called the "noise influence matrix"
+                L_k = double(subs(L_star, symbols, numerics));
 
             %% Check quaternion term
             %Enforce Smallest angle change

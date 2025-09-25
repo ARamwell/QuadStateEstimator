@@ -10,7 +10,7 @@ classdef stage < worldObject
     end
     
     methods
-        function obj = stage(position, orientation, dimensions, identifier, colour)
+        function obj = stage(position, orientation, dimensions, identifier, colour, T_W2S)
             %CHECKERBOARD Construct an instance of this class 
             %   Detailed explanation goes here
 
@@ -22,7 +22,7 @@ classdef stage < worldObject
             T_B2W = worldObject.calcTransformB2W(orientation, position);
 
             %Get transformatiion for Actor in Sim
-            T_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B);
+            T_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B, T_W2S);
 
             orient_S_rad = (rotm2eul(T_A2S(1:3, 1:3), 'XYZ'));
             pos_S = transpose(T_A2S(1:3, 4));

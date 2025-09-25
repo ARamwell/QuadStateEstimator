@@ -23,16 +23,17 @@ classdef worldObject
         end
     end
     methods (Static)
-        function Rt_A2S = calcTransformA2S(Rt_B2W, Rt_A2B)
+        function T_A2S = calcTransformA2S(T_B2W, T_A2B, T_S2W)
 
-            T_sim2world= [1 0  0 0; 
-                          0 -1 0 0; 
-                          0 0  1 0;
-                          0 0  0 1];
-            T_W2S = [1 0  0
-                     0 -1 0
-                     0 0
-                     0 0]
+            %T_sim2world= [1 0  0 0; 
+            %              0 1 0 0; 
+            %              0 0 -1 0;
+            %              0 0  0 1];
+            T_sim2world = T_S2W;
+            T_W2S = [1 0  0 0;
+                     0 1 0 0;
+                     0 0 -1 0;
+                     0 0  0 1];
 
             % %Define transformation between world and simulation. basically,
             % %just making it right-handed.
@@ -44,19 +45,19 @@ classdef worldObject
             % Rt_W2S = [R_W2S t_W2S];
             % Rt_W2S_h =[Rt_W2S; h];
 
-            Rt_B2W_h = [Rt_B2W; h];
-            Rt_A2B_h = [Rt_A2B; h];
+            %T_B2W = [Rt_B2W; h];
+            %T_A2B = [Rt_A2B; h];
 
             %Get Rt_A2S
-            Rt_A2S_h = Rt_W2S_h * Rt_B2W_h * Rt_A2B_h;
-            Rt_A2S = Rt_A2S_h(1:3, 1:4);
+            T_A2S = T_W2S * T_B2W * T_A2B;
+            %T_A2S = T_A2S(1:3, 1:4);
 
         end    
 
-        function Rt_B2W = calcTransformB2W(orientation, position)
+        function T_B2W = calcTransformB2W(orientation, position)
             R_B2W = eul2rotm(deg2rad(orientation), 'XYZ'); %Convert euler angles to rotation matrix
             t_B2W = transpose(position);
-            Rt_B2W = [R_B2W t_B2W];
+            T_B2W = [R_B2W t_B2W; 0 0 0 1];
         end
         % function outputArg = method1(obj,inputArg)
         %     %METHOD1 Summary of this method goes here

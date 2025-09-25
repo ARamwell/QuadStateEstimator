@@ -9,14 +9,16 @@ simset.mocapTraj = true;
 simset.imuHz = 8000;
 simset.simHz = 8000;
 simset.fps = 10;
-simset.ekfHz = 8000;
+simset.ekfHz = 125;
+simset.pos0 = [0 0 0]';
+simset.eul0 = [0 0 0]';
 
 %folders
 parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\'; %all traj
 parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\pitchforward_low1'; %single traj
 
 %% GENERAL PARAMS
-g = [0 0 9.81];
+g = [0; 0; 9.81];
 map = load('./Resources/map.mat');
 
 %% SET IMU PARAMETERS
@@ -108,7 +110,23 @@ for k=1:numberOfSubFolders
     %set_param('QuadSimEnv/SimulinkEnv.slx', 'StopTime', simDur)
     %out = sim('QuadSimEnv/SimulinkEnv.slx', 'StopTime', string(simDur));
 
+    %% CONDITION DATA
     [ekfResult_cust, p3pData_cust, groundTruth] = processSimData(out);
+    %get EKF time-aligned ground truth
+    indices = selectClosestTimeIndices(ekfResult_cust.time, groundTruth.quad.time);
+    groundTruth.quad.time_estAligned = groundTruth.quad.time(:,indices);
+    groundTruth.quad.state_estAligned =  groundTruth.quad.state(:,indices);
+
+    %get measurement time-aligned ground truth
+    aid_indices = ~isnan(ekfResult_cust.z(1, :));
+    indices = selectClosestTimeIndices(ekfResult_cust.time(:,aid_indices), groundTruth.quad.time);
+    groundTruth.quad.time_aidAligned = groundTruth.quad.time(:,indices);
+    groundTruth.quad.state_aidAligned =  groundTruth.quad.state(:,indices);
+    if isempty(groundTruth.quad.state_aidAligned)
+        aiding = false;
+    else
+        aiding = true;
+    end
 
     %% TELL USER TO SAVE PX4 LOGS
     if simset.SITL == true
@@ -140,31 +158,133 @@ for k=1:numberOfSubFolders
         ulog = ulogreader(strcat(px4LogFiles_newest.folder, '\', px4LogFiles_newest.name));
 
         %extract useful data- build ekfResult
-        ekfResult_px4 = processPx4Data(ulog);
+        ekfResult_px4 = processPx4Data(ulog, aiding);
+
+        %and condition it
+        %get EKF time-aligned ground truth
+        indices = selectClosestTimeIndices(ekfResult_px4.time, groundTruth.quad.time);
+        groundTruth.quad.time_px4Aligned = groundTruth.quad.time(:,indices);
+        groundTruth.quad.state_px4Aligned =  groundTruth.quad.state(:,indices);
+    
+        %get measurement time-aligned ground truth
+        aid_indices_px4 = ~isnan(ekfResult_px4.z(1, :));
+        indices = selectClosestTimeIndices(ekfResult_px4.time(:,aid_indices_px4), groundTruth.quad.time);
+        groundTruth.quad.time_aidAligned_px4 = groundTruth.quad.time(:,indices);
+        groundTruth.quad.state_aidAligned_px4 =  groundTruth.quad.state(:,indices);
 
     end    
 
     %% PROCESS RESULTS??
-    % What should I plot and save? Where should I save it
+    % What should I plot and save? Where should I save it?
 
-    %get time-aligned ground truth
-    indices = selectClosestTimeIndices(ekfResult_cust.time, groundTruth.quad.time);
-    groundTruth.quad.time_estAligned = groundTruth.quad.time(:,indices);
-    groundTruth.quad.state_estAligned =  groundTruth.quad.state(:,indices);
-
+    % GET METRICS FOR CUSTOM EKF
     %run trajectory error
     trajErr_cust = evaluateTracking(ekfResult_cust.x_, groundTruth.quad.state_estAligned);
-    figure
-    ax = plot(trajErr_cust, "absolute-translation");
-    view(ax, [2.70 -49.20]);
+    
+    %run nees on a priori state
+    %nees_cust_apriori = evalNEES(ekfResult_cust.xHat(1:3, :), ekfResult_cust.PHat(1:3, 1:3, :), groundTruth.quad.state_estAligned(1:3,:));
+    nees_cust_apriori = evalNEES_noq(ekfResult_cust.xHat, ekfResult_cust.PHat, groundTruth.quad.state_estAligned);
+    mean(nees_cust_apriori);
+    
+    %run nees on a posteriori state
+    if aiding == true
+        nees_cust_apost = evalNEES(ekfResult_cust.x_(:, aid_indices), ekfResult_cust.P(:,:,aid_indices), groundTruth.quad.state_aidAligned);
+        mean(nees_cust_apost);
+    else
+        nees_cust_apost = nan(1,1);
+    end
+        % %run nees on a posteriori state
+    % %groundTruth.quad
+    % nees_cust_apost = evalNEES(ekfResult_cust.x_(:, aid_indices), ekfResult_cust.P_(:,:,aid_indices), groundTruth.quad.state_aidAligned);
+    % mean(nees_cust_apost);
+    % alpha = 0.05; %confidence
+    % ekfSize = size(ekfResult_cust.x_, 1);
+    % numMonteCarlo = 1;
+    % chiSquareLimits = [chi2inv(alpha/2, numMonteCarlo*ekfSize), chi2inv(1-alpha/2, numMonteCarlo*ekfSize)]/numMonteCarlo;
+    % figure;
+    % neesAx_cust_apost = plot(ekfResult_cust.elapsedTime(:,aid_indices), nees_cust_apost);
+    % chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
+    % chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
+    % xlabel(neesAx_cust_apost, 'Elapsed time (s)');
+    % ylabel(neesAx_cust_apost, 'NEES');
+    % title(neesAx_cust_apost, 'NEES of a posteriori state estimate, custom EKF')
 
+    %run NIS
+    if aiding == true
+        nis_cust = evalNIS(ekfResult_cust.y(:,aid_indices), ekfResult_cust.S(:,:,aid_indices));
+        nis_cust_mean = mean(nis_cust);
+    end
 
-    %run nees
-    nees_cust_ = evalNEES(ekfResult_cust.x_, ekfResult_cust.P, groundTruth.quad.state_estAligned);
-    mean(meas_cust_);
+       
+    % DO PLOTTING
+    figObj = figure();
+    tileLayout = tiledlayout(figObj, 2,2);
 
+    %Plot traj err
+    %trajFig_trans = figure;
+    nexttile;
+    trajAx_trans = plotATE(figObj, trajErr_cust, 'custom EKF');
+    nexttile;
+    trajAx_rot = plotARE(figObj, trajErr_cust, 'custom EKF');
 
-    %trajErr = evaluateTracking()
+    % trajAx = plot(trajFig, trajErr_cust, "absolute-translation");
+    % set(trajAx, 'Ydir', 'reverse');
+    % set(trajAx, 'Zdir', 'reverse');
+    % view(trajAx, [-57 30]);
+
+    %plot NEES
+    %neesFig = figure;
+    nexttile;
+    neesAx_cust_apriori = plotNEES(figObj, ekfResult_cust.elapsedTime, nees_cust_apriori, size(ekfResult_cust.xHat, 1), 1, 'a priori state estimate, custom EKF'); 
+    hold on;
+    if aiding == true
+        neesAx_cust_apost = plotNEES(figObj, ekfResult_cust.elapsedTime(:,aid_indices), nees_cust_apost, size(ekfResult_cust.x_, 1), 1, 'a posteriori state estimate, custom EKF');
+    end
+    hold off
+
+    % Plot NIS
+    %nisFig = figure;
+    if aiding == true
+        nexttile;
+        nisAx = plotNIS(figObj, ekfResult_cust.elapsedTime(:,aid_indices), nis_cust, size(ekfResult_cust.y, 1), 1);
+    end
+    % alpha = 0.05; %confidence
+    % measSize = size(ekfResult_cust.y, 1);
+    % numMonteCarlo = 1;
+    % chiSquareLimits = [chi2inv(alpha/2, numMonteCarlo*measSize), chi2inv(1-alpha/2, numMonteCarlo*measSize)]/numMonteCarlo;
+    % figure;
+    % nisAx_cust = plot(ekfResult_cust.elapsedTime(:,aid_indices), nis_cust);
+    % chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
+    % chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
+    % xlabel(nisAx_cust, 'Elapsed time (s)');
+    % ylabel(nisAx_cust, 'NIS');
+    % title(nisAx_cust, 'NIS, custom EKF')
+
+   
+    if simset.SITL == true
+        % GET METRICS FOR PX4 EKF
+        %run trajectory error
+        trajErr_px4 = evaluateTracking(ekfResult_px4.x_, groundTruth.quad.state_px4Aligned);
+        
+        %run nees on a priori state
+        nees_px4_apriori = evalNEES(ekfResult_px4.xHat, ekfResult_px4.PHat, groundTruth.quad.state_px4Aligned);
+        mean(nees_px4_apriori);
+        
+        %run nees on a posteriori state
+        if aiding == true
+            nees_px4_apost = evalNEES(ekfResult_px4.x_(:, aid_indices), ekfResult_px4.P(:,:,aid_indices), groundTruth.quad.state_aidAligned_px4);
+            mean(nees_px4_apost);
+        else
+            nees_px4_apost = nan(1,1);
+        end
+
+        %AND PLOT
+        nexttile(1);
+        hold on;
+        trajAx_trans = plotATE(figObj, trajErr_px4, 'custom EKF');
+        
+    end
+
 
     %% SAVE RESULTS
 
@@ -228,7 +348,6 @@ for k=1:numberOfSubFolders
  end
 
 
-
 function trajErr = evaluateTracking(estStateHist, trueStateHist)
     %estStateHist and trueStateHist as column vector [p; q]
 
@@ -252,14 +371,29 @@ end
 
 function [nees] = evalNEES(estStateHist, estCov, trueStateHist)
 %will need groundtruth to be time-aligned in advance
-
-    numUpdates = size(estStateHist, 2);
+    
+    [ekfStates, numUpdates] = size(estStateHist);
     %calculate NEES
     for t=1:numUpdates
-        x_err =  trueStateHist(:,t) - estStateHist(:,t);
-        nees(t) = x_err' * inv(estCov(:,:,t)) * x_err;
+        x_err =  trueStateHist(1:ekfStates,t) - estStateHist(:,t);
+        nees(t) = x_err' * (estCov(:,:,t) \ x_err);
     end
-    nees_av = mean(nees);
+
+end
+
+function [nees] = evalNEES_noq(estStateHist, estCov, trueStateHist)
+%will need groundtruth to be time-aligned in advance
+    
+    [ekfStates, numUpdates] = size(estStateHist);
+    %calculate NEES
+    for t=1:numUpdates
+        x_err =  trueStateHist(1:ekfStates,t) - estStateHist(:,t);
+        x_err(4,:) = [];
+        effCov = estCov(:,:,t);
+        effCov(4,:) = [];
+        effCov(:,4) = [];
+        nees(t) = x_err' * (effCov \ x_err);
+    end
 
 end
 
@@ -270,17 +404,14 @@ function [nis] = evalNIS(meas_resid, meas_cov)
     %calculate NIS 
     for t=1:numUpdates
         %will nans be a problem?
-        nis(t) = meas_resid(:,t)' * inv(meas_cov(:,:,t)) * meas_resid(:,t);
+        nis(t) = meas_resid(:,t)' * (meas_cov(:,:,t) \ meas_resid(:,t));
     end
-    nis_av = mean(nis);
-
+    
 end
 
-function [ekfResult] = processPx4Data(ulog)
+function [ekfResult] = processPx4Data(ulog, aidingActive)
 
     msg_estStates = readTopicMsgs(ulog, 'TopicNames', 'estimator_states');
-    msg_aidpos = readTopicMsgs(ulog, 'TopicNames', 'estimator_aid_src_ev_pos');
-    msg_aidhgt = readTopicMsgs(ulog, 'TopicNames', 'estimator_aid_src_ev_hgt');
     msg_sense = readTopicMsgs(ulog, 'TopicNames', 'sensor_combined');
 
     ekfResult.time = msg_estStates.TopicMessages{1,1}.timestamp_sample';
@@ -304,23 +435,31 @@ function [ekfResult] = processPx4Data(ulog)
 
 
     % measurements
-    %ekfResult.statePred = out.ekf_xHat.signals.values'; can't get this
-    %ekfResult.measPred = out.ekf_zHat.signals.values'; %measurements map
-    %directly
-    xy = msg_aidpos.TopicMessages{1,1}.observation';
-    z = msg_aidhgt.TopicMessages{1,1}.observation';
-    %yaw?
-    ekfResult.z =  [xy; z];
-
-    %innovations
-    S_xy = msg_aidpos.TopicMessages{1,1}.innovation_variance';
-    S_z = msg_aidhgt.TopicMessages{1,1}.innovation_variance';
-    for t = 1: size(S_z, 2)
-        ekfResult.S(:, :, t) = diag([S_xy(:,t); S_z(:,t)]');
+    if aidingActive == true
+        msg_aidpos = readTopicMsgs(ulog, 'TopicNames', 'estimator_aid_src_ev_pos');
+        msg_aidhgt = readTopicMsgs(ulog, 'TopicNames', 'estimator_aid_src_ev_hgt');
+        %ekfResult.statePred = out.ekf_xHat.signals.values'; can't get this
+        %ekfResult.measPred = out.ekf_zHat.signals.values'; %measurements map
+        %directly
+        xy = msg_aidpos.TopicMessages{1,1}.observation';
+        z = msg_aidhgt.TopicMessages{1,1}.observation';
+        %yaw?
+        ekfResult.z =  [xy; z];
+    
+        %innovations
+        S_xy = msg_aidpos.TopicMessages{1,1}.innovation_variance';
+        S_z = msg_aidhgt.TopicMessages{1,1}.innovation_variance';
+        for t = 1: size(S_z, 2)
+            ekfResult.S(:, :, t) = diag([S_xy(:,t); S_z(:,t)]');
+        end
+        y_xy = msg_aidpos.TopicMessages{1,1}.innovation_variance';
+        y_z= msg_aidhgt.TopicMessages{1,1}.innovation_variance';
+        ekfResult.y = [y_xy; y_z];
+    else
+        ekfResult.z = nan(3, size(ekfResult.x_, 2));
+        ekfResult.y = nan(3, size(ekfResult.x_, 2));
+        ekfResult.S = nan(3, 3, size(ekfResult.x_, 2));
     end
-    y_xy = msg_aidpos.TopicMessages{1,1}.innovation_variance';
-    y_z= msg_aidhgt.TopicMessages{1,1}.innovation_variance';
-    ekfResult.y = [y_xy; y_z];
 
     %sensor readings
     ekfResult.u = [msg_sense.TopicMessages{1,1}.gyro_rad'; msg_sense.TopicMessages{1,1}.accelerometer_m_s2'];
@@ -329,11 +468,93 @@ function [ekfResult] = processPx4Data(ulog)
 
     %ekfResult.zIn;
 
- end
+end
+
+function compareEKFMetrics(ekfResult)
+
+end
 
 
+function [axObj] = plotNEES(figObj, x, nees, stateSize, numMonteCarloRuns, title)
+    
+    figure(figObj);
+    %axObj = axes('Parent', figObj);
+    alpha = 0.05; %confidence
+    chiSquareLimits = [chi2inv(alpha/2, numMonteCarloRuns*stateSize), chi2inv(1-alpha/2, numMonteCarloRuns*stateSize)]/numMonteCarloRuns;
+    
+    axObj = plot(x, nees, 'DisplayName', title);
+    xlabel('Elapsed time (s)');
+    ylabel('NEES');
+    ylim([0, round(chiSquareLimits(2) * 1.5)])
+    
+    chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
+    chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
 
+end
 
+function [axObj] = plotNIS(figObj, x, nis, stateSize, numMonteCarloRuns, title)
+    
+    %axObj = axes('Parent', figObj);
+    figure(figObj);
+    alpha = 0.05; %confidence
+    chiSquareLimits = [chi2inv(alpha/2, numMonteCarloRuns*stateSize), chi2inv(1-alpha/2, numMonteCarloRuns*stateSize)]/numMonteCarloRuns;
+    
+    axObj = plot(x, nees, 'DisplayName', title);
+    xlabel('Elapsed time (s)');
+    ylabel('NIS')
+    ylim([0, round(chiSquareLimits(2) * 1.5)])
+    
+    chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
+    chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
+
+end
+
+function [ateAx] = plotATE(figObj, trajErrMetrics, qualifier)
+    
+    figure(figObj); %make current figure
+    ateAx = plot(trajErrMetrics, "absolute-translation");
+    set(ateAx, 'Ydir', 'reverse');
+    set(ateAx, 'Zdir', 'reverse');
+    view(ateAx, [-57 30]);
+    %title(strcat('Absolute Translation Error - ', qualifier));
+
+end
+
+function [areAx] = plotARE(figObj, trajErrMetrics, qualifier)
+    
+    figure(figObj);
+    areAx = plot(trajErrMetrics, "absolute-rotation");
+    set(areAx, 'Ydir', 'reverse');
+    set(areAx, 'Zdir', 'reverse');
+    view(areAx, [-57 30]);
+    %title(strcat('Absolute Rotation Error - ', qualifier));
+
+end
+
+function [rpeAx] = plotRPE(figObj, trajErrMetrics, qualifier)
+    
+    figure(figObj);
+    rpeAx = plot(trajErrMetrics, "absolute-translation");
+    set(rpeAx, 'Ydir', 'reverse');
+    set(rpeAx, 'Zdir', 'reverse');
+    view(rpeAx, [-57 30]);
+    %title(strcat('Relative Pose Error - ', qualifier));
+
+end
+
+function plotInv(matArray)
+
+    invArray = createArray(1, size(matArray, 3));
+    
+    for i=1:size(matArray, 3)
+        invArray(1,i) = inv(matArray(:,:,i));
+    end
+    
+    figure;
+    plot(invArray);
+    
+
+end
 
 
 

@@ -23,16 +23,17 @@ classdef worldObject
         end
     end
     methods (Static)
-        function T_A2S = calcTransformA2S(T_B2W, T_A2B)
+        function T_A2S = calcTransformA2S(T_B2W, T_A2B, T_W2S)
 
-            T_sim2world= [1 0  0 0; 
-                          0 1 0 0; 
-                          0 0 -1 0;
-                          0 0  0 1];
-            T_W2S = [1 0  0 0;
-                     0 1 0 0;
-                     0 0 -1 0;
-                     0 0  0 1];
+            %T_sim2world= [1 0  0 0; 
+            %              0 1 0 0; 
+            %              0 0 -1 0;
+            %              0 0  0 1];
+            
+            %T_W2S = [1 0  0 0;
+            %         0 1 0 0;
+            %         0 0 -1 0;
+            %         0 0  0 1];
 
             % %Define transformation between world and simulation. basically,
             % %just making it right-handed.
@@ -58,6 +59,16 @@ classdef worldObject
             t_B2W = transpose(position);
             T_B2W = [R_B2W t_B2W; 0 0 0 1];
         end
+        
+        function T_b2a = invHomog(T_a2b)
+            
+            R_b2a = (T_a2b(1:3, 1:3))';
+            t_b2a = - R_b2a * T_a2b(1:3, 4);
+            Rt_b2a = [R_b2a t_b2a];
+            T_b2a =  [Rt_b2a; 0 0 0 1];
+
+        end
+        
         % function outputArg = method1(obj,inputArg)
         %     %METHOD1 Summary of this method goes here
         %     %   Detailed explanation goes here

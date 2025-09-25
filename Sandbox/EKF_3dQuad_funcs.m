@@ -59,6 +59,9 @@ classdef EKF_3dQuad_funcs
                        
             %Predict new state covariance (in state space)
             P_new_hat = F_new * P_k * transpose(F_new) + L_new * Q * transpose(L_new);
+
+            %Enforce positive definite-ness
+            P_new_hat = (P_new_hat + P_new_hat')/2;
  
         %*************************************************
         %ONLY RUN CORRECTION IF A NEW MEASUREMENT HAS BEEN DETECTED
@@ -91,6 +94,9 @@ classdef EKF_3dQuad_funcs
                 %Compute predicted measurement covariance S
                 S_new_hat = H_new * P_new_hat * transpose(H_new) + W;
 
+                %Enforce positive definite-ness
+                S_new_hat = (S_new_hat + S_new_hat')/2;
+
         
         %*************************************************
         %------------- STEP 3: STATE UPDATE -------------- 
@@ -104,6 +110,9 @@ classdef EKF_3dQuad_funcs
                 %Update state covariance
                 I = eye(size(H_new,2), size(H_new,2)); %make identity matrix of appropriate size
                 P_new = (I - K_new * H_new) * P_new_hat;
+
+                %Enforce positive definite-ness
+                P_new = (P_new + P_new')/2;
 
             end
 
@@ -263,7 +272,7 @@ classdef EKF_3dQuad_funcs
             lmo_rq2rw = [q(1) -q(2) -q(3) -q(4) %turn q into left matrix operator for easier math
                         q(2) q(1) -q(4) q(3)
                         q(3) q(4) q(1) -q(2)
-                        q(4) -q(3) q(2) q(1)];           
+                        q(4) -q(3) q(2) q(1)];             
             R_rq2rw = [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1)); % Convert q to rotation matrix
                 2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
                 2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
@@ -274,38 +283,29 @@ classdef EKF_3dQuad_funcs
                 p_dot = v;
                 w_Q = R_imu2rq * (u_g_new - bg + w_g); %get current angular accel in quad frame
                 q_u = [0; w_Q]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
-                q_dot = 0.5 * lmo_rq2rw * q_u;
+                
                 v_dot = (R_rq2rw * R_imu2rq * (u_a_new - ba + w_a)) + g;
                 ba_dot = w_ba;
                 bg_dot = w_bg;
-                %or, incremental change
-                % if norm(w_Q) == 0
-                %     dangle = 0;
-                %     w_Q_hat = [0 0 0]';
-                % else
-                    dangle = norm(w_Q) * dt; %get incremental angle change
-                    w_Q_vec = w_Q/norm(w_Q);
-                % end
-               
-                dq = [cos(dangle/2); w_Q_vec*sin(dangle/2)];
-                dq_rmo = [dq'; 
-                          -dq(2) dq(1) -dq(4) dq(3);
-                          -dq(3) dq(4) dq(1) -dq(2);
-                          -dq(4) -dq(3) dq(2) dq(1)];
-            
+                dAngle = norm(w_Q) * dt; %get incremental angle change
+                w_Q_vec = w_Q/norm(w_Q);            
+                dq = [cos(dAngle/2); w_Q_vec*sin(dAngle/2)];
+
                 % define process model  
                 p_new = p + dt * p_dot;
                 v_new = v + dt * v_dot;
                 ba_new = ba + dt * ba_dot;
                 bg_new = bg + dt * bg_dot;
-                q_new = q + dt*q_dot; % linearisation option (legacy)
-                %q_new = q * dq_rmo;
-                %q_new = lmo_rq2rw * dq;
+
+                q_new = lmo_rq2rw * dq;
+                q_new = q_new/norm(q_new);
 
                 symbols_16 = symbols_r16;
                 symbols_10 = symbols_r10;
             
-
+                %q_dot = 0.5 * lmo_rq2rw * q_u;
+                %q_new = q + dt*q_dot; % linearisation option (legacy)
+                %q_new = q * dq_rmo;
             %***** TRAPEZOIDAL *****
             elseif integ == 'trap'
                 %update state in very specific order
@@ -319,20 +319,21 @@ classdef EKF_3dQuad_funcs
                 %quaternion update - use average angular rate, but don't try to average the current pose
                 w_Q_av = R_imu2rq * ( 0.5*(u_g_old + u_g_new) - bg + w_g); %get average angular rate
                 if norm(w_Q_av) == 0
-                    dangle = 0;
+                    dAngle = 0;
                     w_Q_vec = [0 0 0]';
                 else
-                    dangle = norm(w_Q_av) * dt; %get incremental angle change
+                    dAngle = norm(w_Q_av) * dt; %get incremental angle change
                     w_Q_vec = w_Q_av/norm(w_Q_av);
                 end
                 %update attitude quaternion
                 
-                dq = [cos(dangle/2); sin(dangle/2)*w_Q_vec];
+                dq = [cos(dAngle/2); sin(dAngle/2)*w_Q_vec];
                 dq_rmo = [dq'; 
                           -dq(2) dq(1) -dq(4) dq(3);
                           -dq(3) dq(4) dq(1) -dq(2);
                           -dq(4) -dq(3) dq(2) dq(1)];
                 q_new = lmo_rq2rw * dq;
+                q_new = q_new/norm(q_new);
 
                 %velocity update
                 R_rq2rw_new = [1 - 2*(q_new(3)^2 + q_new(4)^2), 2*(q_new(2)*q_new(3) - q_new(4)*q_new(1)), 2*(q_new(2)*q_new(4) + q_new(3)*q_new(1)); % Convert q_new to rotation matrix
@@ -445,17 +446,23 @@ classdef EKF_3dQuad_funcs
 
       %------------------------------------------------------------%
 
-        function [P_0, Q, W] = initEKF_params(dt_av, x_0)
+        function [P_0, Q, W] = initEKF_params(dt_av, x_0, ekfHz)
 
             xSize = size(x_0, 1);
 
-            %Define P_k - State covariance
-            P_ = diag([0.001, 0.001, 0.001, ...
-            0.001, 0.001, 0.001, 0.001, ...
-            0.001, 0.001, 0.001, ...
-            0.2, 0.2, 0.2, ...
-            0.01, 0.01, 0.01]); %Initial, 16 el
-            P_ = diag(ones(1,16)); %Initial, 16 el
+            %Define P_k - Initial State covariance
+             
+            %P_robmech
+            % P_ = diag([0.001, 0.001, 0.001, ...
+            % 0.001, 0.001, 0.001, 0.001, ...
+            % 0.001, 0.001, 0.001, ...
+            % 0.2, 0.2, 0.2, ...
+            % 0.01, 0.01, 0.01]); %Initial, 16 el
+
+            %P_px4 - position, orientation, velocity error is a bit made up
+            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.1, 0.1, 0.1]); %Initial, 16 el
+            
+            %
             if xSize == 10
                 P_0 = P_(1:10, 1:10);
             else
@@ -472,14 +479,21 @@ classdef EKF_3dQuad_funcs
             w_ba = [(1.081e-05)^2, (0.000001)^2, (6.55e-06)^2]' /dt_av; %from Allan variance
             w_bg = [(1e-07)^2, (1e-07)^2, (1e-07)^2]' /dt_av; %from Allan variance
             Q_ = diag([w_g; w_a; w_ba; w_bg]);
+
+            %Q_ Robmech
             Q_ = diag([0.01, 0.01, 0.01, 0.2, 0.2, 0.2, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001]); %16 el - [w_g, w_acc, w_ba, w_ba]
-            Q_ = diag([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]); %16 el - [w_g, w_acc, w_ba, w_ba]
+
+            %Q_PX4
+            Q_ = diag([1.5e-2, 1.5e-2, 1.5e-2, 3.5e-1, 3.5e-1, 3.5e-1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba]
+
+            
             if xSize == 10
                 Q = Q_(1:6, 1:6);
             else
                 Q = Q_;
             end
-            
+            Q = Q* (8000/ekfHz);
+
             %and measurement covariance
             W =diag([0.1506^2, 0.1506^2, 0.1506^2, 0.01, 0.007897, 0.007897, 0.007897]);  
         end
