@@ -60,6 +60,11 @@ classdef EKF_3dQuad_funcs
             %Predict new state covariance (in state space)
             P_new_hat = F_new * P_k * transpose(F_new) + L_new * Q * transpose(L_new);
 
+            %Quaternion patch: limit scalar term size
+            % if P_new_hat(4,4) < 0.1
+            %     P_new_hat(4,4) = 0.1;
+            % end
+
             %Enforce positive definite-ness
             P_new_hat = (P_new_hat + P_new_hat')/2;
  
@@ -94,6 +99,7 @@ classdef EKF_3dQuad_funcs
                 %Compute predicted measurement covariance S
                 S_new_hat = H_new * P_new_hat * transpose(H_new) + W;
 
+
                 %Enforce positive definite-ness
                 S_new_hat = (S_new_hat + S_new_hat')/2;
 
@@ -110,20 +116,22 @@ classdef EKF_3dQuad_funcs
                 %Update state covariance
                 I = eye(size(H_new,2), size(H_new,2)); %make identity matrix of appropriate size
                 P_new = (I - K_new * H_new) * P_new_hat;
-
+                
                 %Enforce positive definite-ness
                 P_new = (P_new + P_new')/2;
-
             end
 
             %Enforce quaternion constraints - closest quaternions
             if dot(x_k(4:7), x_new(4:7)) < 0
                 x_new(4:7) = -x_new(4:7);
             end
+
             %normalise orientation quaternion
             if norm(x_new(4:7,1)) > 0.001
                 x_new(4:7,1) =x_new(4:7,1)/norm(x_new(4:7,1));
             end
+
+
 
         
         end

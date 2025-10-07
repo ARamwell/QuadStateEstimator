@@ -13,6 +13,8 @@ classdef wall < worldObject
             %   Detailed explanation goes here
 
             obj = obj@worldObject(position, orientation, dimensions);
+
+            T_W2S = T_W2S * [1 0 0 0; 0 -1 0 0; 0 0 1 0; 0 0 0 1]; %although unreal engine is right-handed, the frame the simulink actors live in isn't
             
             %Set up important variables
             %Body frame of wall is positioned in the middle of the wall.

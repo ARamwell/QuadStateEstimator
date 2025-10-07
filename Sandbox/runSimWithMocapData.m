@@ -3,9 +3,8 @@
 
 %settings
 simset.envHz = 100;
-simset.SITL = false;
-simset.runAll = false; 
-simset.mocapTraj = true;
+simset.SITL = true;
+simset.mocapTraj = false;
 simset.imuHz = 8000;
 simset.simHz = 8000;
 simset.fps = 10;
@@ -13,9 +12,25 @@ simset.ekfHz = 125;
 simset.pos0 = [0 0 0]';
 simset.eul0 = [0 0 0]';
 
-%folders
-parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\'; %all traj
-parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\pitchforward_low1'; %single traj
+
+%
+evalset.save = true;
+evalset.runfolder = false;
+  
+
+targetParentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\sitl';
+
+%% SAVING PARAMETERS
+if evalset.save == true
+    %make folder for sim output
+    currentTime = datetime('now');
+    currentTimeStr = string(currentTime, 'yyyy-MM-dd_HH-mm-ss');
+    targetName = strcat("sim_", currentTimeStr);
+    targetFolder = strcat(targetParentFolder, '\', targetName);
+    if ~exist(targetFolder, 'dir')
+        mkdir(targetParentFolder, targetName);
+    end
+end
 
 %% GENERAL PARAMS
 g = [0; 0; 9.81];
@@ -42,73 +57,97 @@ T_mcq2rq(1:3, 1:3) = T_mcq2rq(1:3, 1:3)*R_align;
 T_uq2rq = map.worldObjectStruct.transforms.T_simquad2genquad;
 
 %% GET ALL FOLDERS
-if simset.runAll == true
-    % Find all subfolders
-    allSubFolders = genpath(parentFolder);
-    % Parse into a cell array.
-    remain = allSubFolders;
-    listOfFolderNames = {};
-    while true
-	    [singleSubFolder, remain] = strtok(remain, ';');
-	    if isempty(singleSubFolder)
-		    break;
+if simset.mocapTraj == true
+
+    sourceFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\'; %all traj
+    sourceFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\pitchforward_low1'; %single traj
+
+    if evalset.runfolder == true
+        % Find all subfolders
+        allSubFolders = genpath(sourceFolder);
+        % Parse into a cell array.
+        remain = allSubFolders;
+        listOfFolderNames = {};
+        while true
+	        [singleSubFolder, remain] = strtok(remain, ';');
+	        if isempty(singleSubFolder)
+		        break;
+            end
+            if ~contains(singleSubFolder, 'arb') && ~contains(singleSubFolder, 'calib') && contains(singleSubFolder, 'tatic') && ~contains(singleSubFolder, 'sim')
+	            listOfFolderNames = [listOfFolderNames singleSubFolder];
+            end
         end
-        if ~contains(singleSubFolder, 'arb') && ~contains(singleSubFolder, 'calib') && contains(singleSubFolder, 'tatic') && ~contains(singleSubFolder, 'sim')
-	        listOfFolderNames = [listOfFolderNames singleSubFolder];
-        end
+        listOfFolderNames = listOfFolderNames(2:end);
+        numberOfSubFolders = length(listOfFolderNames);
+    else
+        listOfFolderNames = sourceFolder;
+        numberOfSubFolders = 1;
     end
-    listOfFolderNames = listOfFolderNames(2:end);
-    numberOfSubFolders = length(listOfFolderNames);
-else
-    listOfFolderNames = parentFolder;
-    numberOfSubFolders = 1;
 end
 
 
 
 %% IMPORT TRAJECTORIES
-for k=1:numberOfSubFolders
-    if numberOfSubFolders ==1 
-        currentFolder = listOfFolderNames;
-    else
-        currentFolder = string(listOfFolderNames(k));
+if simset.mocapTraj == true
+    for k=1:numberOfSubFolders
+        if numberOfSubFolders ==1 
+            currentFolder = listOfFolderNames;
+        else
+            currentFolder = string(listOfFolderNames(k));
+        end
+    
+        
+        %extract recorded trajectory
+        mocapLogFolder = (fullfile(currentFolder, 'mocapLog_sync.mat'));
+        [mocap.quadRt, mocap.quadState, mocap.quadTime, mocap.elapsedTime] = importMocapLog(mocapLogFolder, T_mc2rw, T_mcq2rq);
+        
+        %extract time limits
+        startTime = datetime(mocap.quadTime(1), 'InputFormat', 'yyyyMMdd_HHmmss_SSS');
+        endTime = datetime(mocap.quadTime(end), 'InputFormat', 'yyyyMMdd_HHmmss_SSS');
+        simDur = milliseconds(endTime - startTime)/1000;
+        
+        %R_corr = [-1 0 0; 0 -1 0; 0 0 -1];
+    
+        %build time series trajectory for sim
+        mc_times = milliseconds(mocap.quadTime(:)-startTime)/1000;
+        mc_pos = mocap.quadState(1:3, :);
+        mc_eul = ((quat2eul((mocap.quadState(4:7, :)'), 'XYZ')))';   
+        skip =20; %make the array smaller and smoother by skipping a few values
+        wp_times = mc_times(1:skip:end,:); % [mc_times(1:5,:); mc_times(6:skip:end,:)];
+        wp_pos =  mc_pos(:, 1:skip:end); %[mc_pos(:,1:5), mc_pos(:, 6:skip:end)];
+        wp_eul =  mc_eul(:, 1:skip:end);%[mc_eul(:,1:5), mc_eul(:, 6:skip:end)];  
+        wp_eul = rad2deg(unwrap(wp_eul, [], 2));
+        wp_eul_smooth = smoothdata(wp_eul, 2,"rlowess", 0.05);
+
+    
+        %figure();
+        %plot(wp_times, wp_eul);
+    
+        %convert to timeseries
+        traj_pos_ts = timeseries(wp_pos, wp_times);
+        traj_eul_ts = timeseries(wp_eul, wp_times);
     end
-    
-    %extract recorded trajectory
-    mocapLogFolder = (fullfile(currentFolder, 'mocapLog_sync.mat'));
-    [mocap.quadRt, mocap.quadState, mocap.quadTime, mocap.elapsedTime] = importMocapLog(mocapLogFolder, T_mc2rw, T_mcq2rq);
-    
-    %extract time limits
-    startTime = datetime(mocap.quadTime(1), 'InputFormat', 'yyyyMMdd_HHmmss_SSS');
-    endTime = datetime(mocap.quadTime(end), 'InputFormat', 'yyyyMMdd_HHmmss_SSS');
-    simDur = milliseconds(endTime - startTime)/1000;
-    
-    %R_corr = [-1 0 0; 0 -1 0; 0 0 -1];
+else
+    %arbitrary trajectory
+    wp_times = [0.01, 0.3, 3, 5, 7, 9];
+    wp_pos = [t_checker; t_checker; 0 0 -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+    wp_eul = [-0 0 0; 0 0 0; 0 0 0; 20 -20 0; -20 0 10; 0 0 0]';
 
-    %build time series trajectory for sim
-    mc_times = milliseconds(mocap.quadTime(:)-startTime)/1000;
-    mc_pos = mocap.quadState(1:3, :);
-    mc_eul = ((quat2eul((mocap.quadState(4:7, :)'), 'XYZ')))';   
-    skip =20; %make the array smaller and smoother by skipping a few values
-    wp_times = mc_times(1:skip:end,:); % [mc_times(1:5,:); mc_times(6:skip:end,:)];
-    wp_pos =  mc_pos(:, 1:skip:end); %[mc_pos(:,1:5), mc_pos(:, 6:skip:end)];
-    wp_eul =  mc_eul(:, 1:skip:end);%[mc_eul(:,1:5), mc_eul(:, 6:skip:end)];  
-    wp_eul = rad2deg(unwrap(wp_eul, [], 2));
-    wp_eul_smooth = smoothdata(wp_eul, 2,"rlowess", 0.05);
-    simset.pos0 = wp_pos(:, 1);
-    simset.eul0 = wp_eul(:, 1);
+    simDur =wp_times(end)+1;
 
-    %figure();
-    %plot(wp_times, wp_eul);
+    [traj_pos, ~, ~, ~, ~, ~, ~, traj_times] = minsnappolytraj(wp_pos, wp_times, (simDur*simset.simHz));
+    traj_eul = minsnappolytraj(wp_eul, wp_times, (simDur*simset.simHz));
 
-    %convert to timeseries
-    wp_pos_ts = timeseries(wp_pos, wp_times);
-    wp_eul_ts = timeseries(wp_eul, wp_times);
-       
+    traj_pos_ts = timeseries(traj_pos, traj_times);
+    traj_eul_ts = timeseries(traj_eul, traj_times);
+end
 
     %% RUN SIM
+    simset.pos0 = wp_pos(:, 1);
+    simset.eul0 = wp_eul(:, 1);
     %set_param('QuadSimEnv/SimulinkEnv.slx', 'StopTime', simDur)
-    %out = sim('QuadSimEnv/SimulinkEnv.slx', 'StopTime', string(simDur));
+    %simDur = 10;
+    out = sim('QuadSimEnv/SimulinkEnv.slx', 'StopTime', string(simDur));
 
     %% CONDITION DATA
     [ekfResult_cust, p3pData_cust, groundTruth] = processSimData(out);
@@ -158,7 +197,7 @@ for k=1:numberOfSubFolders
         ulog = ulogreader(strcat(px4LogFiles_newest.folder, '\', px4LogFiles_newest.name));
 
         %extract useful data- build ekfResult
-        ekfResult_px4 = processPx4Data(ulog, aiding);
+        ekfResult_px4 = processPx4Data(ulog, aiding, groundTruth.quad.state(1:3, 3));
 
         %and condition it
         %get EKF time-aligned ground truth
@@ -167,7 +206,8 @@ for k=1:numberOfSubFolders
         groundTruth.quad.state_px4Aligned =  groundTruth.quad.state(:,indices);
     
         %get measurement time-aligned ground truth
-        aid_indices_px4 = ~isnan(ekfResult_px4.z(1, :));
+        aid_logical_px4 = ~isnan(ekfResult_px4.z(1, :));
+        aid_indices_px4 = find(aid_logical_px4);
         indices = selectClosestTimeIndices(ekfResult_px4.time(:,aid_indices_px4), groundTruth.quad.time);
         groundTruth.quad.time_aidAligned_px4 = groundTruth.quad.time(:,indices);
         groundTruth.quad.state_aidAligned_px4 =  groundTruth.quad.state(:,indices);
@@ -179,35 +219,20 @@ for k=1:numberOfSubFolders
 
     % GET METRICS FOR CUSTOM EKF
     %run trajectory error
-    trajErr_cust = evaluateTracking(ekfResult_cust.x_, groundTruth.quad.state_estAligned);
+    trajErr_cust = evaluateTracking(ekfResult_cust.x_, groundTruth.quad.state_estAligned, 'none');
     
     %run nees on a priori state
     %nees_cust_apriori = evalNEES(ekfResult_cust.xHat(1:3, :), ekfResult_cust.PHat(1:3, 1:3, :), groundTruth.quad.state_estAligned(1:3,:));
-    nees_cust_apriori = evalNEES_noq(ekfResult_cust.xHat, ekfResult_cust.PHat, groundTruth.quad.state_estAligned);
+    nees_cust_apriori = evalNEES_noq(ekfResult_cust.x_, ekfResult_cust.PHat, groundTruth.quad.state_estAligned);
     mean(nees_cust_apriori);
     
     %run nees on a posteriori state
     if aiding == true
-        nees_cust_apost = evalNEES(ekfResult_cust.x_(:, aid_indices), ekfResult_cust.P(:,:,aid_indices), groundTruth.quad.state_aidAligned);
+        nees_cust_apost = evalNEES_noq(ekfResult_cust.x_(:, aid_indices), ekfResult_cust.P(:,:,aid_indices), groundTruth.quad.state_aidAligned);
         mean(nees_cust_apost);
     else
         nees_cust_apost = nan(1,1);
     end
-        % %run nees on a posteriori state
-    % %groundTruth.quad
-    % nees_cust_apost = evalNEES(ekfResult_cust.x_(:, aid_indices), ekfResult_cust.P_(:,:,aid_indices), groundTruth.quad.state_aidAligned);
-    % mean(nees_cust_apost);
-    % alpha = 0.05; %confidence
-    % ekfSize = size(ekfResult_cust.x_, 1);
-    % numMonteCarlo = 1;
-    % chiSquareLimits = [chi2inv(alpha/2, numMonteCarlo*ekfSize), chi2inv(1-alpha/2, numMonteCarlo*ekfSize)]/numMonteCarlo;
-    % figure;
-    % neesAx_cust_apost = plot(ekfResult_cust.elapsedTime(:,aid_indices), nees_cust_apost);
-    % chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
-    % chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
-    % xlabel(neesAx_cust_apost, 'Elapsed time (s)');
-    % ylabel(neesAx_cust_apost, 'NEES');
-    % title(neesAx_cust_apost, 'NEES of a posteriori state estimate, custom EKF')
 
     %run NIS
     if aiding == true
@@ -216,100 +241,178 @@ for k=1:numberOfSubFolders
     end
 
        
-    % DO PLOTTING
-    figObj = figure();
-    tileLayout = tiledlayout(figObj, 2,2);
-
-    %Plot traj err
-    %trajFig_trans = figure;
+    % DO PLOTTING - CUST EKF
+    figObj_cust = figure();
+    tileLayout_cust = tiledlayout(figObj_cust, 2,2);
+    
+    % Plot trajectory errors vs trajectory
     nexttile;
-    trajAx_trans = plotATE(figObj, trajErr_cust, 'custom EKF');
+    ateAx_cust_trans = plotATE(figObj_cust, trajErr_cust, 'custom EKF');
+    hold on;
+    p3pPlotting.addCheckerboard(ateAx_cust_trans, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+    view(ateAx_cust_trans, [-57 30]);
+    hold off;
     nexttile;
-    trajAx_rot = plotARE(figObj, trajErr_cust, 'custom EKF');
+    areAx_cust_rot = plotARE(figObj_cust, trajErr_cust, 'custom EKF');
+    hold on;
+    p3pPlotting.addCheckerboard(areAx_cust_rot, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+    view(areAx_cust_rot, [-57 30]);
+    hold off;
 
-    % trajAx = plot(trajFig, trajErr_cust, "absolute-translation");
-    % set(trajAx, 'Ydir', 'reverse');
-    % set(trajAx, 'Zdir', 'reverse');
-    % view(trajAx, [-57 30]);
+    %Plot trajectory errors over time
+    %nexttile;
+    %plot
 
-    %plot NEES
-    %neesFig = figure;
     nexttile;
-    neesAx_cust_apriori = plotNEES(figObj, ekfResult_cust.elapsedTime, nees_cust_apriori, size(ekfResult_cust.xHat, 1), 1, 'a priori state estimate, custom EKF'); 
+    neesAx_cust_apriori = plotNEES(figObj_cust, ekfResult_cust.elapsedTime, nees_cust_apriori, size(ekfResult_cust.xHat, 1), 1, 'a priori state estimate, custom EKF'); 
     hold on;
     if aiding == true
-        neesAx_cust_apost = plotNEES(figObj, ekfResult_cust.elapsedTime(:,aid_indices), nees_cust_apost, size(ekfResult_cust.x_, 1), 1, 'a posteriori state estimate, custom EKF');
+        neesAx_cust_apost = plotNEES(figObj_cust, ekfResult_cust.elapsedTime(:,aid_indices), nees_cust_apost, size(ekfResult_cust.x_, 1), 1, 'a posteriori state estimate, custom EKF');
     end
+    legend;
     hold off
 
-    % Plot NIS
-    %nisFig = figure;
     if aiding == true
         nexttile;
-        nisAx = plotNIS(figObj, ekfResult_cust.elapsedTime(:,aid_indices), nis_cust, size(ekfResult_cust.y, 1), 1);
+        nisAx = plotNIS(figObj_cust, ekfResult_cust.elapsedTime(:,aid_indices), nis_cust, size(ekfResult_cust.y, 1), 1, 'NIS - custom EKF'); 
     end
-    % alpha = 0.05; %confidence
-    % measSize = size(ekfResult_cust.y, 1);
-    % numMonteCarlo = 1;
-    % chiSquareLimits = [chi2inv(alpha/2, numMonteCarlo*measSize), chi2inv(1-alpha/2, numMonteCarlo*measSize)]/numMonteCarlo;
-    % figure;
-    % nisAx_cust = plot(ekfResult_cust.elapsedTime(:,aid_indices), nis_cust);
-    % chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
-    % chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
-    % xlabel(nisAx_cust, 'Elapsed time (s)');
-    % ylabel(nisAx_cust, 'NIS');
-    % title(nisAx_cust, 'NIS, custom EKF')
 
+    %EVALUATE P3P
+    ind_p3p = ~isnan(p3pData_cust.selected(1,:));
+    ind_gt_p3p = selectClosestTimeIndices(p3pData_cust.time(:,ind_p3p), groundTruth.quad.time);
+    trajErr_p3p = evaluateTracking(p3pData_cust.selected(:,ind_p3p), groundTruth.quad.state(1:7,ind_gt_p3p), 'none'); 
+
+
+
+%plot(x(isfinite(y)),y(isfinite(y)),'*-')
    
     if simset.SITL == true
         % GET METRICS FOR PX4 EKF
         %run trajectory error
-        trajErr_px4 = evaluateTracking(ekfResult_px4.x_, groundTruth.quad.state_px4Aligned);
+        trajErr_px4 = evaluateTracking(ekfResult_px4.x_, groundTruth.quad.state_px4Aligned, 'none');
         
         %run nees on a priori state
-        nees_px4_apriori = evalNEES(ekfResult_px4.xHat, ekfResult_px4.PHat, groundTruth.quad.state_px4Aligned);
+        nees_px4_apriori = evalNEES_noq(ekfResult_px4.x_, ekfResult_px4.P, groundTruth.quad.state_px4Aligned);
         mean(nees_px4_apriori);
         
         %run nees on a posteriori state
         if aiding == true
-            nees_px4_apost = evalNEES(ekfResult_px4.x_(:, aid_indices), ekfResult_px4.P(:,:,aid_indices), groundTruth.quad.state_aidAligned_px4);
+            nees_px4_apost = evalNEES_noq(ekfResult_px4.x_(:, aid_indices_px4), ekfResult_px4.P(:,:,aid_indices_px4), groundTruth.quad.state_aidAligned_px4);
             mean(nees_px4_apost);
         else
             nees_px4_apost = nan(1,1);
         end
 
+        %run NIS
+        if aiding == true
+            nis_px4 = evalNIS(ekfResult_px4.y(:,aid_indices_px4), ekfResult_px4.S(:,:,aid_indices_px4));
+            nis_px4_mean = mean(nis_px4);
+        end
+
         %AND PLOT
-        nexttile(1);
+        % DO PLOTTING - CUST EKF
+        figObj_px4 = figure();
+        tileLayout_px4 = tiledlayout(figObj_px4, 2,2);
+    
+        %Plot traj err
+        %trajFig_trans = figure;
+        nexttile;
+        trajAx_px4_trans = plotATE(figObj_px4, trajErr_px4, 'px4 EKF');
+        nexttile;
+        trajAx_px4_rot = plotARE(figObj_px4, trajErr_px4, 'px4 EKF');
+        %plot NEES
+        %neesFig = figure;
+        nexttile;
+        neesAx_px4_apriori = plotNEES(figObj_px4, ekfResult_px4.elapsedTime, nees_px4_apriori, size(ekfResult_px4.x_, 1), 1, 'a priori state estimate, px4 EKF'); 
         hold on;
-        trajAx_trans = plotATE(figObj, trajErr_px4, 'custom EKF');
+        if aiding == true
+            neesAx_px4_apost = plotNEES(figObj_px4, ekfResult_px4.elapsedTime(:,aid_indices_px4), nees_px4_apost, size(ekfResult_px4.x_, 1), 1, 'a posteriori state estimate, px4 EKF');
+        end
+        legend;
+        hold off
+    
+        % Plot NIS
+        %nisFig = figure;
+        if aiding == true
+            nexttile;
+            nisAx = plotNIS(figObj_px4, ekfResult_px4.elapsedTime(:,aid_indices_px4), nis_px4, size(ekfResult_px4.y, 1), 1, 'NIS - PX4');
+        end
+    
+        %nexttile(1);
+        %hold on;
+        %trajAx_trans = plotATE(figObj_px4, trajErr_px4, 'px4 EKF');
         
     end
 
+    figObj_stateEvol = plotStateEvolution(ekfResult_cust, groundTruth);
+
+    figObj_errTime = figure();
+    %plotErrVsTime(ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', ekfResult_px4.elapsedTime(:,aid_indices_px4), trajErr_px4, 'px4 EKF')
+    if simset.SITL == false
+        plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p')
+    else
+        plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p', ekfResult_px4.elapsedTime(:,aid_indices_px4), trajErr_px4, 'px4 EKF');
+    end
+
+    %% Reformat plots
+    figObj_cust = formatFigForLatex(figObj_cust);
+    figObj_errTime = formatFigForLatex(figObj_errTime);
+    figObj_stateEvol = formatFigForLatex(figObj_stateEvol);
+    
+    if simset.SITL == true
+        figObj_px4 = formatFigForLatex(figObj_px4);
+    end
 
     %% SAVE RESULTS
 
-    %make folder for sim output
-    currentTime = datetime('now');
-    currentTimeStr = string(currentTime, 'yyyy-MM-dd_HH-mm-ss');
-    targetName = strcat("sim_", currentTimeStr);
-    targetFolder = strcat(currentFolder, '\', targetName);
-    if ~exist(targetFolder, 'dir')
-        mkdir(currentFolder, targetName);
+    if evalset.save == true
+        if simset.mocapTraj == true
+            temp = split(currentFolder, '\');
+            trajName = string(temp(end));
+        else
+            trajName = input('Please enter a string to name your save folder: ', 's');
+        end
+        %also make folder for specific traj
+        trajTargetFolder = strcat(targetFolder, '\', trajName);
+        if ~exist(trajTargetFolder, 'dir')
+            mkdir(targetFolder, trajName);
+        end
+        
+        %save figures
+        if simset.SITL == true
+            figs = [figObj_cust, figObj_px4, figObj_stateEvol, figObj_errTime];
+        else
+            figs = [figObj_cust, figObj_stateEvol, figObj_errTime];
+        end
+        savefig(figs, strcat(trajTargetFolder, '\figures.fig'));
+
+        %export figs as images
+        %exportgraphics(figObj_cust, 'resultSummary_cust.svg');
+        %exportgraphics(figObj_px4, 'resultSummary_px4.svg');
+        %exportgraphics(figObj_stateEvol, 'stateEvol_cust.svg');
+
+        %save data
+        simSummary.cust.ekfResult = ekfResult_cust;
+        simSummary.cust.trajErr = trajErr_cust;
+        simSummary.groundTruth = groundTruth;
+        simSummary.p3pResult = p3pData_cust;
+        if simset.SITL == true
+            simSummary.px4.ekfResult = ekfResult_px4;
+            simSummary.px4.trajErr = trajErr_px4;
+        end
+        save('results.mat', simSummary);
+
+        % SIMULATION OUTPUT
+        save(fullfile(trajTargetFolder, '/simout.mat'), 'out'); %save out
+        vidFile = fullfile('.', '/camOutput.avi'); %find video
+        imgFuncs.convertVideo(vidFile, trajTargetFolder);%save images
+    
+        if simset.SITL == true
+            %copy log to sim output folder
+            copyfile  strcat(px4LogFiles_newest.folder, '\', px4LogFiles_newest.name) trajTargetFolder;
+        end
+
     end
-
-    % SIMULATION OUTPUT
-    save(fullfile(targetFolder, '/simout.mat'), 'out'); %save out
-    vidFile = fullfile('.', '/camOutput.avi'); %find video
-    imgFuncs.convertVideo(vidFile,targetFolder);%save images
-
-    if simset.SITL == true
-        %copy log to sim output folder
-        copyfile  strcat(px4LogFiles_newest.folder, '\', px4LogFiles_newest.name) targetFolder;
-    end
-
-
-
- end
 
 
  function [ekfResult, p3pResult, groundTruth] = processSimData(out)
@@ -336,6 +439,7 @@ for k=1:numberOfSubFolders
     end
 
     p3pResult.poseArr = out.p3p_poseArr.signals.values;
+    p3pResult.selected = out.p3p_selected.signals.values;
     p3pResult.mostIn = out.p3p_mostIn.signals.values(1:7,:)';
     p3pResult.numIn = out.p3p_mostIn.signals.values(8,:)';
     p3pResult.time = out.p3p_poseArr.time';
@@ -348,7 +452,7 @@ for k=1:numberOfSubFolders
  end
 
 
-function trajErr = evaluateTracking(estStateHist, trueStateHist)
+ function trajErr = evaluateTracking(estStateHist, trueStateHist, align)
     %estStateHist and trueStateHist as column vector [p; q]
 
     %convert inputs to rigidtform3d objects
@@ -364,7 +468,7 @@ function trajErr = evaluateTracking(estStateHist, trueStateHist)
     end
 
     %run ATE and RPE
-    trajErr = compareTrajectories(tform_est, tform_true, AlignmentType = 'none');
+    trajErr = compareTrajectories(tform_est, tform_true, AlignmentType = align);
 
     %and drift rate?
 end
@@ -409,19 +513,24 @@ function [nis] = evalNIS(meas_resid, meas_cov)
     
 end
 
-function [ekfResult] = processPx4Data(ulog, aidingActive)
+function [ekfResult] = processPx4Data(ulog, aidingActive, pose0)
 
     msg_estStates = readTopicMsgs(ulog, 'TopicNames', 'estimator_states');
     msg_sense = readTopicMsgs(ulog, 'TopicNames', 'sensor_combined');
 
-    ekfResult.time = msg_estStates.TopicMessages{1,1}.timestamp_sample';
     ekfResult.elapsedTime = seconds(msg_estStates.TopicMessages{1,1}.timestamp_sample)';
+    ekfResult.time = ekfResult.elapsedTime;% msg_estStates.TopicMessages{1,1}.timestamp_sample';
+    %ekfResult.time.Format = 'dd:hh:mm:';
 
-    p = msg_estStates.TopicMessages{1,1}.states(:,5:7)';
+    
+    p = msg_estStates.TopicMessages{1,1}.states(:,8:10)';
     q = msg_estStates.TopicMessages{1,1}.states(:,1:4)';
-    v = msg_estStates.TopicMessages{1,1}.states(:,8:10)';
+    v = msg_estStates.TopicMessages{1,1}.states(:,5:7)';
     bg = msg_estStates.TopicMessages{1,1}.states(:,11:13)';
     ba = msg_estStates.TopicMessages{1,1}.states(:,14:16)';
+    % for t = 1:size(p, 2)
+    %     p_offset(:,t) = p(:,t) + pose0(1:3);
+    % end
     ekfResult.x_ = [p; q; v; bg; ba];
 
     P_p = msg_estStates.TopicMessages{1,1}.covariances(:,5:7)';
@@ -487,8 +596,10 @@ function [axObj] = plotNEES(figObj, x, nees, stateSize, numMonteCarloRuns, title
     ylabel('NEES');
     ylim([0, round(chiSquareLimits(2) * 1.5)])
     
-    chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
-    chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
+    chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower',  HandleVisibility='off');
+    chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper',  HandleVisibility='off');
+
+  
 
 end
 
@@ -499,13 +610,13 @@ function [axObj] = plotNIS(figObj, x, nis, stateSize, numMonteCarloRuns, title)
     alpha = 0.05; %confidence
     chiSquareLimits = [chi2inv(alpha/2, numMonteCarloRuns*stateSize), chi2inv(1-alpha/2, numMonteCarloRuns*stateSize)]/numMonteCarloRuns;
     
-    axObj = plot(x, nees, 'DisplayName', title);
+    axObj = plot(x, nis, 'DisplayName', title);
     xlabel('Elapsed time (s)');
     ylabel('NIS')
     ylim([0, round(chiSquareLimits(2) * 1.5)])
     
-    chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower');
-    chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper');
+    chiLine_lower = yline(chiSquareLimits(1), '--g', 'chi-squared lower', HandleVisibility='off');
+    chiLine_upper = yline(chiSquareLimits(2), '--g', 'chi-squared upper',  HandleVisibility='off');
 
 end
 
@@ -517,6 +628,12 @@ function [ateAx] = plotATE(figObj, trajErrMetrics, qualifier)
     set(ateAx, 'Zdir', 'reverse');
     view(ateAx, [-57 30]);
     %title(strcat('Absolute Translation Error - ', qualifier));
+    hcb = colorbar;
+    hcb.Title.String = "Absolute translation error (m)";
+    hcb.Title.Rotation = 90;
+    hcb.Title.Position = [-3, 0];
+    hcb.Title.VerticalAlignment = 'bottom';
+    hcb.Title.HorizontalAlignment = 'left';
 
 end
 
@@ -528,6 +645,12 @@ function [areAx] = plotARE(figObj, trajErrMetrics, qualifier)
     set(areAx, 'Zdir', 'reverse');
     view(areAx, [-57 30]);
     %title(strcat('Absolute Rotation Error - ', qualifier));
+    hcb = colorbar;
+    hcb.Title.String = "Absolute rotation error (degrees)";
+    hcb.Title.Rotation = 90;
+    hcb.Title.Position = [-3, 0];
+    hcb.Title.VerticalAlignment = 'bottom';
+    hcb.Title.HorizontalAlignment = 'left';
 
 end
 
@@ -552,9 +675,170 @@ function plotInv(matArray)
     
     figure;
     plot(invArray);
-    
 
 end
+
+function fig_stateEvol = plotStateEvolution(ekfResult, groundTruth)
+    
+    numLoops = size(ekfResult.x_, 2);
+    numEl = size(ekfResult.x_, 1);
+    
+    fig_stateEvol = figure();
+    tileLayout_cust = tiledlayout(fig_stateEvol, 2, numEl/2);
+    
+    for i=1:numEl
+        
+    
+        %PLOT CHANGING STATE
+        nexttile;
+        x = ekfResult.elapsedTime(1,:);
+        y = ekfResult.x_(i,:);
+        plot(x, y, Color='#d7191c',  DisplayName='estimated state variable');  
+        hold on;
+        
+        %PLOT VARIANCE
+        stateVariance = zeros(1, numLoops); %initialise array
+        for t=1:numLoops
+            stateVariance(1,t)=(ekfResult.P(i,i,t));
+        end
+        stateVariance = sqrt(stateVariance);
+        lowerCurve = y - abs(stateVariance);
+        upperCurve = y + abs(stateVariance);
+        plot(x, lowerCurve, Color='#fdae61',  HandleVisibility='off');
+        hold on;
+        plot(x, upperCurve, Color='#fdae61', DisplayName='1-std dev bounds');
+        hold on;
+        % fill(x, [y; upperCurve],[.9 .9 .9],'linestyle','none');
+        % hold on;
+        % 
+        % fill(x, [lowerCurve; y],[.9 .9 .9],'linestyle','none');
+        % hold on;
+        %line(x,y)
+        %errorbar(x, y, -dy, dy);
+        % 
+        % drawnow;
+        % hold on;
+    
+    
+        %%PLOT GROUND TRUTH
+        if i <= 10
+            if exist("groundTruth", 'var')
+                %figure()
+                x = groundTruth.quad.time_estAligned(1,:);
+                y = groundTruth.quad.state_estAligned(i,:);
+                plot(x, y, Color='#1a9641',  DisplayName='true state variable');
+                hold on;
+            end
+        end
+    
+        %plot corrections, if any (i.e., measurements in state space)
+        % if i<=7
+        %     %plot(x(isfinite(y)),y(isfinite(y)),'*-')
+        %     x = ekfResult.elapsedTime(1,:);
+        %     y = ekfResult.z(i,:);
+        %     scatter(x(isfinite(y)),y(isfinite(y)),10, "filled");
+        %     hold on;
+        %     plot(x,y);
+        %     hold on;
+        % 
+        %     % %mark estimate that was corrected
+        %     % correctedEst = zeros(1, size(ekfResult.zHist, 2));
+        %     % for t=1:size(ekfResult.zHist, 2)
+        %     %     t_k =  ekfResult.zHist(1, t);
+        %     %     [closestDiff, closestIndex] = min(abs(ekfResult.elapsedTime(1,:)-ekfResult.zHist(1,t)));
+        %     %     correctedEst(1, t) = ekfResult.stateEst(i, closestIndex);
+        %     % end
+        %     % y = correctedEst;
+        %     % quiver(x, correctedEst, zeros(1, size(correctedEst, 2)), ((ekfResult.zHist(1+i,:)-correctedEst)), 0);
+        % 
+        % end
+        
+        title(strcat('State variable evolution: ', string(i)));
+        %legend('State estimate', 'Std deviation lower bound', 'Std deviation upper bound', 'Ground truth', 'Camera estimate (correction)')
+        legend;
+        hold off;
+    
+       end
+end
+
+function plotErrVsTime(figObj, t1, trajErr1, name1, t2, trajErr2, name2, t3, trajErr3, name3)
+
+        figure(figObj);
+
+        nexttile;
+        plot(t1, trajErr1.AbsoluteError(:,2), 'LineWidth',1.5, 'DisplayName', name1);
+        if exist('trajErr2', 'var')
+            hold on;
+            plot(t2, trajErr2.AbsoluteError(:,2), 'LineWidth',1.5, 'DisplayName', name2);
+        end
+        if exist('trajErr3', 'var')
+            hold on;
+            plot(t3, trajErr3.AbsoluteError(:,2), 'LineWidth',1.5, 'DisplayName', name3);
+        end
+        title('Position error of component state estimators (m)', 'FontSize', 14);
+        xlabel('Time since initialisation (s)', 'FontSize', 12);
+        ylabel('Absolute position error (m)', 'FontSize', 12);
+        legend;
+        hold off;
+
+        %Rotation error
+        nexttile;
+        plot(t1, trajErr1.AbsoluteError(:,1), 'LineWidth',1.5, 'DisplayName', name1, 'Color', '#e41a1c');
+        if exist('trajErr2', 'var')
+            hold on;
+            plot(t2, trajErr2.AbsoluteError(:,1), 'LineWidth',1.5, 'DisplayName', name2, 'Color', '#377eb8');
+        end
+        if exist('trajErr3', 'var')
+            hold on;
+            plot(t3, trajErr3.AbsoluteError(:,1), 'LineWidth',1.5, 'DisplayName', name3, 'Color', '#984ea3');
+        end
+        title('Rotation error of state estimators (degrees)', 'FontSize', 14);
+        xlabel('Time since initialisation (s)', 'FontSize', 12);
+        ylabel('Absolute rotation error (degrees)', 'FontSize', 12);
+        legend;
+        hold off;
+        
+    end
+
+    function figHandle = formatFigForLatex(figHandle)
+
+        %general
+        picturewidth = 40; % set this parameter and keep it forever
+        hw_ratio = 0.65; % feel free to play with this ratio
+        set(findall(figHandle,'-property','LineWidth'),'LineWidth',1.5) % adjust fontsize to your document
+        set(findall(figHandle,'-property','FontSize'),'FontSize',12)
+        set(findall(figHandle,'-property','Box'),'Box','off') % optional
+        set(findall(figHandle,'-property','Interpreter'),'Interpreter','latex') 
+        set(findall(figHandle,'-property','TickLabelInterpreter'),'TickLabelInterpreter','latex')
+        set(figHandle,'Units','centimeters','Position',[3 3 picturewidth hw_ratio*picturewidth])
+        pos = get(figHandle,'Position');
+        set(figHandle,'PaperPositionMode','Auto','PaperUnits','centimeters','PaperSize',[pos(3), pos(4)])
+        %print(figHandle,'testfig','-dpdf','-painters','-fillpage')
+        %print(hfig,fname,'-dpng','-painters')
+
+    end
+
+    function [eul, eulCov] = quatEst2eulEst(ekfResult)
+        %EKF estimates
+        numLoops = size(ekfResult.time, 2);
+        eulCov = zeros(3,3,numLoops);
+        eul = zeros(3,numLoops);
+        for j=1:numLoops
+        
+            %convert quaternion estimate to euler
+            eul(:,j) = rad2deg(quat2eul(ekfResult.x_(4:7, j)', 'XYZ'))'; %convert quaternion to euler
+            q = ekfResult.x_(4:7, j);
+        
+            %propagate covariance
+            orientCov_quat = ekfResult.P(4:7, 4:7, j);
+            jacob = jacobianEultoQuat(q);
+            eulCov(:,:,j) = rad2deg(jacob * orientCov_quat * jacob');
+        
+        end
+        
+    end
+
+
 
 
 

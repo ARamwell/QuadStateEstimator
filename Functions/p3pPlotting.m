@@ -51,7 +51,8 @@ classdef p3pPlotting
         function  scatterObj = addCheckerboard(axObj, cornerPnts)
             %Corner points imported as array of column vectors
             
-            scatterObj = scatter3(axObj,transpose(cornerPnts(1,:)*1000), transpose(cornerPnts(2,:)*1000),transpose(cornerPnts(3,:)*1000), 4, "black", "filled");
+            scatterObj = scatter3(axObj,transpose(cornerPnts(1,:)*1000), transpose(cornerPnts(2,:)*1000),transpose(cornerPnts(3,:)*1000), 4, "black", "filled", 'DisplayName', 'checkerboard');
+
 
 
         end

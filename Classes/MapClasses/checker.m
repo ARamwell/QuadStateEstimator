@@ -14,6 +14,8 @@ classdef checker < worldObject
             %CHECKERBOARD Construct an instance of this class 
             %   Detailed explanation goes here
 
+            T_W2S = T_W2S * [1 0 0 0; 0 -1 0 0; 0 0 1 0; 0 0 0 1];
+            
             %Set up important variables
             %Body frame of checkerboard is positioned at bottom right of
             %top left block (black square. landscape). x goes right, y goes
@@ -28,12 +30,19 @@ classdef checker < worldObject
             t_A2B = [0;0;0];
             T_A2B = [R_A2B t_A2B; 0 0 0 1];
 
+            T_nwu2ned = [1 0 0 0;
+                         0 -1 0 0; 
+                         0  0 -1 0;
+                         0  0  0 1];
+
             % %Calculate external dimensions of board
             height = squareSize*(checkerSize(1)+2);
             width = squareSize*(checkerSize(2)+2);
             dim = [width/1000, height/1000, 0.001];
 
             %Calculate transformation from Body to World
+            %T_B2nwu = worldObject.calcTransformB2W(orientation, position);
+            %T_B2W = T_nwu2ned * T_B2nwu;
             T_B2W = worldObject.calcTransformB2W(orientation, position);
             
 
