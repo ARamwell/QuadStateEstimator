@@ -1,37 +1,39 @@
 %POPULATE MAT FILE WITH SENSOR CALIBRATION PARAMETERS
 
 %specify save destination
-accelName = 'accel0';
-gyroName = 'gyro0';
+accelName = 'accel0_20250808_gauss_nobias';
+gyroName = 'gyro0_nobias';
 camName = 'esp32cam_320p';
 targetFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\Calibrations';
 
 
 %% ACCELEROMETER
-accel.description = 'Pixhawk 6C Accel0';
-accel.turnOnBias = [-0.1550; 0.0886; -0.0226] + [-0.173; -0.164; 0.329];
-accel.scale = [0.992 0 0; 0 0.989 0; 0 0 0.975];
-accel.vrw = [5.809e-03  8e-03  11e-03]; %white noise on acceleration signal
-accel.bi = [6.551e-05 1e-06 3.35e-05]; %bias isntability
-accel.rrw =[1.081e-05 1e-07 6.55e-06]; %rate random walk
+accel.description = 'Pixhawk 6C Accel0 - full rate, only gaussian fit';
+%accel.turnOnBias = [-0.1550; 0.0886; -0.0226] + [-0.173; -0.164; 0.329];
+accel.turnOnBias = [0 0 0];
+accel.scale = [1 0 0; 0 1 0; 0 0 1];
+accel.vrw = [0.015893  0.0315858  0.017725]; %white noise on acceleration signal
+accel.bi = [0 0 0]; %bias isntability
+accel.rrw =[0 0 0]; %rate random walk
 accel.max = 78.5;
 accel.res =0.001;
 accel.skew = inv(accel.scale)*100;
-accel.simBias =  ((accel.skew /100) * accel.turnOnBias)';
+accel.simBias =  ((accel.skew /100) * accel.turnOnBias')';
 
 fullFileName = strcat(fullfile(targetFolder), '/', 'accel_', accelName, '.mat');
 save(fullFileName, '-struct', "accel")
 
 %% GYROSCOPE
-gyro.turnOnBias = [0.0016; 0.0028; 0.0015] + [0; 0; 0];
+%gyro.turnOnBias = [0.0016; 0.0028; 0.0015] + [0; 0; 0];
+gyro.turnOnBias =[0 0 0];
 gyro.scale = [1 0 0; 0 1 0; 0 0 1];
 gyro.arw = [1.037e-03 1e-03 1.29e-03]; %white noise on gyro signal
-gyro.bi = [8.998e-07 1e-08 7.66e-07]; %bias isntability
+gyro.bi = [0 0 0]; %bias isntability
 gyro.rrw =[0 0 0]; %rate random walk
 gyro.max = 34.9;
 gyro.res =0.0001;
 gyro.skew = inv(gyro.scale)*100;
-gyro.simBias =  ((gyro.skew /100) * gyro.turnOnBias)';
+gyro.simBias =  ((gyro.skew /100) * gyro.turnOnBias')';
 
 fullFileName = strcat(fullfile(targetFolder), '/', 'gyro_', gyroName, '.mat');
 save(fullFileName, '-struct', "gyro")

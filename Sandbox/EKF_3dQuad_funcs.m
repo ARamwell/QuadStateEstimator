@@ -369,9 +369,9 @@ classdef EKF_3dQuad_funcs
             L_star_16el = jacobian(x_new_16el, w);
 
             % generate and save functions
-            matlabFunction(F_star_16el, 'File', strcat('Functions/ekf/ekf_F_16el_', integ), 'Vars', {symbols_16}, 'Optimize', false);
-            matlabFunction(L_star_16el, 'File', strcat('Functions/ekf/ekf_L_16el_', integ), 'Vars', {symbols_16}, 'Optimize', false);
-            matlabFunction(x_new_16el, 'File', strcat('Functions/ekf/ekf_processModel_16el_', integ), 'Vars', {symbols_16}, 'Optimize', false);
+            matlabFunction(F_star_16el, 'File', strcat('Functions/ekf/ekf_F_16el_', integ), 'Vars', {symbols_16}, 'Optimize', true);
+            matlabFunction(L_star_16el, 'File', strcat('Functions/ekf/ekf_L_16el_', integ), 'Vars', {symbols_16}, 'Optimize', true);
+            matlabFunction(x_new_16el, 'File', strcat('Functions/ekf/ekf_processModel_16el_', integ), 'Vars', {symbols_16}, 'Optimize', true);
 
             %***** define complete process model - 10 element version ****
             x_new_10el = [p_new; q_new; v_new]; 
@@ -382,9 +382,9 @@ classdef EKF_3dQuad_funcs
             L_star_10el = jacobian(x_new_10el, w(1:6));
 
             % generate and save functions
-            matlabFunction(F_star_10el, 'File', strcat('Functions/ekf/ekf_F_10el_', integ), 'Vars', {symbols_10}, 'Optimize', false);
-            matlabFunction(L_star_10el, 'File', strcat('Functions/ekf/ekf_L_10el_', integ), 'Vars', {symbols_10},'Optimize', false);
-            matlabFunction(x_new_10el, 'File', strcat('Functions/ekf/ekf_processModel_10el_', integ), 'Vars', {symbols_10}, 'Optimize', false);
+            matlabFunction(F_star_10el, 'File', strcat('Functions/ekf/ekf_F_10el_', integ), 'Vars', {symbols_10}, 'Optimize', true);
+            matlabFunction(L_star_10el, 'File', strcat('Functions/ekf/ekf_L_10el_', integ), 'Vars', {symbols_10},'Optimize', true);
+            matlabFunction(x_new_10el, 'File', strcat('Functions/ekf/ekf_processModel_10el_', integ), 'Vars', {symbols_10}, 'Optimize', true);
 
         end
 
@@ -445,10 +445,10 @@ classdef EKF_3dQuad_funcs
             H_star_16el = jacobian(measModel_16el, x_16el); %jacobian of measurement wrt state
 
             % generate and save functions
-            matlabFunction(measModel_10el, 'File', strcat('Functions/ekf/ekf_measModel_10el'), 'Vars', {symbols_10}, 'Optimize', false);
-            matlabFunction(measModel_16el, 'File', strcat('Functions/ekf/ekf_measModel_16el'), 'Vars', {symbols_16}, 'Optimize', false);
-            matlabFunction(H_star_10el, 'File', strcat('Functions/ekf/ekf_H_10el'), 'Vars', {symbols_10}, 'Optimize', false);
-            matlabFunction(H_star_16el, 'File', strcat('Functions/ekf/ekf_H_16el'), 'Vars', {symbols_16}, 'Optimize', false);
+            matlabFunction(measModel_10el, 'File', strcat('Functions/ekf/ekf_measModel_10el'), 'Vars', {symbols_10}, 'Optimize', true);
+            matlabFunction(measModel_16el, 'File', strcat('Functions/ekf/ekf_measModel_16el'), 'Vars', {symbols_16}, 'Optimize', true);
+            matlabFunction(H_star_10el, 'File', strcat('Functions/ekf/ekf_H_10el'), 'Vars', {symbols_10}, 'Optimize', true);
+            matlabFunction(H_star_16el, 'File', strcat('Functions/ekf/ekf_H_16el'), 'Vars', {symbols_16}, 'Optimize', true);
 
         end
 

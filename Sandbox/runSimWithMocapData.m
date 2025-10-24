@@ -18,7 +18,7 @@ evalset.save = true;
 evalset.runfolder = false;
   
 
-targetParentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\sitl';
+targetParentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\Diss1';
 
 %% SAVING PARAMETERS
 if evalset.save == true
@@ -37,8 +37,8 @@ g = [0; 0; 9.81];
 map = load('./Resources/map.mat');
 
 %% SET IMU PARAMETERS
-accelCalib = load('./Resources/Calibrations/accel_accel0.mat');
-gyroCalib = load('./Resources/Calibrations/gyro_gyro0.mat');
+accelCalib = load('./Resources/Calibrations/accel_accel0_20250808_gauss_nobias.mat');
+gyroCalib = load('./Resources/Calibrations/gyro_gyro0_nobias.mat');
 camCalib_pin = load('./Resources/Calibrations/camPin_esp32cam_320p.mat');
 camCalib_fish = load('./Resources/Calibrations/camFish_esp32cam_320p.mat');
     
@@ -130,7 +130,8 @@ if simset.mocapTraj == true
 else
     %arbitrary trajectory
     wp_times = [0.01, 0.3, 3, 5, 7, 9];
-    wp_pos = [t_checker; t_checker; 0 0 -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+    %wp_pos = [t_checker; t_checker; 0 0 -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+    wp_pos = [0 0 0; 0 0 0; t_checker(1:2) -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
     wp_eul = [-0 0 0; 0 0 0; 0 0 0; 20 -20 0; -20 0 10; 0 0 0]';
 
     simDur =wp_times(end)+1;
@@ -143,8 +144,8 @@ else
 end
 
     %% RUN SIM
-    simset.pos0 = wp_pos(:, 1);
-    simset.eul0 = wp_eul(:, 1);
+    simset.pos0 =traj_pos(:, 1);
+    simset.eul0 = traj_eul(:, 1);
     %set_param('QuadSimEnv/SimulinkEnv.slx', 'StopTime', simDur)
     %simDur = 10;
     out = sim('QuadSimEnv/SimulinkEnv.slx', 'StopTime', string(simDur));
@@ -318,8 +319,16 @@ end
         %trajFig_trans = figure;
         nexttile;
         trajAx_px4_trans = plotATE(figObj_px4, trajErr_px4, 'px4 EKF');
+        hold on;
+        p3pPlotting.addCheckerboard(trajAx_px4_trans, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+        view(ateAx_cust_trans, [-57 30]);
+        hold off;
         nexttile;
         trajAx_px4_rot = plotARE(figObj_px4, trajErr_px4, 'px4 EKF');
+        hold on;
+        p3pPlotting.addCheckerboard(trajAx_px4_rot, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+        view(ateAx_cust_trans, [-57 30]);
+        hold off;
         %plot NEES
         %neesFig = figure;
         nexttile;
@@ -351,7 +360,7 @@ end
     if simset.SITL == false
         plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p')
     else
-        plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p', ekfResult_px4.elapsedTime(:,aid_indices_px4), trajErr_px4, 'px4 EKF');
+        plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p', ekfResult_px4.elapsedTime, trajErr_px4, 'px4 EKF');
     end
 
     %% Reformat plots
@@ -400,7 +409,7 @@ end
             simSummary.px4.ekfResult = ekfResult_px4;
             simSummary.px4.trajErr = trajErr_px4;
         end
-        save('results.mat', simSummary);
+        save('results.mat', 'simSummary');
 
         % SIMULATION OUTPUT
         save(fullfile(trajTargetFolder, '/simout.mat'), 'out'); %save out
@@ -812,7 +821,7 @@ function plotErrVsTime(figObj, t1, trajErr1, name1, t2, trajErr2, name2, t3, tra
         set(findall(figHandle,'-property','TickLabelInterpreter'),'TickLabelInterpreter','latex')
         set(figHandle,'Units','centimeters','Position',[3 3 picturewidth hw_ratio*picturewidth])
         pos = get(figHandle,'Position');
-        set(figHandle,'PaperPositionMode','Auto','PaperUnits','centimeters','PaperSize',[pos(3), pos(4)])
+        %set(figHandle,'PaperPositionMode','Auto','PaperUnits','centimeters','PaperSize',[pos(3), pos(4)])
         %print(figHandle,'testfig','-dpdf','-painters','-fillpage')
         %print(hfig,fname,'-dpng','-painters')
 

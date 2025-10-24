@@ -1,21 +1,70 @@
 
 % % %Select a .csv file
-% [filename, pathname] = uigetfile('*.csv', 'Select a CSV file to import');
-% if isequal(filename,0)
-%     disp('User canceled file selection.');
-%     return;
-% end
-% filepath = fullfile(pathname, filename);
+[filename, pathname] = uigetfile('*.csv', 'Select a CSV file to import');
+if isequal(filename,0)
+    disp('User canceled file selection.');
+    return;
+end
+filepath = fullfile(pathname, filename);
 
 % Import the data
 % filepath = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_raw_20Hz_20250317_0909.csv';
 % filepath ='C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_imu2_static_raw_20Hz_20250317_0951-1014-1029.csv';
-%rawdata = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
+T = readtable(filepath); % Use readtable(filepath) if the CSV has headers
+
+% Drop columns that are entirely zero
+zeroCols = all(table2array(T) == 0, 1);   % logical mask of zero-only columns
+T(:, zeroCols) = [];
+
+% Now extract acceleration samples
+ax = [];
+ay = [];
+az = [];
+all_dts = [];
+
+for k = 1:height(T)
+    sc = T.scale(k);
+    
+    % Pick remaining columns by name
+    xvals = table2array(T(k, startsWith(T.Properties.VariableNames,'x')));
+    yvals = table2array(T(k, startsWith(T.Properties.VariableNames,'y')));
+    zvals = table2array(T(k, startsWith(T.Properties.VariableNames,'z')));
+
+    % Determine how many samples are valid (non-NaN or non-empty)
+    nValid = nnz(~isnan(xvals));  % assumes zeros are possible real data
+
+    % Keep only valid portion
+    xvals = xvals(1:nValid);
+    yvals = yvals(1:nValid);
+    zvals = zvals(1:nValid);
+    
+    % Convert to SI units
+    ax = [ax; double(xvals(:)) * sc];
+    ay = [ay; double(yvals(:)) * sc];
+    az = [az; double(zvals(:)) * sc];
+
+    % Store per-sample dt from this packet (us / nValid, in seconds)
+    all_dts = [all_dts; (T.dt(k)/nValid) * 1e-6 * ones(nValid,1)];
+
+end
+
+rawGyroData = [ax ay az];
+
+%sanity check
+pd_x = fitdist(ax,'Normal');
+pd_y = fitdist(ay,'Normal');
+pd_z = fitdist(az,'Normal');
+
+%Get sample rate
+avg_dt = mean(all_dts);
+Fs = 1 / avg_dt;
+
+%accelData = rawdata()
 
 %from MATLAB
-imu_calibData = load('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\imuReadings_static_74000.mat');
-rawdata = imu_calibData.imuMsgLog;
-rawAccelData = imu_calibData.imuMsgLog(:, 4:6);
+% imu_calibData = load('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\imuReadings_static_74000.mat');
+% rawdata = imu_calibData.imuMsgLog;
+% rawAccelData = imu_calibData.imuMsgLog(:, 4:6);
 
 
 % if size(rawdata, 2) > 3
@@ -23,12 +72,13 @@ rawAccelData = imu_calibData.imuMsgLog(:, 4:6);
 % else
 %     rawAccelData = rawdata;
 % end
-Fs = 16; %frequency of accel data
+%Fs = 16; %frequency of accel data
+
 
 %% Do allan variance for acceleration
 
 %calAccelData = (imuCorrect(rawAccelData'))';
-[avar,tau] = allanvar(rawAccelData,'octave',Fs);
+[avar,tau] = allanvar(rawGyroData,'octave',Fs);
 adev = sqrt(avar); % Allan deviation
 
 figure();
@@ -109,9 +159,9 @@ fprintf('Bias Instability in m/s^3/sqrt(Hz): %.3e , %.3f , %.3g \n', BI_x_hz, BI
 fprintf('Rate Random Walk (RRW) occurs at τ = %.3e , %.3f , %.3g , sec: %.3e , %.3f , %.3g units\n', RRW_x_tau, RRW_y_tau, RRW_z_tau, RRW_x, RRW_y, RRW_z);
 fprintf('Rate Random Walk in m/s^3 / sqrt(Hz): %.3e , %.3f , %.3g \n', RRW_x_hz, RRW_y_hz, RRW_z_hz);
 
-function [allanPar, figHandle] = getAllanVar(rawData)
-
-    allanPar.vrw = 
-
-
-end
+% function [allanPar, figHandle] = getAllanVar(rawData)
+% 
+%     allanPar.vrw = 
+% 
+% 
+% end
