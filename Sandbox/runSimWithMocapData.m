@@ -3,18 +3,18 @@
 
 %settings
 simset.envHz = 100;
-simset.SITL = true;
+simset.SITL = false;
 simset.mocapTraj = false;
-simset.imuHz = 8000;
-simset.simHz = 8000;
+simset.imuHz = 1000;
+simset.simHz = 1000;
 simset.fps = 10;
-simset.ekfHz = 125;
+simset.ekfHz = 1000;
 simset.pos0 = [0 0 0]';
 simset.eul0 = [0 0 0]';
 
 
 %
-evalset.save = true;
+evalset.save = false;
 evalset.runfolder = false;
   
 
@@ -41,6 +41,8 @@ accelCalib = load('./Resources/Calibrations/accel_accel0_20250808_gauss_nobias.m
 gyroCalib = load('./Resources/Calibrations/gyro_gyro0_nobias.mat');
 camCalib_pin = load('./Resources/Calibrations/camPin_esp32cam_320p.mat');
 camCalib_fish = load('./Resources/Calibrations/camFish_esp32cam_320p.mat');
+camCalib_pin.K(1,1)  = camCalib_pin.K(1,1)/1.1;
+camCalib_pin.K(2,2)  = camCalib_pin.K(2,2)/1.1;
     
 %% SET/EXTRACT MOCAP TRANSFORMATIONS
 R_align =[    0.9995    0.0109   -0.0302;
@@ -60,7 +62,7 @@ T_uq2rq = map.worldObjectStruct.transforms.T_simquad2genquad;
 if simset.mocapTraj == true
 
     sourceFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\'; %all traj
-    sourceFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\pitchforward_low1'; %single traj
+    sourceFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\rollleft_low2'; %single traj
 
     if evalset.runfolder == true
         % Find all subfolders
@@ -144,8 +146,8 @@ else
 end
 
     %% RUN SIM
-    simset.pos0 =traj_pos(:, 1);
-    simset.eul0 = traj_eul(:, 1);
+    simset.pos0 =wp_pos(:, 1);
+    simset.eul0 = wp_eul(:, 1);
     %set_param('QuadSimEnv/SimulinkEnv.slx', 'StopTime', simDur)
     %simDur = 10;
     out = sim('QuadSimEnv/SimulinkEnv.slx', 'StopTime', string(simDur));
