@@ -109,7 +109,7 @@ function Rt = GrunertP3P (X_ABC_W, x_ABC_c_unit)
             if i == 1
                 Rt(:,:,1) = [Rt_ij];
             else
-                Rt(:,:,end+1) = [Rt_ij];
+                Rt(:,:,end +1) = [Rt_ij];
             end
         end
 

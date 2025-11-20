@@ -5,6 +5,7 @@
 simset.envHz = 100;
 simset.SITL = false;
 simset.mocapTraj = false;
+simset.est = false;
 simset.imuHz = 1000;
 simset.simHz = 1000;
 simset.fps = 10;
@@ -17,7 +18,6 @@ simset.eul0 = [0 0 0]';
 evalset.save = false;
 evalset.runfolder = false;
   
-
 targetParentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\Diss1';
 
 %% SAVING PARAMETERS
@@ -39,10 +39,12 @@ map = load('./Resources/map.mat');
 %% SET IMU PARAMETERS
 accelCalib = load('./Resources/Calibrations/accel_accel0_20250808_gauss_nobias.mat');
 gyroCalib = load('./Resources/Calibrations/gyro_gyro0_nobias.mat');
-camCalib_pin = load('./Resources/Calibrations/camPin_esp32cam_320p.mat');
-camCalib_fish = load('./Resources/Calibrations/camFish_esp32cam_320p.mat');
-camCalib_pin.K(1,1)  = camCalib_pin.K(1,1)/1.1;
-camCalib_pin.K(2,2)  = camCalib_pin.K(2,2)/1.1;
+%camCalib_pin = load('./Resources/Calibrations/camPin_imx219_640p_ideal.mat');
+%camCalib_fish = load('./Resources/Calibrations/camFish_esp32cam_320p.mat');
+%camCalib_pin.K(1,1)  = camCalib_pin.K(1,1)/1.1;
+%camCalib_pin.K(2,2)  = camCalib_pin.K(2,2)/1.1;
+camFile = fullfile('C:/Users/Alyssa/Documents/QuadStateEstimator/Resources/Calibrations/params_imx219_640p.mat');
+camParams = load(camFile);
     
 %% SET/EXTRACT MOCAP TRANSFORMATIONS
 R_align =[    0.9995    0.0109   -0.0302;
@@ -133,7 +135,8 @@ else
     %arbitrary trajectory
     wp_times = [0.01, 0.3, 3, 5, 7, 9];
     %wp_pos = [t_checker; t_checker; 0 0 -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
-    wp_pos = [0 0 0; 0 0 0; t_checker(1:2) -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+    %wp_pos = [0 0 0; 0 0 0; t_checker(1:2) -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+    wp_pos = [0 0 0; 0 0 0; 0 0.2 -1.1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
     wp_eul = [-0 0 0; 0 0 0; 0 0 0; 20 -20 0; -20 0 10; 0 0 0]';
 
     simDur =wp_times(end)+1;
@@ -141,8 +144,8 @@ else
     [traj_pos, ~, ~, ~, ~, ~, ~, traj_times] = minsnappolytraj(wp_pos, wp_times, (simDur*simset.simHz));
     traj_eul = minsnappolytraj(wp_eul, wp_times, (simDur*simset.simHz));
 
-    traj_pos_ts = timeseries(traj_pos, traj_times);
-    traj_eul_ts = timeseries(traj_eul, traj_times);
+    traj_pos_ts = timeseries(traj_pos', traj_times);
+    traj_eul_ts = timeseries(traj_eul', traj_times);
 end
 
     %% RUN SIM
@@ -220,211 +223,213 @@ end
     %% PROCESS RESULTS??
     % What should I plot and save? Where should I save it?
 
-    % GET METRICS FOR CUSTOM EKF
-    %run trajectory error
-    trajErr_cust = evaluateTracking(ekfResult_cust.x_, groundTruth.quad.state_estAligned, 'none');
-    
-    %run nees on a priori state
-    %nees_cust_apriori = evalNEES(ekfResult_cust.xHat(1:3, :), ekfResult_cust.PHat(1:3, 1:3, :), groundTruth.quad.state_estAligned(1:3,:));
-    nees_cust_apriori = evalNEES_noq(ekfResult_cust.x_, ekfResult_cust.PHat, groundTruth.quad.state_estAligned);
-    mean(nees_cust_apriori);
-    
-    %run nees on a posteriori state
-    if aiding == true
-        nees_cust_apost = evalNEES_noq(ekfResult_cust.x_(:, aid_indices), ekfResult_cust.P(:,:,aid_indices), groundTruth.quad.state_aidAligned);
-        mean(nees_cust_apost);
-    else
-        nees_cust_apost = nan(1,1);
-    end
+    if simset.est == true
 
-    %run NIS
-    if aiding == true
-        nis_cust = evalNIS(ekfResult_cust.y(:,aid_indices), ekfResult_cust.S(:,:,aid_indices));
-        nis_cust_mean = mean(nis_cust);
-    end
-
-       
-    % DO PLOTTING - CUST EKF
-    figObj_cust = figure();
-    tileLayout_cust = tiledlayout(figObj_cust, 2,2);
-    
-    % Plot trajectory errors vs trajectory
-    nexttile;
-    ateAx_cust_trans = plotATE(figObj_cust, trajErr_cust, 'custom EKF');
-    hold on;
-    p3pPlotting.addCheckerboard(ateAx_cust_trans, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
-    view(ateAx_cust_trans, [-57 30]);
-    hold off;
-    nexttile;
-    areAx_cust_rot = plotARE(figObj_cust, trajErr_cust, 'custom EKF');
-    hold on;
-    p3pPlotting.addCheckerboard(areAx_cust_rot, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
-    view(areAx_cust_rot, [-57 30]);
-    hold off;
-
-    %Plot trajectory errors over time
-    %nexttile;
-    %plot
-
-    nexttile;
-    neesAx_cust_apriori = plotNEES(figObj_cust, ekfResult_cust.elapsedTime, nees_cust_apriori, size(ekfResult_cust.xHat, 1), 1, 'a priori state estimate, custom EKF'); 
-    hold on;
-    if aiding == true
-        neesAx_cust_apost = plotNEES(figObj_cust, ekfResult_cust.elapsedTime(:,aid_indices), nees_cust_apost, size(ekfResult_cust.x_, 1), 1, 'a posteriori state estimate, custom EKF');
-    end
-    legend;
-    hold off
-
-    if aiding == true
-        nexttile;
-        nisAx = plotNIS(figObj_cust, ekfResult_cust.elapsedTime(:,aid_indices), nis_cust, size(ekfResult_cust.y, 1), 1, 'NIS - custom EKF'); 
-    end
-
-    %EVALUATE P3P
-    ind_p3p = ~isnan(p3pData_cust.selected(1,:));
-    ind_gt_p3p = selectClosestTimeIndices(p3pData_cust.time(:,ind_p3p), groundTruth.quad.time);
-    trajErr_p3p = evaluateTracking(p3pData_cust.selected(:,ind_p3p), groundTruth.quad.state(1:7,ind_gt_p3p), 'none'); 
-
-
-
-%plot(x(isfinite(y)),y(isfinite(y)),'*-')
-   
-    if simset.SITL == true
-        % GET METRICS FOR PX4 EKF
+        % GET METRICS FOR CUSTOM EKF
         %run trajectory error
-        trajErr_px4 = evaluateTracking(ekfResult_px4.x_, groundTruth.quad.state_px4Aligned, 'none');
+        trajErr_cust = evaluateTracking(ekfResult_cust.x_, groundTruth.quad.state_estAligned, 'none');
         
         %run nees on a priori state
-        nees_px4_apriori = evalNEES_noq(ekfResult_px4.x_, ekfResult_px4.P, groundTruth.quad.state_px4Aligned);
-        mean(nees_px4_apriori);
+        %nees_cust_apriori = evalNEES(ekfResult_cust.xHat(1:3, :), ekfResult_cust.PHat(1:3, 1:3, :), groundTruth.quad.state_estAligned(1:3,:));
+        nees_cust_apriori = evalNEES_noq(ekfResult_cust.x_, ekfResult_cust.PHat, groundTruth.quad.state_estAligned);
+        mean(nees_cust_apriori);
         
         %run nees on a posteriori state
         if aiding == true
-            nees_px4_apost = evalNEES_noq(ekfResult_px4.x_(:, aid_indices_px4), ekfResult_px4.P(:,:,aid_indices_px4), groundTruth.quad.state_aidAligned_px4);
-            mean(nees_px4_apost);
+            nees_cust_apost = evalNEES_noq(ekfResult_cust.x_(:, aid_indices), ekfResult_cust.P(:,:,aid_indices), groundTruth.quad.state_aidAligned);
+            mean(nees_cust_apost);
         else
-            nees_px4_apost = nan(1,1);
+            nees_cust_apost = nan(1,1);
         end
-
+    
         %run NIS
         if aiding == true
-            nis_px4 = evalNIS(ekfResult_px4.y(:,aid_indices_px4), ekfResult_px4.S(:,:,aid_indices_px4));
-            nis_px4_mean = mean(nis_px4);
+            nis_cust = evalNIS(ekfResult_cust.y(:,aid_indices), ekfResult_cust.S(:,:,aid_indices));
+            nis_cust_mean = mean(nis_cust);
         end
-
-        %AND PLOT
-        % DO PLOTTING - CUST EKF
-        figObj_px4 = figure();
-        tileLayout_px4 = tiledlayout(figObj_px4, 2,2);
     
-        %Plot traj err
-        %trajFig_trans = figure;
+           
+        % DO PLOTTING - CUST EKF
+        figObj_cust = figure();
+        tileLayout_cust = tiledlayout(figObj_cust, 2,2);
+        
+        % Plot trajectory errors vs trajectory
         nexttile;
-        trajAx_px4_trans = plotATE(figObj_px4, trajErr_px4, 'px4 EKF');
+        ateAx_cust_trans = plotATE(figObj_cust, trajErr_cust, 'custom EKF');
         hold on;
-        p3pPlotting.addCheckerboard(trajAx_px4_trans, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+        p3pPlotting.addCheckerboard(ateAx_cust_trans, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
         view(ateAx_cust_trans, [-57 30]);
         hold off;
         nexttile;
-        trajAx_px4_rot = plotARE(figObj_px4, trajErr_px4, 'px4 EKF');
+        areAx_cust_rot = plotARE(figObj_cust, trajErr_cust, 'custom EKF');
         hold on;
-        p3pPlotting.addCheckerboard(trajAx_px4_rot, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
-        view(ateAx_cust_trans, [-57 30]);
+        p3pPlotting.addCheckerboard(areAx_cust_rot, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+        view(areAx_cust_rot, [-57 30]);
         hold off;
-        %plot NEES
-        %neesFig = figure;
+    
+        %Plot trajectory errors over time
+        %nexttile;
+        %plot
+    
         nexttile;
-        neesAx_px4_apriori = plotNEES(figObj_px4, ekfResult_px4.elapsedTime, nees_px4_apriori, size(ekfResult_px4.x_, 1), 1, 'a priori state estimate, px4 EKF'); 
+        neesAx_cust_apriori = plotNEES(figObj_cust, ekfResult_cust.elapsedTime, nees_cust_apriori, size(ekfResult_cust.xHat, 1), 1, 'a priori state estimate, custom EKF'); 
         hold on;
         if aiding == true
-            neesAx_px4_apost = plotNEES(figObj_px4, ekfResult_px4.elapsedTime(:,aid_indices_px4), nees_px4_apost, size(ekfResult_px4.x_, 1), 1, 'a posteriori state estimate, px4 EKF');
+            neesAx_cust_apost = plotNEES(figObj_cust, ekfResult_cust.elapsedTime(:,aid_indices), nees_cust_apost, size(ekfResult_cust.x_, 1), 1, 'a posteriori state estimate, custom EKF');
         end
         legend;
         hold off
     
-        % Plot NIS
-        %nisFig = figure;
         if aiding == true
             nexttile;
-            nisAx = plotNIS(figObj_px4, ekfResult_px4.elapsedTime(:,aid_indices_px4), nis_px4, size(ekfResult_px4.y, 1), 1, 'NIS - PX4');
+            nisAx = plotNIS(figObj_cust, ekfResult_cust.elapsedTime(:,aid_indices), nis_cust, size(ekfResult_cust.y, 1), 1, 'NIS - custom EKF'); 
         end
     
-        %nexttile(1);
-        %hold on;
-        %trajAx_trans = plotATE(figObj_px4, trajErr_px4, 'px4 EKF');
+        %EVALUATE P3P
+        ind_p3p = ~isnan(p3pData_cust.selected(1,:));
+        ind_gt_p3p = selectClosestTimeIndices(p3pData_cust.time(:,ind_p3p), groundTruth.quad.time);
+        trajErr_p3p = evaluateTracking(p3pData_cust.selected(:,ind_p3p), groundTruth.quad.state(1:7,ind_gt_p3p), 'none'); 
+    
+    
+    
+    %plot(x(isfinite(y)),y(isfinite(y)),'*-')
+       
+        if simset.SITL == true
+            % GET METRICS FOR PX4 EKF
+            %run trajectory error
+            trajErr_px4 = evaluateTracking(ekfResult_px4.x_, groundTruth.quad.state_px4Aligned, 'none');
+            
+            %run nees on a priori state
+            nees_px4_apriori = evalNEES_noq(ekfResult_px4.x_, ekfResult_px4.P, groundTruth.quad.state_px4Aligned);
+            mean(nees_px4_apriori);
+            
+            %run nees on a posteriori state
+            if aiding == true
+                nees_px4_apost = evalNEES_noq(ekfResult_px4.x_(:, aid_indices_px4), ekfResult_px4.P(:,:,aid_indices_px4), groundTruth.quad.state_aidAligned_px4);
+                mean(nees_px4_apost);
+            else
+                nees_px4_apost = nan(1,1);
+            end
+    
+            %run NIS
+            if aiding == true
+                nis_px4 = evalNIS(ekfResult_px4.y(:,aid_indices_px4), ekfResult_px4.S(:,:,aid_indices_px4));
+                nis_px4_mean = mean(nis_px4);
+            end
+    
+            %AND PLOT
+            % DO PLOTTING - CUST EKF
+            figObj_px4 = figure();
+            tileLayout_px4 = tiledlayout(figObj_px4, 2,2);
         
-    end
-
-    figObj_stateEvol = plotStateEvolution(ekfResult_cust, groundTruth);
-
-    figObj_errTime = figure();
-    %plotErrVsTime(ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', ekfResult_px4.elapsedTime(:,aid_indices_px4), trajErr_px4, 'px4 EKF')
-    if simset.SITL == false
-        plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p')
-    else
-        plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p', ekfResult_px4.elapsedTime, trajErr_px4, 'px4 EKF');
-    end
-
-    %% Reformat plots
-    figObj_cust = formatFigForLatex(figObj_cust);
-    figObj_errTime = formatFigForLatex(figObj_errTime);
-    figObj_stateEvol = formatFigForLatex(figObj_stateEvol);
-    
-    if simset.SITL == true
-        figObj_px4 = formatFigForLatex(figObj_px4);
-    end
-
-    %% SAVE RESULTS
-
-    if evalset.save == true
-        if simset.mocapTraj == true
-            temp = split(currentFolder, '\');
-            trajName = string(temp(end));
-        else
-            trajName = input('Please enter a string to name your save folder: ', 's');
-        end
-        %also make folder for specific traj
-        trajTargetFolder = strcat(targetFolder, '\', trajName);
-        if ~exist(trajTargetFolder, 'dir')
-            mkdir(targetFolder, trajName);
-        end
+            %Plot traj err
+            %trajFig_trans = figure;
+            nexttile;
+            trajAx_px4_trans = plotATE(figObj_px4, trajErr_px4, 'px4 EKF');
+            hold on;
+            p3pPlotting.addCheckerboard(trajAx_px4_trans, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+            view(ateAx_cust_trans, [-57 30]);
+            hold off;
+            nexttile;
+            trajAx_px4_rot = plotARE(figObj_px4, trajErr_px4, 'px4 EKF');
+            hold on;
+            p3pPlotting.addCheckerboard(trajAx_px4_rot, (map.worldObjectStruct.checkers(1).Corners)*(1e-6));
+            view(ateAx_cust_trans, [-57 30]);
+            hold off;
+            %plot NEES
+            %neesFig = figure;
+            nexttile;
+            neesAx_px4_apriori = plotNEES(figObj_px4, ekfResult_px4.elapsedTime, nees_px4_apriori, size(ekfResult_px4.x_, 1), 1, 'a priori state estimate, px4 EKF'); 
+            hold on;
+            if aiding == true
+                neesAx_px4_apost = plotNEES(figObj_px4, ekfResult_px4.elapsedTime(:,aid_indices_px4), nees_px4_apost, size(ekfResult_px4.x_, 1), 1, 'a posteriori state estimate, px4 EKF');
+            end
+            legend;
+            hold off
         
-        %save figures
-        if simset.SITL == true
-            figs = [figObj_cust, figObj_px4, figObj_stateEvol, figObj_errTime];
-        else
-            figs = [figObj_cust, figObj_stateEvol, figObj_errTime];
+            % Plot NIS
+            %nisFig = figure;
+            if aiding == true
+                nexttile;
+                nisAx = plotNIS(figObj_px4, ekfResult_px4.elapsedTime(:,aid_indices_px4), nis_px4, size(ekfResult_px4.y, 1), 1, 'NIS - PX4');
+            end
+        
+            %nexttile(1);
+            %hold on;
+            %trajAx_trans = plotATE(figObj_px4, trajErr_px4, 'px4 EKF');
+            
         end
-        savefig(figs, strcat(trajTargetFolder, '\figures.fig'));
-
-        %export figs as images
-        %exportgraphics(figObj_cust, 'resultSummary_cust.svg');
-        %exportgraphics(figObj_px4, 'resultSummary_px4.svg');
-        %exportgraphics(figObj_stateEvol, 'stateEvol_cust.svg');
-
-        %save data
-        simSummary.cust.ekfResult = ekfResult_cust;
-        simSummary.cust.trajErr = trajErr_cust;
-        simSummary.groundTruth = groundTruth;
-        simSummary.p3pResult = p3pData_cust;
-        if simset.SITL == true
-            simSummary.px4.ekfResult = ekfResult_px4;
-            simSummary.px4.trajErr = trajErr_px4;
-        end
-        save('results.mat', 'simSummary');
-
-        % SIMULATION OUTPUT
-        save(fullfile(trajTargetFolder, '/simout.mat'), 'out'); %save out
-        vidFile = fullfile('.', '/camOutput.avi'); %find video
-        imgFuncs.convertVideo(vidFile, trajTargetFolder);%save images
     
-        if simset.SITL == true
-            %copy log to sim output folder
-            copyfile  strcat(px4LogFiles_newest.folder, '\', px4LogFiles_newest.name) trajTargetFolder;
+        figObj_stateEvol = plotStateEvolution(ekfResult_cust, groundTruth);
+    
+        figObj_errTime = figure();
+        %plotErrVsTime(ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', ekfResult_px4.elapsedTime(:,aid_indices_px4), trajErr_px4, 'px4 EKF')
+        if simset.SITL == false
+            plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p')
+        else
+            plotErrVsTime(figObj_errTime, ekfResult_cust.elapsedTime, trajErr_cust, 'custom EKF', p3pData_cust.time(:,ind_p3p), trajErr_p3p, 'p3p', ekfResult_px4.elapsedTime, trajErr_px4, 'px4 EKF');
         end
-
+    
+        %% Reformat plots
+        figObj_cust = formatFigForLatex(figObj_cust);
+        figObj_errTime = formatFigForLatex(figObj_errTime);
+        figObj_stateEvol = formatFigForLatex(figObj_stateEvol);
+        
+        if simset.SITL == true
+            figObj_px4 = formatFigForLatex(figObj_px4);
+        end
+    
+        %% SAVE RESULTS
+    
+        if evalset.save == true
+            if simset.mocapTraj == true
+                temp = split(currentFolder, '\');
+                trajName = string(temp(end));
+            else
+                trajName = input('Please enter a string to name your save folder: ', 's');
+            end
+            %also make folder for specific traj
+            trajTargetFolder = strcat(targetFolder, '\', trajName);
+            if ~exist(trajTargetFolder, 'dir')
+                mkdir(targetFolder, trajName);
+            end
+            
+            %save figures
+            if simset.SITL == true
+                figs = [figObj_cust, figObj_px4, figObj_stateEvol, figObj_errTime];
+            else
+                figs = [figObj_cust, figObj_stateEvol, figObj_errTime];
+            end
+            savefig(figs, strcat(trajTargetFolder, '\figures.fig'));
+    
+            %export figs as images
+            %exportgraphics(figObj_cust, 'resultSummary_cust.svg');
+            %exportgraphics(figObj_px4, 'resultSummary_px4.svg');
+            %exportgraphics(figObj_stateEvol, 'stateEvol_cust.svg');
+    
+            %save data
+            simSummary.cust.ekfResult = ekfResult_cust;
+            simSummary.cust.trajErr = trajErr_cust;
+            simSummary.groundTruth = groundTruth;
+            simSummary.p3pResult = p3pData_cust;
+            if simset.SITL == true
+                simSummary.px4.ekfResult = ekfResult_px4;
+                simSummary.px4.trajErr = trajErr_px4;
+            end
+            save('results.mat', 'simSummary');
+    
+            % SIMULATION OUTPUT
+            save(fullfile(trajTargetFolder, '/simout.mat'), 'out'); %save out
+            vidFile = fullfile('.', '/camOutput.avi'); %find video
+            imgFuncs.convertVideo(vidFile, trajTargetFolder);%save images
+        
+            if simset.SITL == true
+                %copy log to sim output folder
+                copyfile  strcat(px4LogFiles_newest.folder, '\', px4LogFiles_newest.name) trajTargetFolder;
+            end
+    
+        end
     end
-
 
  function [ekfResult, p3pResult, groundTruth] = processSimData(out)
 

@@ -7,6 +7,7 @@ classdef checker < worldObject
         SquareSize
         Corners
         ImageFile
+        Name
     end
     
     methods
@@ -55,6 +56,7 @@ classdef checker < worldObject
             %Set subclass properties
             obj.NumSquares = checkerSize;
             obj.SquareSize = squareSize;
+            obj.Name = identifier;
 
             %Get transformatiion for Actor in Sim
             T_A2S = worldObject.calcTransformA2S(T_B2W, T_A2B, T_W2S);

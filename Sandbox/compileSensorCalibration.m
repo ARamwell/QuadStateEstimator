@@ -3,7 +3,7 @@
 %specify save destination
 accelName = 'accel0_20250808_gauss_nobias';
 gyroName = 'gyro0_nobias';
-camName = 'esp32cam_320p';
+camName = 'imx219_640p_ideal';
 targetFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\Calibrations';
 
 
@@ -40,12 +40,14 @@ save(fullFileName, '-struct', "gyro")
 
 
 %% SET CAMERA PARAMETERS
-camPin.K = [458.8803 0 235.5162; 0 458.9989 167.8936; 0 0 1];
+camPin.K = [350 0 320; 0 350 240; 0 0 1];
+
+%[458.8803 0 235.5162; 0 458.9989 167.8936; 0 0 1];
     %K = [458.944297528687 0 249.584321044399; 0 459.543641247509 172.625660963493; 0 0 1];%esp32 svga
     %K = [462.0327 0 241.8730; 0 462.4926 166.7321; 0 0 1];
-camPin.radialDistortion = [-0.0571 0.1245];
-camPin.tangentialDistortion =[-0.0035 -0.0064];
-camPin.imageSize = [320 480];
+camPin.RadialDistortion = params.Intrinsics.RadialDistortion;
+camPin.TangentialDistortion =params.Intrinsics.TangentialDistortion;
+camPin.ImageSize = params.Intrinsics.ImageSize;
 
 fullFileName = strcat(fullfile(targetFolder), '/', 'camPin_', camName, '.mat');
 save(fullFileName, '-struct', "camPin")

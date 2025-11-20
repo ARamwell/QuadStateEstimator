@@ -74,9 +74,9 @@ T_markers2genquad = [T_markers2genquad; 0 0 0 1];
 
 transformStruct = struct('T_sim2world', T_sim2world, 'T_simcam2gencam', T_simcam2gencam, 'T_simquad2genquad', T_simquad2genquad, 'T_imu2genquad', T_imu2genquad, 'T_gencam2genquad', T_gencam2genquad, 'T_mocap2world', T_mocap2world, 'T_markers2genquad', T_markers2genquad);
 %transformStruct = struct('rt_sim2world', rt_sim2world, 'rotm_simcam2gencam', rotm_simcam2gencam, 'rotm_simquad2genquad', rotm_simquad2genquad, 'rt_imu2genquad', rt_imu2genquad, 'rt_gencam2genquad', rt_gencam2genquad, 'rt_mocap2world', rt_mocap2world, 'rt_mcquad2genquad', rt_mcquad2genquad);
-%% 
-% 
+%% CHECKERBOARDS
 
+% **** Checker 1 *****
 checkerSize = [5,8];
 checkerSquareSize = 31; %mm
 %checkerPos = [(((checkerSize(1)/2)-1)*checkerSquareSize) (((checkerSize(2)/2)-1)*checkerSquareSize) 1]; %mm
@@ -85,8 +85,9 @@ checkerOrient = [0 0 90];%rad2deg(rotm2eul([0 -1 0; -1 0 0; 0 0 1], 'XYZ'));% [-
 
 checkerObj = checker(checkerSize, checkerSquareSize, checkerPos, checkerOrient, "checkerboard", parentFile, T_sim2world);
 
-%create list of all checkerboards
-checkerList = [checkerObj];
+%***** create list of all checkerboards ******
+%checkerList = [checkerObj];
+checkerList = [];
 %%
 %April tag
 aprilSize = 0.15; %m
@@ -96,6 +97,15 @@ aprilSize = 0.15; %m
 
 %aprilList = [aprilObj1, aprilObj2, aprilObj3];
 aprilList = [];
+
+%%
+%Aruco tag
+arucoSize = 0.30; %m
+arucoObj0 = aruco(arucoSize, 0, [1,-1,-0.002], [0 0 90], "aruco0", parentFile, T_sim2world); 
+arucoObj1 = aruco(arucoSize, 1, [0,0,-0.002], [0 0 90], "aruco1", parentFile, T_sim2world);
+
+arucoList = [arucoObj0, arucoObj1];
+%arucoList = [];
 %%
 %room config
 room_height = 2;
@@ -131,8 +141,25 @@ floorObj = stage([0,0,0], [0,0,0], [room_length, room_width, 0], "floor", grey, 
 floorList = [floorObj];
 %%
 %create struct of all objects
-worldObjectStruct= struct('transforms', transformStruct, 'walls', wallList, 'checkers', checkerList, 'floors', floorList, 'aprils', aprilList);
+worldObjectStruct= struct('transforms', transformStruct, 'walls', wallList, 'checkers', checkerList, 'floors', floorList, 'aprils', aprilList, 'arucos', arucoList);
 
 %save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
 save(fullfile('.', '/Resources/map'), "worldObjectStruct");
+
+
 %save("C:\Users\alyss\OneDrive - University of Cape Town\Sandbox\PnP\Pnp_solver\GitClone\Resources\map", "worldObjectStruct");
+
+%% also create simple object-less struct for codegen
+
+featureMap = struct();
+
+for i=1:size(arucoList, 2)
+    featureMap.arucos(i)=struct('name', arucoList(i).Name, 'id', arucoList(i).TagNum, 'position', arucoList(i).Position, 'orientation', arucoList(i).Orientation, 'corners', arucoList(i).Corners);
+end
+
+for i=1:size(checkerList, 2)
+    featureMap.checkers(i)=struct('name', checkerList(i).Name, 'size', checkerList(i).NumSquares, 'Squaresize', checkerList(i).SquareSize, 'position', checkerList(i).Position, 'orientation', checkerList(i).Orientation, 'corners', checkerList(i).Corners);
+end
+
+%save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
+save(fullfile('.', '/Resources/featureMap'), "featureMap");

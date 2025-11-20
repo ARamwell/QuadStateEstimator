@@ -99,7 +99,6 @@ classdef EKF_3dQuad_funcs
                 %Compute predicted measurement covariance S
                 S_new_hat = H_new * P_new_hat * transpose(H_new) + W;
 
-
                 %Enforce positive definite-ness
                 S_new_hat = (S_new_hat + S_new_hat')/2;
 
@@ -119,6 +118,12 @@ classdef EKF_3dQuad_funcs
                 
                 %Enforce positive definite-ness
                 P_new = (P_new + P_new')/2;
+        
+         %*************************************************
+         %------------- STEP 4: MEAS COV UPDATE -------------- 
+
+
+
             end
 
             %Enforce quaternion constraints - closest quaternions

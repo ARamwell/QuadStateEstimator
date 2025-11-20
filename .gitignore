@@ -42,6 +42,12 @@ codegen/
 .MATLABDriveTag
 Resources/
 Sandbox/CamImgs/
-Sandbox/Jetson/
 Testers/imuCalib/
 Tests/
+*.elf
+*.tgz
+results.mat
++bus_conv_fcns/
+msgdef/
+src/
+Sandbox/Jetson/ros2Sub_ert_rtw/

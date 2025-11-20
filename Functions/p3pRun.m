@@ -80,18 +80,22 @@ classdef p3pRun
         end
 
 
-        function soln = KneipN(x_pnts_i, X_pnts_W, K, checkerSize,inlierThreshold)
+        function soln = KneipN(x_pnts_i, X_pnts_W, K, inlierThreshold)
+            %expects four points. if there are more, it will only use the
+            %first three for pose calculation, and the fourth for
+            %disambiguation.
 
             %Initialise variables
             T_CW_Arr = zeros(4,4,1);
             T_WC_Arr = zeros(4,4,1);
             
-            if size(X_pnts_W, 2) <=4
-                x_ABCD_i = x_pnts_i;
-                X_ABCD_W = X_pnts_W;
-            else
-                [x_ABCD_i, X_ABCD_W] = p3pFuncs.checkerOuterCornerSelector(x_pnts_i, X_pnts_W, checkerSize(1), checkerSize(2));
-            end
+             if size(X_pnts_W, 2) <=4
+                x_ABCD_i = x_pnts_i;%(:,[1 2 4 3]);
+                X_ABCD_W = X_pnts_W;%(:,[1 2 4 3]);
+             else
+                 checkerSize = [5, 8];
+                 [x_ABCD_i, X_ABCD_W] = p3pFuncs.checkerOuterCornerSelector(x_pnts_i, X_pnts_W, checkerSize(1), checkerSize(2));
+             end
             x_D_i = x_ABCD_i(:,4);
             X_D_W = X_ABCD_W(:,4);
             
@@ -168,7 +172,9 @@ classdef p3pRun
             R=worldPose.R;
             t=transpose(worldPose.Translation);
 
-            Rt_CW_Mat = [R t];       
+            Rt_CW_Mat = [R t];    
+            T_CW_Mat = [Rt_CW_Mat; 0 0 0 1];
+           
 
 
         end
@@ -177,6 +183,7 @@ classdef p3pRun
         function soln = KneipO(x_pnts_i, X_pnts_W, K, checkerSize, inlierThreshold)
 
             soln = struct();
+            pq_arr = nan(7,4);
 
             %Initialise Rt
             Rt_CW_arr= zeros(3,4,1);
