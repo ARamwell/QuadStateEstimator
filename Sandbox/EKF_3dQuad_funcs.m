@@ -5,7 +5,7 @@ classdef EKF_3dQuad_funcs
 
       %------------------------------------------------------------%
       
-      function [x_new, P_new, x_new_hat, P_new_hat, z_new_hat, z_new, y_new, K_new, S_new_hat] = EKF_loop(g, x_k, P_k, u_new, Q, z_new, W, t_delta, integ)
+      function [x_new, P_new, x_new_hat, P_new_hat, z_new_hat, z_new, y_new, K_new, S_new_hat, Q_k, W_new] = EKF_loop(g, x_k, P_k, u_new, Q_k, z_new, W_k, t_delta, integ, alpha, meas_count)
         %EKF_LOOP Main EKF loop for 3D quad, calling prediction and correction stages
         %
         %   Extended Kalman filter using IMU measurements for state prediction and fusing in pose 'measurements' from some other state sensor (usually visual) 
@@ -19,8 +19,7 @@ classdef EKF_3dQuad_funcs
         %       Q - IMU measurement covariance, in IMU space
         %       z_k - most recent pose measurement from visual system, column vector: [position; orientation quat] 
         %       W - aiding sensor measurement covariance, sensor space
-        %       t_delta - time since last EKF loop, in seconds
-        %       reset - flag for first run ("1"); calls jacobian matrix initialisation from current process model  
+        %       t_delta - time since last EKF loop, in seconds 
         %       integ - type of integration to use: 'rect' or 'trap'
         %   Outputs:
         %       x_new - a posteriori state estimate for k+1
@@ -58,7 +57,7 @@ classdef EKF_3dQuad_funcs
             end
                        
             %Predict new state covariance (in state space)
-            P_new_hat = F_new * P_k * transpose(F_new) + L_new * Q * transpose(L_new);
+            P_new_hat = F_new * P_k * transpose(F_new) + L_new * Q_k * transpose(L_new);
 
             %Quaternion patch: limit scalar term size
             % if P_new_hat(4,4) < 0.1
@@ -76,7 +75,8 @@ classdef EKF_3dQuad_funcs
                 P_new = P_new_hat;
                 z_new_hat = createArray(7,1);
                 y_new = createArray(7,1);
-               
+                %C_new = C_k;
+                W_new = W_k;
                
             else
         %---------- STEP 2: MEASUREMENT UPDATE------------    
@@ -97,7 +97,7 @@ classdef EKF_3dQuad_funcs
                 y_new = z_new - z_new_hat;
             
                 %Compute predicted measurement covariance S
-                S_new_hat = H_new * P_new_hat * transpose(H_new) + W;
+                S_new_hat = H_new * P_new_hat * transpose(H_new) + W_k;
 
                 %Enforce positive definite-ness
                 S_new_hat = (S_new_hat + S_new_hat')/2;
@@ -119,12 +119,49 @@ classdef EKF_3dQuad_funcs
                 %Enforce positive definite-ness
                 P_new = (P_new + P_new')/2;
         
-         %*************************************************
-         %------------- STEP 4: MEAS COV UPDATE -------------- 
 
+                % %*************************************************
+                % %------------ STEP 4: MEAS COV UPDATE ------------
+                % if alpha ~= 0 %this is effectively the control flag
+                %     threshold = 1/(1-alpha);
+                % 
+                %     if meas_count<threshold %if not enough measurements have been taken
+                %         C_new = (C_k * (meas_count-1) + (y_new * y_new'))/meas_count;
+                %         W_new = W_k;
+                %     else
+                %         C_new = alpha*C_k + (1-alpha) * (y_new * y_new');
+                %         W_new = C_new - H_new * P_new_hat * H_new';
+                %     end
+                % 
+                % else
+                %     C_new = zeros(size(W_k));
+                %     W_new = W_k;
+                % end
+                % %*************************************************
 
+                %*************************************************
+                %------------ STEP 4: MEAS COV UPDATE ------------
+                if alpha ~= 0 %this is effectively the control flag
+                    threshold = 1/(1-alpha);
 
+                    %a posteriori measurement estimate
+                    [z_new_post, ~] = EKF_3dQuad_funcs.meas_predict(x_new);
+
+                    %a posteriori measurement residual
+                    v_new = z_new - z_new_post;
+                    %v_new = (eye() - H_new_hat * K_new) * y_new;
+
+                    if meas_count<threshold %if not enough measurements have been taken
+                        W_new = W_k;% * (meas_count-1) + (1/meas_count)*((v_new * v_new') +  H_new * P_new_hat * H_new');                        
+                    else
+                        W_new = alpha*W_k + (1-alpha)*((v_new * v_new') +  H_new * P_new_hat * H_new');
+                    end
+                else
+                    W_new = W_k;
+                end
+                %*************************************************
             end
+                 
 
             %Enforce quaternion constraints - closest quaternions
             if dot(x_k(4:7), x_new(4:7)) < 0
@@ -134,11 +171,7 @@ classdef EKF_3dQuad_funcs
             %normalise orientation quaternion
             if norm(x_new(4:7,1)) > 0.001
                 x_new(4:7,1) =x_new(4:7,1)/norm(x_new(4:7,1));
-            end
-
-
-
-        
+            end        
         end
       
       %------------------------------------------------------------%
