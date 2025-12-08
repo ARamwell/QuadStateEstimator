@@ -1,6 +1,6 @@
 % SET OPTIONS
-importSimLogs = false;
-importRealData = true;
+importSimLogs = true;
+importRealData = false;
 importMocap = true;
 importImages = true;
 rtRounding = 10;

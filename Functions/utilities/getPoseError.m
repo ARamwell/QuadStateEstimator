@@ -1,7 +1,7 @@
-function [posErr, orientErr] = getPoseError(truePose_pq,estPose_pq)
+function [posErr, orientErr, Err] = getPoseError(truePose_pq,estPose_pq)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
-            
+    
     %Extract useful variables
     q_act = truePose_pq(4:7); %q_actual2w
     t_act = truePose_pq(1:3);
@@ -40,6 +40,8 @@ function [posErr, orientErr] = getPoseError(truePose_pq,estPose_pq)
     %Calculate position error using euclidean distance
     
     posErr = norm(t_act - t_est);
+
+    Err= [posErr; orientErr];
     
 
 end 

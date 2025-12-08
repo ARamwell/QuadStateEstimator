@@ -1,30 +1,28 @@
-function [simset, targetFolder] = simGetSettings()
+function [simset, targetSaveFolder] = simGetSettings()
     
     %settings
     simset.envHz = 100;
     simset.SITL = false;
-    simset.mocapTraj = false;
+    simset.mocapTraj = true;
     simset.runEstimator = true;
-    simset.imuHz = 1000;
-    simset.simHz = 1000;
-    simset.fps = 10;
-    simset.ekfHz = 1000;
+    simset.imuHz = 100;
+    simset.simHz = 100;
+    simset.fps = 20;
+    simset.ekfHz = 100;
     simset.pos0 = [0 0 0]';
     simset.eul0 = [0 0 0]';
     simset.g = [0; 0; 9.81];
     simset.imuDelay = 0.002;
     simset.duration = 10;
     simset.aidingActive = true;
-    simset.runEKF = true;
-    simset.runP3P = true;
-    simset.save = false;
-    simset.multisim = false;
+    simset.save = true;
+    simset.multisim = true;
     simset.imu = 2; %0-no processing; 1-no downsampling; 2-downsampled; 3-PX4 downsampled (ROS2)
    
     
     
     %directories
-    targetFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\Diss1';
+    targetFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\Diss1\p3p_test_sim';
     mapFile = './Resources/map.mat';
     accelParamFile = './Resources/Calibrations/accel_accel0_20250808_gauss_nobias.mat';
     gyroParamFile = './Resources/Calibrations/gyro_gyro0_nobias.mat';
@@ -43,12 +41,12 @@ function [simset, targetFolder] = simGetSettings()
     simset.camParams = load(camParamFile);
     
     %% Some logic
-    if simset.runEstimator == true
-        simset.runEKF = true;
-        if simset.aidingActive == true
-            simset.runP3P = true;
-        end
-    end
+    % if simset.runEstimator == true
+    %     simset.runEKF = true;
+    %     if simset.aidingActive == true
+    %         simset.runP3P = true;
+    %     end
+    % end
 
     if simset.SITL == false && simset.imu==3
         simset.imu = 1;
@@ -60,9 +58,9 @@ function [simset, targetFolder] = simGetSettings()
         currentTime = datetime('now');
         currentTimeStr = string(currentTime, 'yyyy-MM-dd_HH-mm-ss');
         targetName = strcat("sim_", currentTimeStr);
-        targetFolder = strcat(targetFolder, '\', targetName);
-        if ~exist(targetFolder, 'dir')
-            mkdir(targetSaveFolder, targetName);
+        targetSaveFolder = strcat(targetFolder, '\', targetName);
+        if ~exist(targetSaveFolder, 'dir')
+            mkdir(targetFolder, targetName);
         end
 end
 

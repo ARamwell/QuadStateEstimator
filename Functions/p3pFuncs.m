@@ -2,6 +2,25 @@ classdef p3pFuncs
     methods (Static)
 
         %------------------------------------------------------------%
+        function x_pnts_corr = fixRadialDistortion(x_pnts_c, k1, k2)
+        %x_pnts_i in normalised image coordinates (i.e., not pixels, and
+        %measured from centre of projection
+
+          x_pnts_corr = createArray(3, size(x_pnts_c, 2));
+        
+            for j=1:size(x_pnts_c, 2)
+                
+                r2 = x_pnts_c(1, j)^2 * x_pnts_c(2, j)^2;
+                x_pnts_corr(1:2, j) = x_pnts_c(1:2, j) * (1 - k1*r2 + (3*k1^2 - k2)*r2^2);
+                %x_pnts_corr(1:2, j) = x_pnts_c(1:2, j) / (1 + k_rad*r2);
+                x_pnts_corr(3, j) = x_pnts_c(3, j);
+                x_pnts_corr(:,j) = x_pnts_corr(:,j) / vecnorm(x_pnts_corr(:,j));
+            end
+            
+
+        end
+        
+        %------------------------------------------------------------%
         function x_pnt_c_unit = getCameraVector(K, x_pnt_i)        
             %Function to get unit vector describing the ray between a calibrated
             %camera's centre of perspective (CP) and the position of a point on the

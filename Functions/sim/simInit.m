@@ -4,9 +4,13 @@
 
     
     %% GET TRAJECTORY
-    wp_times =  traj(1, :);
-    wp_pos =  traj(2:4, :);
-    wp_eul = traj(5:7, :);
+    goodIndices = (~isnan(traj(1,:)));
+    traj = traj(:, goodIndices);
+    wp_times =  (traj(1, :));
+    wp_pos =  (traj(2:4, :));
+    wp_eul = (traj(5:7, :));
+    %clean of nan
+
     traj_pos_ts = timeseries(wp_pos, wp_times);
     traj_eul_ts = timeseries(wp_eul, wp_times);
 

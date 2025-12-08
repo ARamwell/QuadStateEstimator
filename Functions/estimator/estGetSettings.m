@@ -3,6 +3,7 @@ function [estset] = estGetSettings()
 %   Detailed explanation goes here
 
     estset.runP3P = true;
+    estset.runEKF = false;
     estset.trackBias = false;
     estset.trapInteg = true;
     estset.adaptive = false;

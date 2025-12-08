@@ -1,7 +1,7 @@
-function [ekfResult, p3pResult] = processSimEstimatorData(out, simset, groundTruth)
+function [ekfResult, p3pResult] = processSimEstimatorData(out, estset, groundTruth)
 %PROCESSSIMESTIMATORDATA Summary of this function goes here
 %   Detailed explanation goes here
- if simset.runEKF == false
+ if estset.runEKF == false
     ekfResult = '';
  else
     
@@ -34,21 +34,26 @@ function [ekfResult, p3pResult] = processSimEstimatorData(out, simset, groundTru
         ekfResult.trueState = groundTruth.quad.state(:,indices);
  end
 
- if simset.runP3P == false
+ if estset.runP3P == false
     p3pResult = '';
  else
             %Get p3p results
             p3pResult.poseArr = out.p3p_poseArr.signals.values;
-            p3pResult.selected = out.p3p_selected.signals.values;
-            p3pResult.mostIn = out.p3p_mostIn.signals.values(1:7,:)';
-            p3pResult.numIn = out.p3p_mostIn.signals.values(8,:)';
+            p3pResult.selected = out.p3p_selected.signals.values';
+            %p3pResult.mostIn = out.p3p_mostIn.signals.values(1:7,:)';
+            %p3pResult.numIn = out.p3p_mostIn.signals.values(8,:)';
             p3pResult.time = out.p3p_poseArr.time';
     
-             %get measurement time-aligned ground truth
-            aid_indices = ~isnan(ekfResult.z(1, :));
-            indices = selectClosestTimeIndices(ekfResult.time(:,aid_indices), groundTruth.quad.time);
+            % %get measurement time-aligned ground truth
+            % aid_indices = ~isnan(ekfResult.z(1, :));
+            % indices = selectClosestTimeIndices(ekfResult.time(:,aid_indices), groundTruth.quad.time);
+            % p3pResult.truePose = groundTruth.quad.state(1:7,indices);
+
+            %get measurement time-aligned ground truth
+            %aid_indices = ~isnan(ekfResult.z(1, :));
+            indices = selectClosestTimeIndices(p3pResult.time, groundTruth.quad.time);
             p3pResult.truePose = groundTruth.quad.state(1:7,indices);
 
-    end
+  end
 end
 

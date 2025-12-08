@@ -103,6 +103,9 @@ classdef p3pRun
             %Get projection rays
             x_ABCD_c = p3pFuncs.getCameraVector(K, x_ABCD_i);
 
+            %Correct for radial distortion
+            %x_ABCD_c = p3pFuncs.fixRadialDistortion(x_ABCD_c, -0.3434, 0.1096);
+
             %Run Kneip's p3p to get up to 4 solutions for the Rt matrix.
             %Nagano implementation outputs W->C
             [R_WC_Arr, t_WC_Arr] = KneipP3P_Nag(x_ABCD_c(:,1:3), X_ABCD_W(:,1:3));

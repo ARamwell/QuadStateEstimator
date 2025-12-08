@@ -1,4 +1,10 @@
-
+% % %Select a .csv file
+[filename, pathname] = uigetfile('*.mat', 'Select a MAT file to import');
+if isequal(filename,0)
+    disp('User canceled file selection.');
+    return;
+end
+filepath = fullfile(pathname, filename);
 
 imuData = load(fullfile('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3', '\imuReadings_static_15000.mat'));
 
