@@ -201,7 +201,6 @@ classdef imgFuncs
                     I_seq_t(f) =  datetime(timestampStr, 'InputFormat', 'yyyyMMdd_HHmmss_SSS', 'Format','yyyyMMdd_HHmmss_SSS');
                     %I_seq_t(f) = dt;
                 else %if from simulation
-                    
                     I_seq_t(f) = datetime(refTime+seconds(str2double(I_name)/1000), 'Format', 'yyyyMMdd_HHmmss_SSS');
                 end
             end

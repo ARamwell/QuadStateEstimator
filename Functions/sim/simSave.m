@@ -17,7 +17,7 @@ else
 
     %okay, now we have the subfolder, we can save all our simulation results and settings
     %in there
-    save(fullfile(saveFolder, '/simset.mat'), "simset"); %save settings
+    save(fullfile(saveFolder, '/simset.mat'), '-struct', "simset"); %save settings
     save(fullfile(saveFolder, '/simout.mat'), "simout"); %save results
     vidFile = fullfile('.', '/camOutput.avi'); %find video
     imgFuncs.convertVideo(vidFile, saveFolder);%save images

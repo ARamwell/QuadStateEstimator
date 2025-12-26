@@ -51,6 +51,7 @@ T_imu2genquad = ([1 0 0 0;
 
 
 T_gencam2genquad = ([ [0 -1 0; 1 0 0; 0  0 1] pos_esp2pixhawk']);
+
 T_gencam2genquad = [T_gencam2genquad; 0 0 0 1];
 %rt_gencam2genquad = ([ [0 1 0; -1 0 0; 0  0 1] pos_esp2pixhawk']);
 
@@ -101,10 +102,10 @@ aprilList = [];
 %%
 %Aruco tag
 arucoSize = 0.30; %m
-arucoObj0 = aruco(arucoSize, 0, [1,-1,-0.002], [0 0 90], "aruco0", parentFile, T_sim2world); 
-arucoObj1 = aruco(arucoSize, 1, [0,0,-0.002], [0 0 90], "aruco1", parentFile, T_sim2world);
+%arucoObj0 = aruco(arucoSize, 0, [1,-1,-0.002], [0 0 90], "aruco0", parentFile, T_sim2world); 
+arucoObj1 = aruco(arucoSize, 1, [arucoSize/2,-arucoSize/2,-0.002], [0 0 90], "aruco1", parentFile, T_sim2world);
 
-arucoList = [arucoObj0, arucoObj1];
+arucoList = [arucoObj1];
 %arucoList = [];
 %%
 %room config

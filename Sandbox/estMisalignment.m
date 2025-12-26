@@ -8,7 +8,7 @@ q_true = createArray(4,0);
 %t_true
 
 %% Find all subfolders
-parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\';
+parentFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3\';
 allSubFolders = genpath(parentFolder);
 % Parse into a cell array.
 remain = allSubFolders;
@@ -27,7 +27,7 @@ numberOfSubFolders = length(listOfFolderNames);
   % for k=2:numberOfSubFolders
   %    currentFolder = string(listOfFolderNames(k));
 
-    currentFolder = fullfile('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\pitchforward_high1\sim_16Hz');
+    currentFolder = fullfile('C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3\pitchforward_high1\sim_16Hz');
     
     basename = 'ekfResult_10el_rect';
     filename = strcat('\', basename, '.mat');

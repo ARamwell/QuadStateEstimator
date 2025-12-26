@@ -108,14 +108,14 @@ classdef p3pRun
 
             %Run Kneip's p3p to get up to 4 solutions for the Rt matrix.
             %Nagano implementation outputs W->C
-            [R_WC_Arr, t_WC_Arr] = KneipP3P_Nag(x_ABCD_c(:,1:3), X_ABCD_W(:,1:3));
+            [R_C2W_Arr, t_C2W_Arr] = KneipP3P_Nag(x_ABCD_c(:,1:3), X_ABCD_W(:,1:3));
 
-            T_CW_arr = zeros(4,4,size(R_WC_Arr,3));
-            T_WC_Arr = createArray(size(T_CW_arr));
-            pq_arr = createArray(7,size(T_WC_Arr,3));
+            T_C2W_arr = zeros(4,4,size(R_C2W_Arr,3));
+            T_W2C_Arr = createArray(size(T_C2W_arr));
+            pq_arr = createArray(7,size(T_C2W_Arr,3));
 
             %For each possible solution
-            for j=1:size(R_WC_Arr,3)
+            for j=1:size(R_C2W_Arr,3)
                 %Concatenate to get Rt
                 T_WC_Arr(1:3,1:3,j) = R_WC_Arr(:,:,j);
                 T_WC_Arr(1:3,4,j) = t_WC_Arr(:,j);
@@ -136,12 +136,17 @@ classdef p3pRun
             %     Rt_WC_arr(:,:,j) = p3pFuncs.invertRt(Rt_CW_arr(:,:,j));
             % end 
 
-            [T_WC_minReprojErr, err] = p3pFuncs.chooseTWithMinReprojErrorWC(K, T_WC_Arr, x_D_i, X_D_W);
+            [T_WC_minReprojErr, err, idx_best] = p3pFuncs.chooseTWithMinReprojErrorWC(K, T_WC_Arr, x_D_i, X_D_W);
             %[Rt_CW, Err] = p3pFuncs.chooseRtWithMinReprojErrorCW(K, Rt_CW_Arr, x_D_i, X_D_W);
             
             [T_WC_maxInlier, inlierCnt] = p3pFuncs.chooseTWithMostInliersWC(K, T_WC_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
             %[Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
-            
+
+            %rearrange posearr to put best result in front
+            pq_best = pq_arr(:, j);
+            pq_arr(:, j) = [];
+            pq_arr = cat(2, pq_best, pq_arr);
+            idx_best = 1;
             
             %Rt_CW_der = p3pFuncs.invertRt(Rt_WC);
             %Rt_WC_der = p3pFuncs.invertRt(Rt_CW);
@@ -240,6 +245,9 @@ classdef p3pRun
             soln.minReproj.Err = err;
 
         end
+
+
+        
     end
 end
 

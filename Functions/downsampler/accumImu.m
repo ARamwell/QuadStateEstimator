@@ -25,7 +25,7 @@ persistent dPhi_fir_prev
     end
 
 %% ANGLE
-% Calc first-order angle change for current interation
+% Calc first-order angle change for current iteration
 dPhi_fir_l = 0.5 * (w_l + w_prev) *dt;    %get first-order rotation element, trapezoidal integration
 
 % Get coning contribution for current iteration
@@ -69,7 +69,7 @@ dPhi_accum = accumAngle;
 
 a_prev = a_l;
 dV_fir_prev = dV_fir_l;
-dV_accum = accumAngle;
+dV_accum = accumVel;
 
     
 end

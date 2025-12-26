@@ -1,35 +1,36 @@
 %POPULATE MAT FILE WITH SENSOR CALIBRATION PARAMETERS
 
 %specify save destination
-accelName = 'accel0_20250808_gauss_nobias';
-gyroName = 'gyro0_nobias';
-camName = 'imx219_640p_ideal';
+accelName = 'accel0_20251211_allan_stable';
+gyroName = 'gyro0_20251211_allan';
+camName = 'imx219_640p_lowdist';
 targetFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\Calibrations';
 
 
 %% ACCELEROMETER
-accel.description = 'Pixhawk 6C Accel0 - full rate, only gaussian fit';
+accel.description = 'Pixhawk 6C Accel0 - full rate, allan variance';
 %accel.turnOnBias = [-0.1550; 0.0886; -0.0226] + [-0.173; -0.164; 0.329];
-accel.turnOnBias = [0 0 0];
-accel.scale = [1 0 0; 0 1 0; 0 0 1];
-accel.vrw = [0.015893  0.0315858  0.017725]; %white noise on acceleration signal
-accel.bi = [0 0 0]; %bias isntability
-accel.rrw =[0 0 0]; %rate random walk
+accel.turnOnBias = -[-0.32 0.026 -0.02]; %from gaussian mean
+%accel.scale = [0.9996 0.001 -0.001; 0.001 0.9995 0.002; -0.001 0.002 0.9995 ];
+accel.scale = diag([0.992, 0.990,0.975]);
+accel.vrw = [3.5e-04 3.1e-04 3.5e-04]; %white noise on acceleration signal
+accel.bi = [2.0e-04 1.5e-04 4.2e-04]; %bias isntability
+accel.rrw =[4.4e-05 3.1e-05 1.2e-04]; %rate random walk
 accel.max = 78.5;
 accel.res =0.001;
 accel.skew = inv(accel.scale)*100;
-accel.simBias =  ((accel.skew /100) * accel.turnOnBias')';
+accel.simBias = ((accel.skew /100) * accel.turnOnBias')';
 
 fullFileName = strcat(fullfile(targetFolder), '/', 'accel_', accelName, '.mat');
 save(fullFileName, '-struct', "accel")
 
 %% GYROSCOPE
 %gyro.turnOnBias = [0.0016; 0.0028; 0.0015] + [0; 0; 0];
-gyro.turnOnBias =[0 0 0];
+gyro.turnOnBias =-[0.013 -0.037 -0.005];
 gyro.scale = [1 0 0; 0 1 0; 0 0 1];
-gyro.arw = [1.037e-03 1e-03 1.29e-03]; %white noise on gyro signal
-gyro.bi = [0 0 0]; %bias isntability
-gyro.rrw =[0 0 0]; %rate random walk
+gyro.arw = [6.5e-04 6.9e-04 9.0e-04]; %white noise on gyro signal
+gyro.bi = [1.7e-04 2.0e-04 1.8e-04]; %bias isntability
+gyro.rrw =[2.7e-05 4.0e-05 3.0e-05]; %rate random walk
 gyro.max = 34.9;
 gyro.res =0.0001;
 gyro.skew = inv(gyro.scale)*100;
@@ -40,6 +41,9 @@ save(fullFileName, '-struct', "gyro")
 
 
 %% SET CAMERA PARAMETERS
+fullFileName = strcat(fullfile(targetFolder), '/', 'params_', camName, '.mat');
+save(fullFileName, '-struct', "camParam");
+
 camPin.K = [350 0 320; 0 350 240; 0 0 1];
 
 %[458.8803 0 235.5162; 0 458.9989 167.8936; 0 0 1];

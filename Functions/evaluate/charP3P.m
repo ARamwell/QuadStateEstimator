@@ -1,7 +1,8 @@
-clear lowErr midErr highErr allErr
+clear lowErr midErr highErr allErr allResid
 lowErr = createArray(3,0, 'double');
 midErr = createArray(3,0, 'double');
 highErr = createArray(3,0, 'double');
+allResid = createArray(7,0, 'double');
 
 %% Find all subfolders
 %listOfFolders = selector_multiFolder;\
@@ -12,7 +13,7 @@ highErr = createArray(3,0, 'double');
 %% Or all files
 listOfFiles = selector_multiFile();
 numberOfFiles = length(listOfFiles);
-parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\Diss1\p3p_test_sim\p3pResults';
+parentFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\p3pResults';
 
 
 %% Calc error
@@ -21,12 +22,19 @@ for i=1:numberOfFiles
     %currentFolder = fullfile('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\pitchforward_high1\sim_16Hz');
     
     p3pData = load(fullfile(currentFile));
+    numPoses = size(p3pData.p3pResult.truePose, 2);
+    resid = createArray(7, numPoses);
 
-    for d = 1:size(p3pData.p3pResult.truePose, 2)
+    for d = 1:numPoses
         [~, ~, p3pData.p3pResult.err(:,d)] = getPoseError(p3pData.p3pResult.truePose(:,d), p3pData.p3pResult.selected(:, d));
+        resid(:,d) = p3pData.p3pResult.selected(:, d) - p3pData.p3pResult.truePose(:,d);
+        if norm(resid(4:7,d))>1
+            resid(4:7,d) = p3pData.p3pResult.selected(4:7, d) + p3pData.p3pResult.truePose(4:7,d);
+        end
     end
-    
-  
+
+
+    allResid = [allResid, resid];
     if contains(currentFile, 'low')
         % lowErr(:,end) = p3pData.p3pResult.KneipN.best.err;
         lowErr = [lowErr, [p3pData.p3pResult.err; p3pData.p3pResult.truePose]];
@@ -35,6 +43,8 @@ for i=1:numberOfFiles
     elseif contains(currentFile, 'high')
         highErr = [highErr, [p3pData.p3pResult.err; p3pData.p3pResult.truePose]]; 
     end
+
+
   
 end
 
@@ -184,5 +194,17 @@ colormap hot;
 
   
 
+function calcMeasCov(resid)
 
+    numEl = size(resid, 1);
+    numSamp = size(resid, 2);
+
+    mu = mean(resid, 2);
+   % Rhat = zeros(numEl, numEl);
+
+    Rhat = cov(resid.', 1);
+
+    %for k=1:numSamp
+
+end
 

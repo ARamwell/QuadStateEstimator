@@ -18,7 +18,7 @@ simset.eul0 = [0 0 0]';
 evalset.save = false;
 evalset.runfolder = false;
   
-targetParentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\Diss1';
+targetParentFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1';
 
 %% SAVING PARAMETERS
 if evalset.save == true
@@ -63,8 +63,8 @@ T_uq2rq = map.worldObjectStruct.transforms.T_simquad2genquad;
 %% GET ALL FOLDERS
 if simset.mocapTraj == true
 
-    sourceFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\'; %all traj
-    sourceFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\rollleft_low2'; %single traj
+    sourceFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3\'; %all traj
+    sourceFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3\rollleft_low2'; %single traj
 
     if evalset.runfolder == true
         % Find all subfolders
@@ -481,17 +481,7 @@ function [nees] = evalNEES_noq(estStateHist, estCov, trueStateHist)
 
 end
 
-function [nis] = evalNIS(meas_resid, meas_cov)
-%will need groundtruth to be time-aligned in advance
-        
-    numUpdates = size(meas_resid, 2);
-    %calculate NIS 
-    for t=1:numUpdates
-        %will nans be a problem?
-        nis(t) = meas_resid(:,t)' * (meas_cov(:,:,t) \ meas_resid(:,t));
-    end
-    
-end
+
 
 
 function compareEKFMetrics(ekfResult)

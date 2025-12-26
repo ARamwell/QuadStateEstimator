@@ -73,8 +73,8 @@ classdef EKF_3dQuad_funcs
             if isnan(z_new)
                 x_new = x_new_hat;
                 P_new = P_new_hat;
-                z_new_hat = createArray(7,1);
-                y_new = createArray(7,1);
+                z_new_hat = nan(7,1);
+                y_new = nan(7,1);
                 %C_new = C_k;
                 W_new = W_k;
                
@@ -210,10 +210,10 @@ classdef EKF_3dQuad_funcs
             end
 
             %Extract variables to match symbolic toolbox output
-            if integ == 'trap'
-                numerics = [x_k; u_new; u_k; w_new; t_delta; g];
-            else
+            if integ == 'rect' 
                 numerics = [x_k; u_new; w_new; t_delta; g];
+            else
+                numerics = [x_k; u_new; u_k; w_new; t_delta; g];
             end
 
             %predefine variables for coder
@@ -359,11 +359,58 @@ classdef EKF_3dQuad_funcs
                 %first biases
                 ba_dot = w_ba;
                 bg_dot = w_bg;
-                ba_new = ba + dt * ba_dot;
-                bg_new = bg + dt * bg_dot;
+                ba_new = ba +  ba_dot *dt;
+                bg_new = bg + bg_dot*dt;
 
                 %quaternion update - use average angular rate, but don't try to average the current pose
                 w_Q_av = R_imu2rq * ( 0.5*(u_g_old + u_g_new) - bg + w_g); %get average angular rate
+                %w_Q_av = R_imu2rq * (u_g_new -bg +w_g);
+                if norm(w_Q_av) == 0
+                    dAngle = 0;
+                    w_Q_vec = [0 0 0]';
+                else
+                    dAngle = norm(w_Q_av) * dt; %get incremental angle change
+                    w_Q_vec = w_Q_av/norm(w_Q_av);
+                end
+                %update attitude quaternion
+                
+                dq = [cos(dAngle/2); sin(dAngle/2)*w_Q_vec];
+                dq_rmo = [dq'; 
+                          -dq(2) dq(1) -dq(4) dq(3);
+                          -dq(3) dq(4) dq(1) -dq(2);
+                          -dq(4) -dq(3) dq(2) dq(1)];
+                q_new = lmo_rq2rw * dq;
+                q_new = q_new/norm(q_new);
+
+                %velocity update
+                R_rq2rw_new = [1 - 2*(q_new(3)^2 + q_new(4)^2), 2*(q_new(2)*q_new(3) - q_new(4)*q_new(1)), 2*(q_new(2)*q_new(4) + q_new(3)*q_new(1)); % Convert q_new to rotation matrix
+                            2*(q_new(2)*q_new(3) + q_new(4)*q_new(1)), 1 - 2*(q_new(2)^2 + q_new(4)^2), 2*(q_new(3)*q_new(4) - q_new(2)*q_new(1));
+                            2*(q_new(2)*q_new(4) - q_new(3)*q_new(1)), 2*(q_new(3)*q_new(4) + q_new(2)*q_new(1)), 1 - 2*(q_new(2)^2 + q_new(3)^2)];
+                a_old = ((R_rq2rw * R_imu2rq *  (u_a_old - ba + w_a)) + g);
+                a_new = ((R_rq2rw_new * R_imu2rq *  (u_a_new - ba_new + w_a)) + g);
+                a_av = 0.5 * (a_old + a_new);
+                v_new = v + dt*a_av;
+
+                %position
+                v_av = 0.5 * (v_new + v);
+                p_new = p + dt*v_av;
+
+                symbols_16 = symbols_t16;
+                symbols_10 = symbols_t10;
+
+            %***** MODIFIED TRAPEZOIDAL *****
+            elseif integ == 'mtrp'
+                %update state in very specific order
+
+                %first biases
+                ba_dot = w_ba;
+                bg_dot = w_bg;
+                ba_new = ba +  ba_dot *dt;
+                bg_new = bg + bg_dot*dt;
+
+                %quaternion update - use average angular rate, but don't try to average the current pose
+                %w_Q_av = R_imu2rq * ( 0.5*(u_g_old + u_g_new) - bg + w_g); %get average angular rate
+                w_Q_av = R_imu2rq * (u_g_new -bg +w_g);
                 if norm(w_Q_av) == 0
                     dAngle = 0;
                     w_Q_vec = [0 0 0]';
@@ -398,6 +445,7 @@ classdef EKF_3dQuad_funcs
                 symbols_10 = symbols_t10;
                 
             end
+
             
             %***** define complete process model - 16 element version ****
             x_new_16el = [p_new; q_new; v_new; ba_new; bg_new]; 
@@ -515,20 +563,39 @@ classdef EKF_3dQuad_funcs
                 P_0 = P_;
             end
 
+            if ekfHz <=2000
+                ka = (ekfHz/250)^2;
+                kg = ka;
+            else %the downsampling makes noise scale weirdly
+                ka = (ekfHz/250)^2;
+                kg = (2000/250)^2;
+            end
+
             %process noise covariance (noise space)            
             %t_delta_dur = ((u_timeHist(1,2) - u_timeHist(1,1)));
             %t_delta = milliseconds(t_delta_dur) * 0.001;
-            w_g = [(1.037e-03)^2, 0.001^2, 0.00129^2]' / dt_av; %from Allan variance
-            w_g = [0.0029^2, 0.005^2, 0.0037^2]';
-            w_a = [(5.809e-03)^2, 0.008^2, 0.011^2]' / dt_av; %from Allan variance
-            w_a = [0.0128^2, 0.0164^2, 0.0191^2 ]';
-            w_ba = [(1.081e-05)^2, (0.000001)^2, (6.55e-06)^2]' /dt_av; %from Allan variance
-            w_bg = [(1e-07)^2, (1e-07)^2, (1e-07)^2]' /dt_av; %from Allan variance
+            % w_g = [(1.037e-03)^2, 0.001^2, 0.00129^2]' / dt_av; %from Allan variance
+            % w_g = [0.0029^2, 0.005^2, 0.0037^2]';
+            % w_a = [(5.809e-03)^2, 0.008^2, 0.011^2]' / dt_av; %from Allan variance
+            % w_a = [0.0128^2, 0.0164^2, 0.0191^2 ]';
+            % w_ba = [(1.081e-05)^2, (0.000001)^2, (6.55e-06)^2]' /dt_av; %from Allan variance
+            % w_bg = [(1e-07)^2, (1e-07)^2, (1e-07)^2]' /dt_av; %from Allan variance
+            w_g = kg*30*100*[0.058^2 0.062^2 0.080^2]';%*8000/2000; %1 SD @ 8Khz
+            w_a = ka*30*1000*[0.031^2 0.028^2 0.031^2]'; %1 SD @ 8kHz
+            w_ba = 0.01*w_a;
+            w_bg = 0.01*w_g;
+
+            %w_g = [0.015^2 0.015^2 0.015^2]';% PX4
+            %w_a = [0.35^2 0.35^2 0.35^2]'; %PX4
+            %w_ba = [0.01^2 0.01^2 0.01^2]';
+            %w_bg = [0.001^2 0.001^2 0.001^2]';
+           
             Q_ = diag([w_g; w_a; w_ba; w_bg]);
 
             %Q_ Robmech
-            Q_ = diag([0.01, 0.01, 0.01, 0.2, 0.2, 0.2, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001]);%*(16/1000); %16 el - [w_g, w_acc, w_ba, w_ba]
-
+            %Q_ = diag([0.01, 0.01, 0.01, 0.2, 0.2, 0.2, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001]);%*(16/1000); %16 el - [w_g, w_acc, w_ba, w_ba]
+            
+            
             %Q_PX4
             %Q_ = diag([1.5e-2, 1.5e-2, 1.5e-2, 3.5e-1, 3.5e-1, 3.5e-1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba]
 
@@ -538,10 +605,40 @@ classdef EKF_3dQuad_funcs
             else
                 Q = Q_;
             end
-            Q = Q* (8000/ekfHz);
+            Q = Q ;%*(8000/ekfHz);
+
 
             %and measurement covariance
-            W =diag([0.1506^2, 0.1506^2, 0.1506^2, 0.01, 0.007897, 0.007897, 0.007897]);  
+            %W =diag([0.1506^2, 0.1506^2, 0.1506^2, 0.01, 0.007897, 0.007897, 0.007897]);  %robmech
+            
+            %angle_err = 11.16;%low distortion lens nano, mean + sd
+            %pos_err = 0.24;%low distortion lens nano, mean + sd
+
+            %angle_err = 6.28;%low distortion lens nano, mean
+            %pos_err = 0.13;%low distortion lens nano, mean 
+
+            %angle_err = 4.75;%low distortion lens nano, mean mid
+            %pos_err = 0.077;%low distortion lens nano, mean mid
+
+            %angle_err = 4.75+4.64;%low distortion lens nano, mean + sd mid
+            %pos_err = 0.091+0.077;%low distortion lens nano, mean +sd  mid
+            
+            angle_err = 1.5*6.6; %true s.d. mid
+            pos_err = 0.12; %true s.d. mid
+
+            q_err = (deg2rad(angle_err))^2/4;
+                     
+            %q_err = (0.33) * (sin(angle_err/2))^2;
+            %q_err = 0.1^2;
+            %pos_err = 0.1;
+            W =diag([pos_err^2, pos_err^2, pos_err^2, 0.1, q_err, q_err, q_err]);  %low distortion lens nano, mean + sd
+
+
+        end
+        %------------------------------------------------------------%
+
+        function y_true = calcTrueResidual(integ, trueState)
+
         end
         %------------------------------------------------------------%
 

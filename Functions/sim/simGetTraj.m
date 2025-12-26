@@ -2,21 +2,103 @@ function [trajOut, trajNames, simset] = simGetTraj(simset, trajIn)
 %SIMGETTRAJ Summary of this function goes here
 
 if simset.mocapTraj == false %then manual input or some standard trajectories
-   
-    %Infinity trajectory
-    trajNames = 'simpleInf';
-    in_times = [0.01, 0.3, 3, 5, 7, 9];
-    %wp_pos = [t_checker; t_checker; 0 0 -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
-    %wp_pos = [0 0 0; 0 0 0; t_checker(1:2) -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
-    in_pos = [0 0 0; 0 0 0; 0 0.2 -1.1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
-    in_eul = [-0 0 0; 0 0 0; 0 0 0; 20 -20 0; -20 0 10; 0 0 0]';
+    %then trajIn will specify what we want
 
-    %elevated figure eight
-    trajNames = 'elev8';
-    in_times = [0.01, 0.3, ...
-        3, 5, 7, 9, 11];
-    in_pos = [0 0 -1; 0 0 -1; ...
-        0.3 -0.5 -1; 0 -1 -1; 1 0.7 -1.5; -0.5 0.7 -1.3; 0 0 -1];
+    if ~isstring(trajIn)
+        %then it is an array
+
+    else %specify an existing trajectory
+   
+        if strcmp(trajIn, "simpleInf")
+            %Infinity trajectory
+            trajNames = "simpleInf";
+            in_times = [0.01, 0.3, 3, 5, 7, 9];
+            %wp_pos = [t_checker; t_checker; 0 0 -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+            %wp_pos = [0 0 0; 0 0 0; t_checker(1:2) -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+            in_pos = [0 0 0; 0 0 0; 0 0.2 -1.1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
+            in_eul = [-0 0 0; 0 0 0; 0 0 0; 20 -20 0; -20 0 10; 0 0 0]';
+        
+        elseif strcmp(trajIn, "elev8")
+            %elevated figure eight
+            trajNames = "elev8";
+            in_times = [0.01, 0.3, ...
+                3, 5, 7, 9, 11]';
+            in_pos = [0 0 -1.1; 0 0 -1.1; 0.3 -0.5 -1.1; 0 -0 -1.4; 0.7 0.7 -1.6; -0.5 0.7 -1.4;  0 0 -1.1]';
+            in_eul = [0 0 0; 0 0 0;0 -21 -25;  -10 0 -30; 20 -20 0; 15 -5 50;  0 0 0]';
+ 
+        elseif strcmp(trajIn, "static")
+            %elevated figure eight
+            trajNames = "static";
+            in_times = [0.01, 0.3, 11]';
+            in_pos = [0 0 -1; 0 0 -1; 0 0 -1]';
+            in_eul = [0 0 0; 0 0 0;0 0 0]';
+        
+        elseif contains(trajIn, "spiral")
+            %Archimedes spiral trajectory with camera pointing at target [0 0 0]
+            %Parameters can be passed as: "spiral_rpm_H_dr_dz_sh_sr_nw" where:
+            %  rpm: rotations per minute (default 1)
+            %  H: number of loops/rotations (default 3)
+            %  dr: horizontal distance increase per loop in meters (default 0.5)
+            %  dz: vertical distance increase per loop in meters (default 0.3)
+            %  sh: starting height above target in meters (default 0.5)
+            %  sr: starting radius in meters (default 0.1)
+            %  nw: number of waypoints (default 30)
+            %Example: "spiral_1_3_0.5_0.3_0.5_0.1_30"
+            
+            trajNames = "spiral";
+            
+            % Parse parameters from trajIn string
+            % parts = strsplit(trajIn, '_');
+            % if length(parts) >= 2
+            %     rpm = str2double(parts{2});
+            %     if isnan(rpm), rpm = []; end
+            % else
+            %     rpm = [];
+            % end
+            % if length(parts) >= 3
+            %     numLoops = str2double(parts{3});
+            %     if isnan(numLoops), numLoops = []; end
+            % else
+            %     numLoops = [];
+            % end
+            % if length(parts) >= 4
+            %     dr_per_loop = str2double(parts{4});
+            %     if isnan(dr_per_loop), dr_per_loop = []; end
+            % else
+            %     dr_per_loop = [];
+            % end
+            % if length(parts) >= 5
+            %     dz_per_loop = str2double(parts{5});
+            %     if isnan(dz_per_loop), dz_per_loop = []; end
+            % else
+            %     dz_per_loop = [];
+            % end
+            % if length(parts) >= 6
+            %     startHeight = str2double(parts{6});
+            %     if isnan(startHeight), startHeight = []; end
+            % else
+            %     startHeight = [];
+            % end
+            % if length(parts) >= 7
+            %     startRadius = str2double(parts{7});
+            %     if isnan(startRadius), startRadius = []; end
+            % else
+            %     startRadius = [];
+            % end
+            % if length(parts) >= 8
+            %     numWaypoints = str2double(parts{8});
+            %     if isnan(numWaypoints), numWaypoints = []; end
+            % else
+            %     numWaypoints = [];
+            % end
+            
+            % Generate spiral trajectory using helper function
+            [in_times, in_pos, in_eul] = generateSpiralTrajectory(...
+                10, 5, 0.3, 0.1, ...
+                0.5, 0.1, 35);
+                        
+        end
+    end
 
     simset.duration =in_times(end)+1;
     [wp_pos, ~, ~, ~, ~, ~, ~, wp_times] = minsnappolytraj(in_pos, in_times, (simset.duration*simset.simHz));

@@ -1,6 +1,21 @@
 classdef p3pFuncs
     methods (Static)
+        %------------------------------------------------------------%
+        function soln_B = convSolnFrame(soln_A, T_A2B)
 
+            soln_B.poseArr = createArray(size(soln_A.poseArr));
+            soln_B.time = soln_A.time;
+
+            for i = 1:size(soln_A.poseArr, 3)
+                for s = 1:size(soln_A.poseArr, 2)
+                    soln_B.poseArr(:,s,i) = p3pFuncs.tformPQ(soln_A.poseArr(:,s,i), T_A2B);
+                    % if exist(soln_B.T_mostIn)
+                    %     soln_B.T_mostIn(:,s,i) = p3pFuncs.tformPQ(soln_A.poseArr(:,s,i), T_A2B);
+                    % end
+                end
+            end
+        end
+        
         %------------------------------------------------------------%
         function x_pnts_corr = fixRadialDistortion(x_pnts_c, k1, k2)
         %x_pnts_i in normalised image coordinates (i.e., not pixels, and
@@ -151,11 +166,12 @@ classdef p3pFuncs
     
         %------------------------------------------------------------%
 
-        function [bestT, minErr] = chooseTWithMinReprojErrorWC(K, T_arr, x_pnt_i, X_pnt_W)
+        function [bestT, minErr, idx] = chooseTWithMinReprojErrorWC(K, T_arr, x_pnt_i, X_pnt_W)
 
             %Initialise variables
             minErr = 10000000;%Arbitrarily large
             bestT = T_arr(:,:,1);
+            idx = 1;
         
             %For each Rt in the array
             for j=1:size(T_arr, 3)
@@ -168,6 +184,7 @@ classdef p3pFuncs
                 if err_j < minErr
                     minErr = err_j;
                     bestT = T_arr(:,:,j);
+                    idx = j;
                 end
             end
         end

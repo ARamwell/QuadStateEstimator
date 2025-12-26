@@ -6,7 +6,7 @@ if isequal(filename,0)
 end
 filepath = fullfile(pathname, filename);
 
-imuData = load(fullfile('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3', '\imuReadings_static_15000.mat'));
+imuData = load(fullfile('C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3', '\imuReadings_static_15000.mat'));
 
 gyroData = imuData.imuMsgLog(:,1:3);
 meanGyro = mean(gyroData, 1);

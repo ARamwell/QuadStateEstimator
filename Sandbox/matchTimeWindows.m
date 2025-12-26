@@ -1,6 +1,6 @@
 
 %% Find all subfolders
-parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\';
+parentFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Tests\RobMech\Dynamic\TestSeries_3\';
 allSubFolders = genpath(parentFolder);
 % Parse into a cell array.
 remain = allSubFolders;
@@ -20,7 +20,7 @@ numberOfSubFolders = length(listOfFolderNames);
 
     %% Actually do correction
     %currentFolder = string(listOfFolderNames(k));
-    currentFolder = fullfile('C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\arb_3');
+    currentFolder = fullfile('C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3\arb_3');
     
     clear imuMsgLog timestamps_imu mocapMsgLog timestamps_mocap imageStream;
   

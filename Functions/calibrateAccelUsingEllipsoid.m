@@ -6,14 +6,27 @@ if isequal(filename,0)
 end
 filepath = fullfile(pathname, filename);
 
+% Parse FIFO log (fast path)
+[data_imu, Fs, stats] = parseFifoLog(filepath);
+g = [0 0 -9.7952];
+
+data_imu_clean = createArray(0,3);
+for i = 1: size(data_imu, 1)
+   g_avg = norm(data_imu(i,:));
+   if g_avg < 10.4 && g_avg > 9.4
+       data_imu_clean(end+1,:) = data_imu(i,:);
+   end
+end
+
+
 % Import the data
 %filepath = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Testers\imuCalib\imuHist_20250310_1058.csv';
-data_imu = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
+%data_imu = readmatrix(filepath); % Use readtable(filepath) if the CSV has headers
 
 % Isolate accelerometer values
-x = data_imu(:, 2);
-y = data_imu(:, 3);
-z = data_imu(:, 4);
+x = data_imu_clean(:, 1);
+y = data_imu_clean(:, 2);
+z = data_imu_clean(:, 3);
 accel_uncalib = [x, y, z];
 
 %Plot uncalibrated values
@@ -71,7 +84,7 @@ end
 gainMatrix = gain;
 biasSeparate = gain*bias;
 
-accelCalibrationStruct= struct('gain', gainMatrix, 'bias', biasSeparate);
+accelCalibrationStruct= struct('gain', gainMatrix, 'biasAfterGain', biasSeparate);
 
 % %save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
 % save(fullfile('.', '/Resources/accelerometerCalibration'), "accelCalibrationStruct");

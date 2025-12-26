@@ -1,4 +1,4 @@
-function [rawData, Fs, stats] = parseFifoLog(filepath)
+function [rawData, Fs, all_ts, stats] = parseFifoLog(filepath)
 %PARSEFIFOLOG Fast parser for PX4 *_fifo_*.csv IMU logs.
 %
 %   [rawData, Fs, stats] = parseFifoLog(filepath)
@@ -10,6 +10,8 @@ function [rawData, Fs, stats] = parseFifoLog(filepath)
 %     rawData   - Nx3 matrix of concatenated samples in SI units
 %                 (columns correspond to x, y, z).
 %     Fs        - average sample rate [Hz] computed from per-packet dt.
+%     ts_all    - timestamps for each sample, in microseconds, from system
+%                   start
 %     stats     - struct with basic sanity-check information:
 %                   .pd_x, .pd_y, .pd_z  fitted normal distributions
 %                   .avg_dt              average sample period [s]
@@ -20,6 +22,7 @@ function [rawData, Fs, stats] = parseFifoLog(filepath)
 %       - 'x*'    : one or more x-axis samples (x, x1, x2, ...)
 %       - 'y*'    : one or more y-axis samples
 %       - 'z*'    : one or more z-axis samples
+%       - 't_s'   : timestamp of sample        
 %
 %   Trailing unused FIFO entries should be NaN (or all zero, which are
 %   removed earlier in the pipeline). This function:
@@ -63,6 +66,7 @@ all_dts = zeros(totalSamples, 1, 'double');
 
 scale = T.scale;
 dt_us = T.dt;   % microseconds per packet
+ts_us = T.timestamp_sample; %sample timestamp, in microseconds
 
 % Single pass to fill outputs
 idxStart = 1;
@@ -87,8 +91,14 @@ for k = 1:height(T)
     az(idxStart:idxEnd) = double(zvals(:)) * sc;
 
     % Per-sample dt (us / n, converted to seconds)
-    dt_s = (double(dt_us(k)) / double(n)) * 1e-6;
+    dt_s = (double(dt_us(k))) * 1e-6;
     all_dts(idxStart:idxEnd) = dt_s;
+
+    % Per-sample timestamp
+    last_ts = ts_us(k);
+    dt_step = uint64(dt_us(k));
+    first_ts = last_ts - (idxEnd-idxStart) * dt_step;
+    all_ts(idxStart:idxEnd)=first_ts:dt_step:last_ts;
 
     idxStart = idxEnd + 1;
 end

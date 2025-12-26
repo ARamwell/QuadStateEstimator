@@ -1,37 +1,91 @@
+% poly = [-0.09 5.82 66.12 0;
+%         0.02 -3.19 -5.70 0;
+%         1.09 -8.17 -318.91 0] *10e-05; %accelerometer
+
+poly = [-0.09 -1.32 2.46 0;
+        0.12 2.54 -11.65 0;
+        0.18 0.29 -17.51 0] *10e-06; %gyroscope
+
+
+
+%% Import highrate data
+% Select a .csv file
+[filename, pathname] = uigetfile('*.csv', 'Select the high-rate CSV file to import');
+if isequal(filename,0)
+    disp('User canceled file selection.');
+    return;
+end
+filepath = fullfile(pathname, filename);
+
+% Parse FIFO log (fast path)
+[rawImuData, Fs, ts_high, stats] = parseFifoLog(filepath);
+%throw away the first few measurements
+%rawGyroData = rawGyroData(Fs:end, :);
+%Fs=2000;% for gyro
+
+% Sanity check (retain previous behaviour for convenience)
+pd_x = stats.pd_x;
+pd_y = stats.pd_y;
+pd_z = stats.pd_z;
+
+
+ %% Use a .mat
+ % rawGyroData = imuData;
+ % Fs = 2000;
 % 
-% % Select a .csv file
-% [filename, pathname] = uigetfile('*.csv', 'Select a CSV file to import');
+% % if size(rawdata, 2) > 3
+% %     rawAccelData = rawdata(:,2:4);
+% % else
+% %     rawAccelData = rawdata;
+% % end
+% %Fs = 16; %frequency of accel data
+
+%% Do temperature compensation
+% % Get low rate data
+% % Get sensor accel file
+% [filename, pathname] = uigetfile('*.csv', 'Select sensor_accel_0 file');
 % if isequal(filename,0)
 %     disp('User canceled file selection.');
 %     return;
 % end
-% filepath = fullfile(pathname, filename);
+% lowratefilepath = fullfile(pathname, filename);
 % 
-% % Parse FIFO log (fast path)
-% [rawGyroData, Fs, stats] = parseFifoLog(filepath);
+% px4LowRateData = readtable(lowratefilepath); 
+% temp_low = px4LowRateData.temperature;
+% idx = ~isnan(temp_low);
+% temp_low = temp_low(idx);
+% ts_low = px4LowRateData.timestamp_sample;
+% ts_low = ts_low(idx);
 % 
-% % Sanity check (retain previous behaviour for convenience)
-% pd_x = stats.pd_x;
-% pd_y = stats.pd_y;
-% pd_z = stats.pd_z;
+% temp_highrate = interp1(double(ts_low), double(temp_low), double(ts_high), 'linear', 'extrap');
+% tempOffset_highrate = temp_highrate-25;
 % 
+% biasCorr_x = polyval(poly(1,:), tempOffset_highrate);
+% biasCorr_y = polyval(poly(2,:), tempOffset_highrate);
+% biasCorr_z = polyval(poly(3,:), tempOffset_highrate);
+% 
+% biasCorr = [biasCorr_x; biasCorr_y; biasCorr_z]';
+% %rawImuData = 
+% %% or, instead, only consider the portion that has a stable temperature of 40
+% idx_stable = find(temp_highrate==30, 1, 'first');
+% imuData_stable = rawImuData(idx_stable:end, :);
 
-%% Use a .mat
-rawGyroData = lowRateData;
-Fs = 250;
-
-% if size(rawdata, 2) > 3
-%     rawAccelData = rawdata(:,2:4);
-% else
-%     rawAccelData = rawdata;
-% end
-%Fs = 16; %frequency of accel data
-
+%% Custom bins
+% num_bins = 50; % Desired number of bins
+% % Define the range for 'm' (from 1 sample up to a reasonable maximum, 
+% % typically half the total number of samples)
+% m_min = 1;
+% m_max = floor((size(rawImuData, 1) - 1) / 4);
+% m = floor(logspace(log10(m_min), log10(m_max), num_bins));
+% % Ensure 'm' values are unique and ascending integers
+% m = unique(m); 
 
 %% Do Allan variance / deviation
 
 % allanvar returns variance; Allan deviation is often easier to interpret.
-[avar, tau] = allanvar(rawGyroData, 'octave', Fs);
+[avar, tau] = allanvar(rawImuData, 'octave', Fs);
+%[avar, tau] = allanvar(rawImuData, m, Fs);
+%[avar, tau] = allanvar(imuData_stable, 'octave', Fs);
 adev = sqrt(avar); % Allan deviation
 
 % Compute local log-log slopes for diagnostic purposes (used for both
@@ -61,51 +115,76 @@ lgdEntries = {'x', 'y', 'z'};
 
 hold on;
 
-% Add reference slope lines only where appropriate regions exist
-% Use simple slope-based detection similar to the parameter extraction.
-target_rw  = -0.5;
-target_bi  = 0.0;
-target_rrw = 0.5;
-tol_plot   = 0.15;
-
-has_rw  = any(abs(slope_x - target_rw)  <= tol_plot) || ...
-          any(abs(slope_y - target_rw)  <= tol_plot) || ...
-          any(abs(slope_z - target_rw)  <= tol_plot);
-has_bi  = any(abs(slope_x - target_bi)  <= tol_plot) || ...
-          any(abs(slope_y - target_bi)  <= tol_plot) || ...
-          any(abs(slope_z - target_bi)  <= tol_plot);
-has_rrw = any(abs(slope_x - target_rrw) <= tol_plot) || ...
-          any(abs(slope_y - target_rrw) <= tol_plot) || ...
-          any(abs(slope_z - target_rrw) <= tol_plot);
-
-% Pick a reference point near the middle of tau range
-midIdx = round(numel(tau)/2);
-tau0   = tau(midIdx);
-refVal = adev(midIdx,1);
-
-if has_rw
-    ref_rw = refVal * (tau./tau0).^(-0.5);
-    loglog(tau, ref_rw, 'k--', 'LineWidth', 1);
-    lgdEntries{end+1} = '-0.5 slope';
-end
-
-if has_bi
-    ref_bi = refVal * ones(size(tau));
-    loglog(tau, ref_bi, 'k-.', 'LineWidth', 1);
-    lgdEntries{end+1} = '0 slope';
-end
-
-if has_rrw
-    ref_rrw = refVal * (tau./tau0).^(0.5);
-    loglog(tau, ref_rrw, 'k:', 'LineWidth', 1);
-    lgdEntries{end+1} = '+0.5 slope';
-end
-
-legend(lgdEntries, 'Location', 'southwest');
-
-formatFigForLatex_v2(figObj);
-
-hold off;
+% % Add reference slope lines only where appropriate regions exist.
+% % Anchor each guide at the best-matching slope point so they appear in the
+% % correct region of tau.
+% target_rw  = -0.5;
+% target_bi  = 0.0;
+% target_rrw = 0.5;
+% tol_plot   = 0.15;
+% 
+% % Helper to pick the best anchor (tau, sigma) across all axes for a target slope
+% pickAnchor = @(target) deal([], [], []);
+% bestDiff = inf; bestIdx = []; bestAxis = 0;
+% % VRW / BI / RRW handled below via target-specific loops
+% 
+% % Build an inline function to select anchor for a given target slope
+% function [tau_anchor, sig_anchor, found] = selectAnchor(target, tol, ...
+%     slope_x, slope_y, slope_z, tau, adev)
+%     candidates = [
+%         min(abs(slope_x - target)), ...
+%         min(abs(slope_y - target)), ...
+%         min(abs(slope_z - target))];
+%     [bestDiff, bestAxis] = min(candidates);
+%     if isempty(bestDiff) || bestDiff > tol
+%         tau_anchor = [];
+%         sig_anchor = [];
+%         found = false;
+%         return;
+%     end
+%     switch bestAxis
+%         case 1
+%             idx = find(abs(slope_x - target) == min(abs(slope_x - target)), 1, 'last');
+%             sig_anchor = adev(idx+1, 1);
+%         case 2
+%             idx = find(abs(slope_y - target) == min(abs(slope_y - target)), 1, 'last');
+%             sig_anchor = adev(idx+1, 2);
+%         case 3
+%             idx = find(abs(slope_z - target) == min(abs(slope_z - target)), 1, 'last');
+%             sig_anchor = adev(idx+1, 3);
+%     end
+%     tau_anchor = tau(idx+1);
+%     found = true;
+% end
+% 
+% % Plot each guide only if a suitable anchor exists
+% [tau_rw, sig_rw, has_rw]   = selectAnchor(target_rw,  tol_plot, slope_x, slope_y, slope_z, tau, adev);
+% [tau_bi, sig_bi, has_bi]   = selectAnchor(target_bi,  tol_plot, slope_x, slope_y, slope_z, tau, adev);
+% [tau_rrw, sig_rrw, has_rrw] = selectAnchor(target_rrw, tol_plot, slope_x, slope_y, slope_z, tau, adev);
+% 
+% if has_rw
+%     ref_rw = sig_rw * (tau./tau_rw).^(target_rw);
+%     loglog(tau, ref_rw, 'k--', 'LineWidth', 1);
+%     lgdEntries{end+1} = '-0.5 slope';
+% end
+% 
+% if has_bi
+%     ref_bi = sig_bi * ones(size(tau));
+%     loglog(tau, ref_bi, 'k-.', 'LineWidth', 1);
+%     lgdEntries{end+1} = '0 slope';
+% end
+% 
+% if has_rrw
+%     ref_rrw = sig_rrw * (tau./tau_rrw).^(target_rrw);
+%     loglog(tau, ref_rrw, 'k:', 'LineWidth', 1);
+%     lgdEntries{end+1} = '+0.5 slope';
+% end
+% 
+% legend(lgdEntries, 'Location', 'southwest');
+% 
+% formatFigForLatex_v2(figObj);
+% 
+% hold off;
 
 %% Extract Noise Parameters
 
@@ -150,7 +229,7 @@ targetSlope = 0.5;
 tolerance   = 0.1;
 
 % for x
-idx_rrw_x = find(abs(slope_x - targetSlope) <= tolerance, 1, 'last');
+idx_rrw_x = find(abs(slope_x - targetSlope) <= tolerance, 3, 'first');
 if ~isempty(idx_rrw_x)
     RRW_x = adev(idx_rrw_x+1,1) / sqrt(3);
     RRW_x_tau = tau(idx_rrw_x+1);
@@ -164,7 +243,7 @@ else
 end
 
 % for y
-idx_rrw_y = find(abs(slope_y - targetSlope) <= tolerance, 1, 'last');
+idx_rrw_y = find(abs(slope_y - targetSlope) <= tolerance, 3, 'first');
 if ~isempty(idx_rrw_y)
     RRW_y = adev(idx_rrw_y+1,2) / sqrt(3);
     RRW_y_tau = tau(idx_rrw_y+1);
@@ -178,7 +257,7 @@ else
 end
 
 % for z
-idx_rrw_z = find(abs(slope_z - targetSlope) <= tolerance, 1, 'last');
+idx_rrw_z = find(abs(slope_z - targetSlope) <= tolerance, 3, 'first');
 if ~isempty(idx_rrw_z)
     RRW_z = adev(idx_rrw_z+1,3) / sqrt(3);
     RRW_z_tau = tau(idx_rrw_z+1);
@@ -212,7 +291,7 @@ allanPar.RRW.slope     = [RRW_slope_x; RRW_slope_y; RRW_slope_z];
 
 
 %% Display Results
-fprintf('IMU Noise Parameters (per-axis: x, y, z):\n');
+fprintf('IMU Noise Parameters (per-axis: x, y, z) at %.2f Hz:\n', Fs);
 fprintf('-----------------------------------------\n');
 fprintf('VRW [units/sqrt(Hz)] at tau = %.3g s:   %.3e  %.3e  %.3e\n', ...
         VRW_tau, VRW_x, VRW_y, VRW_z);

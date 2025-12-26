@@ -1,7 +1,7 @@
 clear all
 
 %% Find all subfolders
-parentFolder = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Tests\RobMech\Dynamic\TestSeries_3\';
+parentFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3\';
 allSubFolders = genpath(parentFolder);
 % Parse into a cell array.
 remain = allSubFolders;
