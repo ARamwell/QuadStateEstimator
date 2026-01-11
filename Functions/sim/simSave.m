@@ -29,7 +29,7 @@ else
            
         %copy log to sim output folder
         px4Name = strcat(px4LogFiles_newest.folder, '\', px4LogFiles_newest.name);
-        copyfile px4Name trajTargetFolder;
+        copyfile(px4Name, saveFolder);
     end
 
 end

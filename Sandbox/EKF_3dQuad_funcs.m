@@ -64,6 +64,12 @@ classdef EKF_3dQuad_funcs
             %     P_new_hat(4,4) = 0.1;
             % end
 
+            % %Limit how small PHat can get
+            % epsP = 1e-8;
+            % d = diag(P_new_hat);
+            % d(d < epsP) = epsP;
+            % P_new_hat = P_new_hat - diag(diag(P_new_hat)) + diag(d);
+
             %Enforce positive definite-ness
             P_new_hat = (P_new_hat + P_new_hat')/2;
  
@@ -172,6 +178,10 @@ classdef EKF_3dQuad_funcs
             if norm(x_new(4:7,1)) > 0.001
                 x_new(4:7,1) =x_new(4:7,1)/norm(x_new(4:7,1));
             end        
+
+            %enforce a minimum P and PHat
+
+            
         end
       
       %------------------------------------------------------------%
@@ -554,7 +564,7 @@ classdef EKF_3dQuad_funcs
             % 0.01, 0.01, 0.01]); %Initial, 16 el
 
             %P_px4 - position, orientation, velocity error is a bit made up
-            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.1, 0.1, 0.1]); %Initial, 16 el
+            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.02, 0.02, 0.02, 0.01, 0.01, 0.01]); %Initial, 16 el
             
             %
             if xSize == 10
@@ -563,13 +573,17 @@ classdef EKF_3dQuad_funcs
                 P_0 = P_;
             end
 
-            if ekfHz <=2000
-                ka = (ekfHz/250)^2;
-                kg = ka;
-            else %the downsampling makes noise scale weirdly
-                ka = (ekfHz/250)^2;
-                kg = (2000/250)^2;
-            end
+            % if ekfHz <=2000
+            %     ka = (ekfHz/250)^2;
+            %     kg = ka;
+            % else %the downsampling makes noise scale weirdly
+            %     ka = (ekfHz/250)^2;
+            %     kg = (2000/250)^2;
+            % end
+            % %kg = kg*30*1000; %old multiplier
+            % %ka=ka*30*100;
+            % w_g = kg*[0.058^2 0.062^2 0.080^2]';%*8000/2000; %1 SD @ 8Khz
+            % w_a = ka*[0.031^2 0.028^2 0.031^2]'; %1 SD @ 8kHz
 
             %process noise covariance (noise space)            
             %t_delta_dur = ((u_timeHist(1,2) - u_timeHist(1,1)));
@@ -580,8 +594,18 @@ classdef EKF_3dQuad_funcs
             % w_a = [0.0128^2, 0.0164^2, 0.0191^2 ]';
             % w_ba = [(1.081e-05)^2, (0.000001)^2, (6.55e-06)^2]' /dt_av; %from Allan variance
             % w_bg = [(1e-07)^2, (1e-07)^2, (1e-07)^2]' /dt_av; %from Allan variance
-            w_g = kg*30*100*[0.058^2 0.062^2 0.080^2]';%*8000/2000; %1 SD @ 8Khz
-            w_a = ka*30*1000*[0.031^2 0.028^2 0.031^2]'; %1 SD @ 8kHz
+            
+            
+
+            % from full rate histogram
+            w_a = [0.02^2 0.02^2 0.02^2]';%used for full rate
+            w_g = [0.04^2 0.04^2 0.04^2]';
+
+            % from batch-integrated histogram @250Hz
+            w_a = [0.005^2 0.005^2 0.005^2]';
+            w_g = [0.02^2 0.02^2 0.02^2]';
+
+
             w_ba = 0.01*w_a;
             w_bg = 0.01*w_g;
 
@@ -589,15 +613,28 @@ classdef EKF_3dQuad_funcs
             %w_a = [0.35^2 0.35^2 0.35^2]'; %PX4
             %w_ba = [0.01^2 0.01^2 0.01^2]';
             %w_bg = [0.001^2 0.001^2 0.001^2]';
-           
-            Q_ = diag([w_g; w_a; w_ba; w_bg]);
+            %Q_ = 
+
+            
 
             %Q_ Robmech
-            %Q_ = diag([0.01, 0.01, 0.01, 0.2, 0.2, 0.2, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001]);%*(16/1000); %16 el - [w_g, w_acc, w_ba, w_ba]
+           % Q_ = diag([0.01, 0.01, 0.01, 0.2, 0.2, 0.2, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001]);%*(16/1000); %16 el - [w_g, w_acc, w_ba, w_ba]
             
-            
+           %Q_Cust
+           % Q_ = 10* diag([1.5e-1, 1.5e-1, 1.5e-1, 2e-1, 2e-1, 2e-1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba] % cust 
+
+            %Q_Modified
+            %Q_ = 10* diag([1.5e-1, 1.5e-1, 1.5e-1, 2e-2, 2e-2, 2e-2, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba] 
+
+           %Q_Modified 2
+           Q_ = diag([1.5e-1, 1.5e-1, 1.5e-1, 2e-1, 2e-1, 2e-1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba] % cust 
+
             %Q_PX4
-            %Q_ = diag([1.5e-2, 1.5e-2, 1.5e-2, 3.5e-1, 3.5e-1, 3.5e-1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba]
+            % w_g = 0.015;
+            % w_a = 0.35;
+            % w_ba= 0.003;
+            % w_bg = 0.001;
+            % Q_ = diag([w_g^2 w_g^2 w_g^2 w_a^2 w_a^2 w_a^2 w_ba^2 w_ba^2 w_ba^2 w_bg^2 w_bg^2 w_bg^2]); %16 el - [w_g, w_acc, w_ba, w_ba]
 
             
             if xSize == 10
@@ -607,32 +644,23 @@ classdef EKF_3dQuad_funcs
             end
             Q = Q ;%*(8000/ekfHz);
 
+            %ACTUALLY, accidentally ran EKFs with my W but px4's Q! (for
+            %the "modified custom". Let's run again with my true mod.
 
             %and measurement covariance
             %W =diag([0.1506^2, 0.1506^2, 0.1506^2, 0.01, 0.007897, 0.007897, 0.007897]);  %robmech
             
-            %angle_err = 11.16;%low distortion lens nano, mean + sd
-            %pos_err = 0.24;%low distortion lens nano, mean + sd
-
-            %angle_err = 6.28;%low distortion lens nano, mean
-            %pos_err = 0.13;%low distortion lens nano, mean 
-
-            %angle_err = 4.75;%low distortion lens nano, mean mid
-            %pos_err = 0.077;%low distortion lens nano, mean mid
-
-            %angle_err = 4.75+4.64;%low distortion lens nano, mean + sd mid
-            %pos_err = 0.091+0.077;%low distortion lens nano, mean +sd  mid
+            angle_err = 0.37+0.34;%low distortion lens nano, mean + sd
+            pos_err = 0.08+0.08;%low distortion lens nano, mean + sd
             
-            angle_err = 1.5*6.6; %true s.d. mid
-            pos_err = 0.12; %true s.d. mid
-
+            angle_err =sqrt(5.73);%Px4
+            pos_err = sqrt(0.2);%PX4
             q_err = (deg2rad(angle_err))^2/4;
-                     
-            %q_err = (0.33) * (sin(angle_err/2))^2;
-            %q_err = 0.1^2;
-            %pos_err = 0.1;
-            W =diag([pos_err^2, pos_err^2, pos_err^2, 0.1, q_err, q_err, q_err]);  %low distortion lens nano, mean + sd
-
+            %W =diag([pos_err^2, pos_err^2, pos_err^2, 0.1, q_err, q_err, q_err]);  
+            
+            
+            W = diag([0.038^2 0.038^2 0.038^2 0.025^2 0.028^2 0.028^2 0.028^2]); %means from adaptive 10elR at 250Hz ********
+            
 
         end
         %------------------------------------------------------------%

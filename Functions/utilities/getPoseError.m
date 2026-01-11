@@ -23,15 +23,16 @@ function [posErr, orientErr, Err] = getPoseError(truePose_pq,estPose_pq)
     
 
     %Extract error angle. Could also get rotation axis.
-    rotErr_angle = 2*acos(quat_act2calc(1));
-    while rotErr_angle >= (2*pi)
-        rotErr_angle = rotErr_angle - 2*pi;
-    end 
-    if rotErr_angle > pi
-        rotErr_angle = -2*pi + rotErr_angle;
-    elseif rotErr_angle < (-pi)
-        rotErr_angle = 2*pi + rotErr_angle;
-    end
+    rotErr_angle = quat2angle(quat_act2calc);
+    % rotErr_angle = 2*acos(quat_act2calc(1));
+    % while rotErr_angle >= (2*pi)
+    %     rotErr_angle = rotErr_angle - 2*pi;
+    % end 
+    % if rotErr_angle > pi
+    %     rotErr_angle = -2*pi + rotErr_angle;
+    % elseif rotErr_angle < (-pi)
+    %     rotErr_angle = 2*pi + rotErr_angle;
+    % end
 
     %Define rotational error
     orientErr =rad2deg(rotErr_angle);

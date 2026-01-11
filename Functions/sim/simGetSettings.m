@@ -2,27 +2,27 @@ function [simset, targetSaveFolder] = simGetSettings()
     
     %settings
     simset.envHz = 20;
-    simset.SITL = false;
-    simset.mocapTraj = false;
+    simset.SITL = true;
+    simset.mocapTraj = true;
     simset.runEstimator =true;
-    simset.imuHz = 20;
-    simset.simHz = 20;
+    simset.imuHz = 8000;
+    simset.simHz = 8000;
     simset.fps = 20;
-    simset.ekfHz = 20;
+    simset.ekfHz = 250;
     simset.pos0 = [0 0 0]';
     simset.eul0 = [0 0 0]';
-    simset.g = [0; 0; 9.795];
+    simset.g = [0; 0; 9.81];
     simset.imuDelay = 0.002;
     simset.duration = 10;
     simset.aidingActive = true;
     simset.save = true;
-    simset.multisim = false;
-    simset.imu = 2; %0-no processing; 1-no downsampling; 2-downsampled; 3-PX4 downsampled (ROS2)
+    simset.multisim = true;
+    simset.imu = 0; %0-no processing; 1-no downsampling; 2-downsampled; 3-PX4 downsampled (ROS2)
    
     
     
     %directories
-    targetFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1';
+    targetFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim';
     mapFile = './Resources/map.mat';
     accelParamFile = './Resources/Calibrations/accel_accel0_20251211_allan_stable.mat';
     gyroParamFile = './Resources/Calibrations/gyro_gyro0_20251211_allan.mat';

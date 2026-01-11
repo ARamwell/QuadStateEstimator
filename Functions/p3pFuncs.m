@@ -8,7 +8,7 @@ classdef p3pFuncs
 
             for i = 1:size(soln_A.poseArr, 3)
                 for s = 1:size(soln_A.poseArr, 2)
-                    soln_B.poseArr(:,s,i) = p3pFuncs.tformPQ(soln_A.poseArr(:,s,i), T_A2B);
+                    soln_B.poseArr(:,s,i) = p3pFuncs.tformPQRight(soln_A.poseArr(:,s,i), T_A2B);
                     % if exist(soln_B.T_mostIn)
                     %     soln_B.T_mostIn(:,s,i) = p3pFuncs.tformPQ(soln_A.poseArr(:,s,i), T_A2B);
                     % end
@@ -121,18 +121,18 @@ classdef p3pFuncs
         end
         %------------------------------------------------------------%
 
-        function err = calcReprojErrorWC(K, x_i, X_W, Rt_WC)
+        function err = calcReprojErrorW2C(K, x_i, X_W, Rt_W2C)
 
             %Initialise output variables
             x_i_star = zeros(2,1);
 
             %Extract input variables
-            R_WC = Rt_WC(1:3, 1:3);
-            t_WC = Rt_WC(1:3, 4);           
+            R_W2C = Rt_W2C(1:3, 1:3);
+            t_W2C = Rt_W2C(1:3, 4);           
 
             
             %Project the world point into the camera frame
-            x_c_star = K*((R_WC * X_W) + t_WC);
+            x_c_star = K*((R_W2C * X_W) + t_W2C);
 
             %Normalise by the 3rd dimension to get the pixel coords
             x_i_star(1,1) = x_c_star(1,1)/norm(x_c_star(3,1)); 
@@ -145,11 +145,11 @@ classdef p3pFuncs
     
         %------------------------------------------------------------%
 
-        function err = calcReprojErrorCW(K, x_i, X_W, Rt_CW)
+        function err = calcReprojErrorC2W(K, x_i, X_W, Rt_C2W)
 
             %Extract input variables
-            R_CW = Rt_CW(1:3, 1:3);
-            t_CW = Rt_CW(1:3, 4);
+            R_C2W = Rt_C2W(1:3, 1:3);
+            t_C2W = Rt_C2W(1:3, 4);
             
             %Project the image point into the camera frame
             x_i_aug = [x_i; 1];
@@ -157,7 +157,7 @@ classdef p3pFuncs
             x_c_star_unit = x_c_star/vecnorm(x_c_star);
 
             %Project the camera point into the world frame
-            X_W_star = (R_CW * x_c_star_unit) + t_CW;
+            X_W_star = (R_C2W * x_c_star_unit) + t_C2W;
 
             %Calculate reproj error
             err = norm(X_W - X_W_star);
@@ -166,7 +166,7 @@ classdef p3pFuncs
     
         %------------------------------------------------------------%
 
-        function [bestT, minErr, idx] = chooseTWithMinReprojErrorWC(K, T_arr, x_pnt_i, X_pnt_W)
+        function [bestT, minErr, idx] = chooseTWithMinReprojErrorW2C(K, T_arr, x_pnt_i, X_pnt_W)
 
             %Initialise variables
             minErr = 10000000;%Arbitrarily large
@@ -178,7 +178,7 @@ classdef p3pFuncs
 
                 Rt = T_arr(1:3,1:4,j);
 
-                err_j = p3pFuncs.calcReprojErrorWC(K, x_pnt_i, X_pnt_W, Rt);
+                err_j = p3pFuncs.calcReprojErrorW2C(K, x_pnt_i, X_pnt_W, Rt);
 
                 %If new Rt has lower reproj error, choose it
                 if err_j < minErr
@@ -191,30 +191,32 @@ classdef p3pFuncs
 
         %------------------------------------------------------------%
 
-        function [bestT, minErr] = chooseTWithMinReprojErrorCW(K, T_arr, x_pnt_i, X_pnt_W)
+        function [bestT, minErr, idx] = chooseTWithMinReprojErrorC2W(K, T_arr, x_pnt_i, X_pnt_W)
 
             %Initialise variables
             minErr = 10000;%Arbitrarily large
             bestT = T_arr(:,:,1);
+            idx = 1;
         
             %For each Rt in the array
             for j=1:size(T_arr, 3)
 
                 Rt = T_arr(1:3,1:4,j);
 
-                err_j = p3pFuncs.calcReprojErrorCW(K, x_pnt_i, X_pnt_W, Rt);
+                err_j = p3pFuncs.calcReprojErrorC2W(K, x_pnt_i, X_pnt_W, Rt);
 
                 %If new Rt has lower reproj error, choose it
                 if err_j < minErr
                     minErr = err_j;
                     bestT = T_arr(:,:,j);
+                    idx = j;
                 end
             end
         end
 
         %------------------------------------------------------------%
 
-        function [bestT, mostInliers] = chooseTWithMostInliersWC(K, T_arr, inlierThreshold, x_pnts_i, X_pnts_W)
+        function [bestT, mostInliers] = chooseTWithMostInliersC2W(K, T_arr, inlierThreshold, x_pnts_i, X_pnts_W)
 
             %Initialise variables
             bestT = T_arr(:,:,1);
@@ -233,7 +235,7 @@ classdef p3pFuncs
                     x_n_i = x_pnts_i(:,n);
                     X_n_W = X_pnts_W(:,n);
 
-                    err_n = p3pFuncs.calcReprojErrorWC(K, x_n_i, X_n_W, Rt_j);
+                    err_n = p3pFuncs.calcReprojErrorC2W(K, x_n_i, X_n_W, Rt_j);
                     
                     %If reproj error is low enough, increment inlier count
                     if err_n <= inlierThreshold
@@ -252,7 +254,7 @@ classdef p3pFuncs
 
         %------------------------------------------------------------%
         
-        function [bestRt, mostInliers] = chooseRtWithMostInliersCW(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W)
+        function [bestRt, mostInliers] = chooseRtWithMostInliersC2W(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W)
 
             %Initialise variables
             bestRt = Rt_arr(:,:,1);
@@ -271,7 +273,7 @@ classdef p3pFuncs
                     x_n_i = x_pnts_i(:,n);
                     X_n_W = X_pnts_W(:,n);
 
-                    err_n = p3pFuncs.calcReprojErrorCW(K, x_n_i, X_n_W, Rt_j);
+                    err_n = p3pFuncs.calcReprojErrorC2W(K, x_n_i, X_n_W, Rt_j);
                     
                     %If reproj error is low enough, increment inlier count
                     if err_n <= inlierThreshold
@@ -428,7 +430,7 @@ classdef p3pFuncs
             
         end
 
-        function pq_c2b = tformPQ(pq_a2b, T_c2a)
+        function pq_c2b = tformPQRight(pq_a2b, T_c2a)
             
             pq_c2b = nan(7, size(pq_a2b, 2));
 
@@ -445,6 +447,28 @@ classdef p3pFuncs
                 p_c2b = T_c2b(1:3, 4);
 
                 pq_c2b(1:7,c) = [p_c2b(1:3); q_c2b(1:4)];
+            end
+               
+        end
+        %--------------------------------------------------%
+
+        function pq_a2c = tformPQLeft(pq_a2b, T_b2c)
+            
+            pq_a2c = nan(7, size(pq_a2b, 2));
+
+            for c = 1: size(pq_a2b, 2)
+                p_a2b = pq_a2b(1:3, c);
+                q_a2b = pq_a2b(4:7, c);
+
+                T_a2b = quat2tform(q_a2b');
+                T_a2b(1:3, 4) = p_a2b;
+
+                T_a2c = T_b2c * T_a2b;
+
+                q_a2c = tform2quat(T_a2c)';
+                p_a2c = T_a2c(1:3, 4);
+
+                pq_a2c(1:7,c) = [p_a2c(1:3); q_a2c(1:4)];
             end
                
         end

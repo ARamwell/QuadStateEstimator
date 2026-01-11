@@ -86,8 +86,18 @@ classdef p3pRun
             %disambiguation.
 
             %Initialise variables
-            T_CW_Arr = zeros(4,4,1);
-            T_WC_Arr = zeros(4,4,1);
+            T_C2W_Arr = zeros(4,4,1);
+            T_W2C_Arr = zeros(4,4,1);
+
+            %It seems possible that Kneip expects a Z-up frame
+            %So, convert world points into NWU
+            R_ned2nwu = [1 0 0; 0 -1 0; 0 0 -1];
+            T_ned2nwu = [1 0 0 0; 0 -1 0 0; 0 0 -1 0; 0 0 0 1];
+            T_nwu2ned = p3pFuncs.invertT(T_ned2nwu);
+            for i = 1:size(X_pnts_W, 2)
+                X_pnts_W(:, i) = R_ned2nwu * X_pnts_W(:, i);
+            end
+
             
              if size(X_pnts_W, 2) <=4
                 x_ABCD_i = x_pnts_i;%(:,[1 2 4 3]);
@@ -108,25 +118,29 @@ classdef p3pRun
 
             %Run Kneip's p3p to get up to 4 solutions for the Rt matrix.
             %Nagano implementation outputs W->C
-            [R_C2W_Arr, t_C2W_Arr] = KneipP3P_Nag(x_ABCD_c(:,1:3), X_ABCD_W(:,1:3));
+            [R_W2C_Arr, t_W2C_Arr] = KneipP3P_Nag(x_ABCD_c(:,1:3), X_ABCD_W(:,1:3));
 
-            T_C2W_arr = zeros(4,4,size(R_C2W_Arr,3));
-            T_W2C_Arr = createArray(size(T_C2W_arr));
-            pq_arr = createArray(7,size(T_C2W_Arr,3));
+            T_W2C_Arr = zeros(4,4,size(R_W2C_Arr,3));
+            T_C2W_Arr = createArray(size(T_W2C_Arr));
+            pq_arr_C2W = createArray(7,size(T_C2W_Arr,3));
+
+            pq_arr_W2C = createArray(7,size(T_C2W_Arr,3));
 
             %For each possible solution
-            for j=1:size(R_C2W_Arr,3)
-                %Concatenate to get Rt
-                T_WC_Arr(1:3,1:3,j) = R_WC_Arr(:,:,j);
-                T_WC_Arr(1:3,4,j) = t_WC_Arr(:,j);
-                T_WC_Arr(4, 1:4, j) = [0 0 0 1]; 
+            for j=1:size(R_W2C_Arr,3)
+                %Concatenate to get T
+                T_W2C_Arr(1:3,1:3,j) = R_W2C_Arr(:,:,j);
+                T_W2C_Arr(1:3,4,j) = t_W2C_Arr(:,j);
+                T_W2C_Arr(4, 1:4, j) = [0 0 0 1]; 
 
+                
                 %And invert
-                T_CW = p3pFuncs.invertT(T_WC_Arr(:,:,j));
-                T_CW_arr(:,:,j) = T_CW;
+                T_C2W = p3pFuncs.invertT(T_W2C_Arr(:,:,j));
+                T_C2W_Arr(:,:,j) = T_C2W;
 
                 %get quaternion pose, while you're at it
-                pq_arr(:,j) = p3pFuncs.rtToPose(T_CW);
+                pq_arr_C2W(:,j) = p3pFuncs.rtToPose(T_C2W_Arr(:,:,j));
+                pq_arr_W2C(:,j) = p3pFuncs.rtToPose(T_W2C_Arr(:,:,j));
             end
 
             %Reprojection error is calculated based on the W->i projection,
@@ -136,16 +150,17 @@ classdef p3pRun
             %     Rt_WC_arr(:,:,j) = p3pFuncs.invertRt(Rt_CW_arr(:,:,j));
             % end 
 
-            [T_WC_minReprojErr, err, idx_best] = p3pFuncs.chooseTWithMinReprojErrorWC(K, T_WC_Arr, x_D_i, X_D_W);
+            
+            [T_C2W_minReprojErr, err, idx_best] = p3pFuncs.chooseTWithMinReprojErrorC2W(K, T_C2W_Arr, x_D_i, X_D_W);
             %[Rt_CW, Err] = p3pFuncs.chooseRtWithMinReprojErrorCW(K, Rt_CW_Arr, x_D_i, X_D_W);
             
-            [T_WC_maxInlier, inlierCnt] = p3pFuncs.chooseTWithMostInliersWC(K, T_WC_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            %[T_C2W_maxInlier, inlierCnt] = p3pFuncs.chooseTWithMostInliersC2W(K, T_C2W_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
             %[Rt_CW, Err] = p3pFuncs.chooseRtWithMostInliersCW(K, Rt_CW_Arr, inlierThreshold, x_pnts_i, X_pnts_W);
 
             %rearrange posearr to put best result in front
-            pq_best = pq_arr(:, j);
-            pq_arr(:, j) = [];
-            pq_arr = cat(2, pq_best, pq_arr);
+            pq_best = pq_arr_C2W(:, idx_best);
+            pq_arr_C2W(:, idx_best) = [];
+            pq_arr_C2W = cat(2, pq_best, pq_arr_C2W);
             idx_best = 1;
             
             %Rt_CW_der = p3pFuncs.invertRt(Rt_WC);
@@ -153,15 +168,89 @@ classdef p3pRun
 
             %Rt = Rt_CW_der;
 
+            %Convert solutiion back to NED
+            for i = 1:size(T_C2W_Arr, 3)
+                T_C2W_Arr(:,:, i)=p3pFuncs.invertT(T_ned2nwu) * T_C2W_Arr(:,:, i);
+                T_W2C_Arr(:,:, i)=T_W2C_Arr(:,:, i) * p3pFuncs.invertT(T_ned2nwu);
+            end
+            pq_arr_W2C = p3pFuncs.tformPQLeft(pq_arr_W2C, T_nwu2ned);
+            pq_arr_C2W = p3pFuncs.tformPQLeft(pq_arr_C2W, T_nwu2ned);
+
+
             %Output struct
-            soln.T_arr = T_CW_arr(:,:,:);
-            soln.poseArr = pq_arr;
-            soln.mostInliers.T = p3pFuncs.invertT(T_WC_maxInlier);
-            soln.mostInliers.Num = inlierCnt;
-            soln.minReproj.T = p3pFuncs.invertT(T_WC_minReprojErr);
+            soln.T_arr = T_C2W_Arr(:,:,:);
+            soln.poseArr = pq_arr_C2W;
+            % soln.mostInliers.T = p3pFuncs.invertT(T_C2W_maxInlier);
+            % soln.mostInliers.Num = inlierCnt;
+            soln.minReproj.T = p3pFuncs.invertT(T_C2W_minReprojErr);
             soln.minReproj.Err = err;
            
         end
+  
+        function soln = KneipMex(x_pnts_i, X_pnts_W, K, inlierThreshold)
+            %expects four points. if there are more, it will only use the
+            %first three for pose calculation, and the fourth for
+            %disambiguation.
+
+            %Initialise variables
+            T_C2W_Arr = zeros(4,4,1);
+            T_W2C_Arr = zeros(4,4,1);
+
+            if size(X_pnts_W, 2) <=4
+                x_ABCD_i = x_pnts_i;%(:,[1 2 4 3]);
+                X_ABCD_W = X_pnts_W;%(:,[1 2 4 3]);
+             else
+                 checkerSize = [5, 8];
+                 [x_ABCD_i, X_ABCD_W] = p3pFuncs.checkerOuterCornerSelector(x_pnts_i, X_pnts_W, checkerSize(1), checkerSize(2));
+             end
+            x_D_i = x_ABCD_i(:,4);
+            X_D_W = X_ABCD_W(:,4);
+            
+            
+            %Get projection rays
+            x_ABCD_c = p3pFuncs.getCameraVector(K, x_ABCD_i);
+
+            %Correct for radial distortion
+            %x_ABCD_c = p3pFuncs.fixRadialDistortion(x_ABCD_c, -0.3434, 0.1096);
+
+            %Run Kneip's p3p to get up to 4 solutions for the Rt matrix.
+            [Rt_C2W_Arr] = opengv('p3p_kneip', X_ABCD_W(:,1:4), x_ABCD_c(:,1:4));
+
+            T_W2C_Arr = zeros(4,4,size(Rt_C2W_Arr,3));
+            T_C2W_Arr = createArray(size(T_W2C_Arr));
+            pq_arr_C2W = createArray(7,size(T_C2W_Arr,3));
+
+            pq_arr_W2C = createArray(7,size(T_C2W_Arr,3));
+
+            %For each possible solution
+            for j=1:size(Rt_C2W_Arr,3)
+                %Concatenate to get T
+                T_C2W_Arr(1:4,1:4,j) = [Rt_C2W_Arr(:,:,j); [0 0 0 1]];
+                                
+                %get quaternion pose, while you're at it
+                pq_arr_C2W(:,j) = p3pFuncs.rtToPose(T_C2W_Arr(:,:,j));
+            end
+            
+            %[T_C2W_minReprojErr, err, idx_best] = p3pFuncs.chooseTWithMinReprojErrorC2W(K, T_C2W_Arr, x_D_i, X_D_W);
+            [T_W2C_minReprojErr, err, idx_best] = p3pFuncs.chooseTWithMinReprojErrorW2C(K, T_W2C_Arr, x_D_i, X_D_W);
+            
+            
+            %rearrange posearr to put best result in front
+            pq_best = pq_arr_C2W(:, idx_best);
+            pq_arr_C2W(:, idx_best) = [];
+            pq_arr_C2W = cat(2, pq_best, pq_arr_C2W);
+            idx_best = 1;
+
+            %Output struct
+            soln.T_arr = T_C2W_Arr(:,:,:);
+            soln.poseArr = pq_arr_C2W;
+            % soln.mostInliers.T = p3pFuncs.invertT(T_C2W_maxInlier);
+            % soln.mostInliers.Num = inlierCnt;
+            soln.minReproj.T = p3pFuncs.invertT(T_W2C_minReprojErr);
+            soln.minReproj.Err = err;
+           
+        end
+
 
 
 

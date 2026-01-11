@@ -6,7 +6,7 @@ g = [0 0 -9.81]'; %for simulation
 aiding = true;
 calibrate = true;%true;
 down2kHz =true;
-downEkf = true;
+downEkf =true;
 
 
 
@@ -46,7 +46,7 @@ if aiding
 end
 %% Set up EKF
 
-integ = 'rect';
+integ = 'mtrp';
 ekfSize = 16;
 alpha = 0;
 down = 0;
@@ -77,12 +77,13 @@ end
 %Downsampler
 
     if down2kHz
+        k = ceil(imuHz/2000);
         %first, downsample gyro to 2000Hz
-        gyro_2kHz = downsample(u_hist(1:3,:)', imuHz/2000, 0)';
+        gyro_2kHz = downsample(u_hist(1:3,:)', k, (k-2))';
        
         %then, do basic averaging to downsample accel to 2kHz
         accel_fullkHz = u_hist(4:6,:);
-        k = ceil(imuHz/2000);
+        
         accel_means = movmean(accel_fullkHz, k,2);
         accel_2kHz = downsample(accel_means', k, (k-2))';
     
@@ -126,8 +127,8 @@ x_k_(8:10,1) = zeros(3,1);
 
 %dt_av = 1/ekfHz
 [P_k_, Q, W_k] = EKF_3dQuad_funcs.initEKF_params(1/ekfHz, x_k_, ekfHz);
-%Q = 1000*Q;
-%W_k = W_k;
+%Q = 0.5*Q;
+W_k = 10*W_k;
 
 
 meas_count =  0; %how many frames used to correct so far? Used to initiate adaptive EKF
@@ -161,13 +162,14 @@ for i = startCalc:(endCalc-1) %currently sample based
         timeSinceLastCorrection = t_new-lastCorrectionTime;   
         [closestDiff, closestIndex] = min(abs(z_timeHist(1,:)-t_new)); %find index of closest time
         if ((closestDiff <= dt_new) && (z_timeHist(1, closestIndex) <= t_new) && closestIndex>meas_oldIndex)%if it is close enough, and not ahead
-            %if not too much time has passed
-            % if timeSinceLastCorrection < 0.3
+            % z_arr_k = reshape(z_arr(:,:,closestIndex), 7,[]);
+            % %if not too much time has passed
+            % if timeSinceLastCorrection < 0.2
             %     %Choose soln closest to previous estimate
             %     z_arr_k = reshape(z_arr(:,:,closestIndex), 7,[]);
-            %     [z_new,a,b] = chooseMinPoseErr(z_arr_k, x_k_, 1.2, 2);
+            %     [z_new,a,b] = chooseMinPoseErr(z_arr_k, x_k_, 1.2, 0);
             % else %if too much time has passed
-            %     % Or choose min reproj
+            %     %Or choose min reproj
             %     z_new = z_arr_k(:,1);
             % end
             z_new=z_best(:, closestIndex);
@@ -212,22 +214,22 @@ ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
 
 
 %% Optionally, save
-saveFile = 'ekfResult_16el_rect_deadreckon_2kHz_Qtest.mat';
+
+saveFile = 'ekfResult_spiral_noisy_16elM_aided_250Hz.mat';
 %saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\sim_2025-12-22_08-03-07_shortStatic\sim_static\";
-saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\nees2\";
+saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
 destFile = strcat(saveFolder, saveFile);
-save(destFile, '-struct', 'ekfResult');
+%save(destFile, '-struct', 'ekfResult');
 
 %% Some graphs
 
 %ekfResult = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\sim_2025-12-18_13-22-13_elev8\sim_elev8\ekfResult_16el_rect_idealIMU_deadreckon_8kHz.mat");
-figObj3 =figure;
 figObj2 = plotStateEvolution(ekfResult, ekfResult.trueState, ekfResult.time);
 formatFigForLatex(figObj2);
-vio=evalPercentDivergence(ekfResult.x_, ekfResult.trueState, ekfResult.P, 2);
+[vio, x_err]=evalPercentDivergence(ekfResult.x_, ekfResult.trueState, ekfResult.P, 2);
 
 figObj1 = figure;
-plotNEES(figObj1, ekfResult.time, ekfResult.nees, 15, 1, 'test');
+plotNEES(figObj1, ekfResult.time, ekfResult.nees, 9, 1, 'test');
 formatFigForLatex_v2(figObj1);
 
 
@@ -253,6 +255,8 @@ plotNIS(figObj5, z_times, ekfResult.nis, 6, 1, 'test');
 
 %get true measurement residuals
 y_true = calcTrueResid(ekfResult.z, ekfResult.trueState);
+
+
 
 
 %% functions

@@ -31,7 +31,7 @@ function [ekfResult] = processPx4Data(srcFile, aidingActive, groundTruth)
         P_bg= msg_estStates.TopicMessages{1,1}.covariances(:,11:13)';
         P_ba= msg_estStates.TopicMessages{1,1}.covariances(:,14:16)';
         for t = 1: size(P_p, 2)
-            ekfResult.P(:, :, t) = diag([P_p(:,t); P_q(:,t); P_v(:,t); P_bg(:,t); P_ba(:,t)]');
+            ekfResult.P(:, :, t) = diag([P_p(:,t); P_q(:,t); P_v(:,t); P_bg(:,t); P_ba(:,t)]);
         end
     
     
@@ -39,27 +39,56 @@ function [ekfResult] = processPx4Data(srcFile, aidingActive, groundTruth)
         if aidingActive == true
             msg_aidpos = readTopicMsgs(ulog, 'TopicNames', 'estimator_aid_src_ev_pos');
             msg_aidhgt = readTopicMsgs(ulog, 'TopicNames', 'estimator_aid_src_ev_hgt');
+            msg_aidyaw = readTopicMsgs(ulog, 'TopicNames', 'estimator_aid_src_ev_yaw');
+
+            timestamps_aid = double(msg_aidpos.TopicMessages{1,1}.time_last_fuse) * 1e-6; %also convert to seconds
             %ekfResult.statePred = out.ekf_xHat.signals.values'; can't get this
             %ekfResult.measPred = out.ekf_zHat.signals.values'; %measurements map
             %directly
             xy = msg_aidpos.TopicMessages{1,1}.observation';
             z = msg_aidhgt.TopicMessages{1,1}.observation';
-            %yaw?
-            ekfResult.z =  [xy; z];
+            yaw = msg_aidyaw.TopicMessages{1,1}.observation';
+            
         
             %innovations
             S_xy = msg_aidpos.TopicMessages{1,1}.innovation_variance';
             S_z = msg_aidhgt.TopicMessages{1,1}.innovation_variance';
-            for t = 1: size(S_z, 2)
-                ekfResult.S(:, :, t) = diag([S_xy(:,t); S_z(:,t)]');
+            S_yaw = msg_aidyaw.TopicMessages{1,1}.innovation_variance';
+            %for t = 1: size(S_z, 2)
+                
+            %end
+            y_xy = msg_aidpos.TopicMessages{1,1}.innovation';
+            y_z= msg_aidhgt.TopicMessages{1,1}.innovation';
+            y_yaw= msg_aidyaw.TopicMessages{1,1}.innovation';
+            
+
+            
+            aid_indices=selectClosestTimeIndices(timestamps_aid', ekfResult.time);
+            latestAid = 0;
+            cnt = 1;
+            for t=1:size(ekfResult.x_, 2)
+                if ismember(t, aid_indices)
+                    ekfResult.timeSinceLastCorrection(1,t) = 0;
+                    ekfResult.y(:,t) = [y_xy(:, cnt); y_z(:, cnt); y_yaw(:,cnt)];
+                    ekfResult.z(:,t) =  [xy(:,cnt); z(:,cnt); yaw(:,cnt)];
+                    ekfResult.S(:, :, t) = diag([S_xy(:,cnt); S_z(:,cnt); S_yaw(:,cnt)]);
+                    latestAid = ekfResult.time(1, t);
+                    cnt = cnt+1;
+                else
+                    ekfResult.timeSinceLastCorrection(1,t) = ekfResult.time(1, t)-latestAid;
+                    ekfResult.z(:,t)= nan(4, 1);
+                    ekfResult.y(:,t) = nan(4, 1);
+                    ekfResult.S(:,:,t) = nan(4, 4);
+                end
             end
-            y_xy = msg_aidpos.TopicMessages{1,1}.innovation_variance';
-            y_z= msg_aidhgt.TopicMessages{1,1}.innovation_variance';
-            ekfResult.y = [y_xy; y_z];
+
+
+
+
         else
-            ekfResult.z = nan(3, size(ekfResult.x_, 2));
-            ekfResult.y = nan(3, size(ekfResult.x_, 2));
-            ekfResult.S = nan(3, 3, size(ekfResult.x_, 2));
+            ekfResult.z = nan(4, size(ekfResult.x_, 2));
+            ekfResult.y = nan(4, size(ekfResult.x_, 2));
+            ekfResult.S = nan(4, 4, size(ekfResult.x_, 2));
         end
     
         %sensor readings
@@ -82,6 +111,18 @@ function [ekfResult] = processPx4Data(srcFile, aidingActive, groundTruth)
                 aid_indices_px4 = find(aid_logical_px4);
                 indices = selectClosestTimeIndices(ekfResult.time(:,aid_indices_px4), groundTruth.quad.time);
                 ekfResult.truePoseAid = groundTruth.quad.state(1:7,indices);
+
+                % %the indices above tell us the aided timestamps, We can use
+                % %this to retroactively calculate the "time since last aid"
+                % latestAid = -999;
+                % for t=1:size(ekfResult.x_, 2)
+                %     if ismember(t, indices)
+                %         ekfResult.timeSinceLastCorrection(1,t) = 0;
+                %         latestAid = ekfResult.time(1, t);
+                %     else
+                %         ekfResult.timeSinceLastCorrection(1,t) = ekfResult.time(1, t)-latestAid;
+                %     end
+                % end
             end
         end
     end

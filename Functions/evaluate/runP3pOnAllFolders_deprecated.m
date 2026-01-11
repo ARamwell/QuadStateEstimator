@@ -4,6 +4,7 @@ importRealData = false;
 importMocap = true;
 importImages = true;
 rtRounding = 10;
+ runP3pOnAllFolders
 
 parentFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\RobMech\Dynamic\TestSeries_3\';
 allSubFolders = genpath(parentFolder);

@@ -10,6 +10,7 @@ function fig_stateEvol = plotStateEvolution(ekfResult, trueState, trueState_time
         numVertTiles = 5;
     end
     tileLayout_cust = tiledlayout(fig_stateEvol, numVertTiles, 12);
+    stateNames = {"$p_x$", "$p_y$", "$p_z$", "$q_w$", "$q_x$", "$q_y$", "$q_z$", "$v_x$", "$v_y$", "$v_z$", "$ba_x$", "$ba_y$", "$ba_z$", "$bg_x$", "$bg_y$","$bg_z$"};
     
     for i=1:numEl
         
@@ -31,8 +32,8 @@ function fig_stateEvol = plotStateEvolution(ekfResult, trueState, trueState_time
             stateVariance(1,t)=(ekfResult.P(i,i,t));
         end
         stateVariance = sqrt(stateVariance);
-        lowerCurve = y - 1*abs(stateVariance);
-        upperCurve = y + 1*abs(stateVariance);
+        lowerCurve = y - 2*abs(stateVariance);
+        upperCurve = y + 2*abs(stateVariance);
         plot(x, lowerCurve, Color='#fdae61',  HandleVisibility='off');
         hold on;
         plot(x, upperCurve, Color='#fdae61', DisplayName='2-std dev bounds');
@@ -93,7 +94,7 @@ function fig_stateEvol = plotStateEvolution(ekfResult, trueState, trueState_time
         % 
         % end
         
-        title(strcat('State variable evolution: ', string(i)));
+        title(string(stateNames{i}));
         %legend('State estimate', 'Std deviation lower bound', 'Std deviation upper bound', 'Ground truth', 'Camera estimate (correction)')
         legend;
         hold off;

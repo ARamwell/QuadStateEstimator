@@ -1,4 +1,4 @@
-function [in_times, in_pos, in_eul] = generateSpiralTrajectory(rpm, numLoops, dr_per_loop, dz_per_loop, startHeight, startRadius, numWaypoints)
+function [in_times, in_pos, in_eul] = generateSpiralTrajectory(rpm, numLoops, dr_per_loop, dz_per_loop, startHeight, startRadius, numWaypoints, numRollRotations)
 %GENERATESPIRALTRAJECTORY Generate Archimedes spiral trajectory waypoints
 %   Generates waypoints for a drone following an Archimedes spiral centered
 %   at [0 0 0], with camera always pointing at the target.
@@ -11,6 +11,7 @@ function [in_times, in_pos, in_eul] = generateSpiralTrajectory(rpm, numLoops, dr
 %       startHeight     - Starting height above target in meters (default: 0.5)
 %       startRadius     - Starting radius from center in meters (default: 0.1)
 %       numWaypoints    - Number of waypoints to generate (default: 20)
+%       numRollRotations - Number of full 360° roll rotations across trajectory (default: 0)
 %
 %   Outputs:
 %       in_times        - Column vector of time stamps (seconds)
@@ -18,7 +19,7 @@ function [in_times, in_pos, in_eul] = generateSpiralTrajectory(rpm, numLoops, dr
 %       in_eul          - 3xN matrix of Euler angles [roll; pitch; yaw] in degrees (XYZ convention)
 %
 %   Example:
-%       [times, pos, eul] = generateSpiralTrajectory(1, 3, 0.5, 0.3, 0.5, 0.1, 30);
+%       [times, pos, eul] = generateSpiralTrajectory(1, 3, 0.5, 0.3, 0.5, 0.1, 30, 2);
 
     % Default values
     if nargin < 1 || isempty(rpm), rpm = 1; end
@@ -28,6 +29,7 @@ function [in_times, in_pos, in_eul] = generateSpiralTrajectory(rpm, numLoops, dr
     if nargin < 5 || isempty(startHeight), startHeight = 0.5; end
     if nargin < 6 || isempty(startRadius), startRadius = 0.1; end
     if nargin < 7 || isempty(numWaypoints), numWaypoints = 20; end
+    if nargin < 8 || isempty(numRollRotations), numRollRotations = 0; end
     
     % Calculate total duration
     duration_sec = (numLoops / rpm) * 60; % total duration in seconds
@@ -53,43 +55,96 @@ function [in_times, in_pos, in_eul] = generateSpiralTrajectory(rpm, numLoops, dr
     % Generate times (uniformly distributed)
     in_times = linspace(0.01, duration_sec, numWaypoints)';
     
+    % Calculate roll angles (ramping linearly from 0 to 360*numRollRotations)
+    roll_angles = linspace(0, 360 * numRollRotations, numWaypoints);
+    
     % Calculate Euler angles to point camera at target [0 0 0]
     % In NED: x=North, y=East, z=Down (positive z is downward)
     % Using XYZ Euler convention: [roll(X), pitch(Y), yaw(Z)]
     % The drone's z-axis (pointing down in body frame) must align with direction to target
     %
-    % To point z-axis at target:
-    % - Yaw (Z rotation): Rotate around z-axis to orient body x-axis toward target's projection
-    % - Pitch (Y rotation): Tilt down around y-axis to point z-axis at target
-    % - Roll (X rotation): Keep level (0)
+    % For XYZ Euler: R = R_z(yaw) * R_y(pitch) * R_x(roll)
+    % With roll=0: R = R_z(yaw) * R_y(pitch)
+    %
+    % To point z-axis at target, we compute what the final z-axis direction should be,
+    % then extract the Euler angles that produce this orientation.
     
     in_eul = zeros(3, numWaypoints);
     for i = 1:numWaypoints
-        % Vector from drone to target (in NED frame)
+        % Vector from drone to target (in NED frame, normalized)
         % Target is at [0, 0, 0], drone is at [x(i), y(i), z(i)]
-        % Direction vector: target - drone = [0-x, 0-y, 0-z] = [-x, -y, -z]
-        dx = -x(i);
-        dy = -y(i);
-        dz = -z(i);
+        vec_to_target = [0; 0; 0] - [x(i); y(i); z(i)];  % [-x, -y, -z]
+        vec_to_target = vec_to_target / norm(vec_to_target);
         
-        % Horizontal distance in xy-plane
-        horizontal_dist = sqrt(dx^2 + dy^2);
+        % Get the desired roll angle for this waypoint
+        roll = roll_angles(i);
         
-        % Yaw (Z rotation): angle from North (x-axis) to target's projection in horizontal plane
-        % This orients the body so its x-axis points toward the target horizontally
-        yaw = atan2d(dy, dx);  % atan2(y, x) gives angle from +x axis
+        % We want the body's z-axis [0; 0; 1] to align with vec_to_target after rotation
+        % For XYZ Euler: R = R_z(yaw) * R_y(pitch) * R_x(roll)
+        % We'll build the rotation matrix that first applies roll, then aligns z-axis with target
+        %
+        % Convert roll to radians
+        roll_rad = deg2rad(roll);
+        cos_roll = cos(roll_rad);
+        sin_roll = sin(roll_rad);
         
-        % Pitch (Y rotation): angle to tilt down to point z-axis at target
-        % The angle from horizontal down to the target direction
-        % If dz is positive (target is below), we tilt down (positive pitch)
-        % If dz is negative (target is above - shouldn't happen but handle it), we tilt up
-        pitch = atan2d(horizontal_dist, dz);  % Tilt down by this angle
+        % Define a reference "up" direction (pointing up = negative z in NED)
+        up_ref = [0; 0; -1];
         
-        % Roll (X rotation): Keep level
-        roll = 0;
+        % The desired z-axis direction (normalized)
+        z_axis = vec_to_target;
         
-        % Store in XYZ order: [roll; pitch; yaw] = [X; Y; Z]
-        in_eul(:, i) = [roll; pitch; yaw];
+        % Build x-axis: perpendicular to both up_ref and z_axis
+        x_axis = cross(up_ref, z_axis);
+        if norm(x_axis) < 1e-6
+            % Degenerate case: z_axis is parallel to up_ref
+            % Use North (x) as reference instead
+            x_axis = cross([1; 0; 0], z_axis);
+            if norm(x_axis) < 1e-6
+                % Still degenerate, use East (y)
+                x_axis = cross([0; 1; 0], z_axis);
+            end
+        end
+        x_axis = x_axis / norm(x_axis);
+        
+        % Build y-axis to complete right-handed coordinate system
+        y_axis = cross(z_axis, x_axis);
+        y_axis = y_axis / norm(y_axis);
+        
+        % Build rotation matrix with desired z-axis pointing at target
+        % Then rotate x and y axes around z_axis by the roll angle
+        % This ensures z-axis points at target and roll matches desired value
+        
+        % Start with x and y axes from the no-roll case
+        x_base = x_axis;
+        y_base = y_axis;
+        
+        % Rotate x_base and y_base vectors around z_axis by roll angle
+        % Using Rodrigues' rotation formula: rotate v around axis k by angle theta
+        % v_rot = v*cos(theta) + cross(k,v)*sin(theta) + k*dot(k,v)*(1-cos(theta))
+        % Since x_base and y_base are perpendicular to z_axis, dot(z_axis, x_base) = 0
+        x_axis_rolled = x_base * cos_roll + cross(z_axis, x_base) * sin_roll;
+        y_axis_rolled = y_base * cos_roll + cross(z_axis, y_base) * sin_roll;
+        
+        % Normalize (should already be unit but ensure)
+        x_axis_rolled = x_axis_rolled / norm(x_axis_rolled);
+        y_axis_rolled = y_axis_rolled / norm(y_axis_rolled);
+        
+        % Verify right-handedness: y_axis_rolled should = cross(z_axis, x_axis_rolled)
+        % This should be satisfied, but let's ensure
+        y_axis_rolled = cross(z_axis, x_axis_rolled);
+        y_axis_rolled = y_axis_rolled / norm(y_axis_rolled);
+        
+        % Build final rotation matrix: columns are x, y, z axes in world frame
+        % z-axis points at target, x and y are rotated by roll around z
+        R_body2world = [x_axis_rolled, y_axis_rolled, z_axis];
+        
+        % Extract XYZ Euler angles using MATLAB's built-in function
+        % rotm2eul with 'XYZ' returns [X, Y, Z] angles in radians
+        eul_rad = rotm2eul(R_body2world, 'XYZ');
+        
+        % Convert to degrees: [roll, pitch, yaw] = [X, Y, Z]
+        in_eul(:, i) = rad2deg(eul_rad);
     end
     
     % Unwrap Euler angles to prevent discontinuities at ±180° wrap-around
@@ -100,5 +155,11 @@ function [in_times, in_pos, in_eul] = generateSpiralTrajectory(rpm, numLoops, dr
     
     % Combine positions (each column is a waypoint: [x; y; z])
     in_pos = [x; y; z];
+
+    
+    %Append a stationary phase at the start
+    in_times = [0; 0.5;in_times+2];
+    in_pos = [[0 0 in_pos(3,1)]', [0 0 in_pos(3,1)]', in_pos];
+    in_eul = [[0 0 0]', [0 0 0]', in_eul];
 end
 

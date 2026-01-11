@@ -51,25 +51,25 @@ end
 
 allErr = [lowErr, midErr, highErr];
 
-lowErr_pos_mean = mean(lowErr(1,:), 'omitmissing');
-lowErr_pos_std = std(lowErr(1,:), 'omitmissing');
-lowErr_orient_mean = mean(lowErr(2,:), 'omitmissing');
-lowErr_orient_std = std(lowErr(2,:), 'omitmissing');
+lowErr_pos_mean = mean(abs(lowErr(1,:)), 'omitmissing');
+lowErr_pos_std = std(abs(lowErr(1,:)), 'omitmissing');
+lowErr_orient_mean = mean(abs(lowErr(2,:)), 'omitmissing');
+lowErr_orient_std = std(abs(lowErr(2,:)), 'omitmissing');
 
-midErr_pos_mean = mean(midErr(1,:), 'omitmissing');
-midErr_pos_std = std(midErr(1,:), 'omitmissing');
-midErr_orient_mean = mean(midErr(2,:), 'omitmissing');
-midErr_orient_std = std(midErr(2,:), 'omitmissing');
+midErr_pos_mean = mean(abs(midErr(1,:)), 'omitmissing');
+midErr_pos_std = std(abs(midErr(1,:)), 'omitmissing');
+midErr_orient_mean = mean(abs(midErr(2,:)), 'omitmissing');
+midErr_orient_std = std(abs(midErr(2,:)), 'omitmissing');
 
-highErr_pos_mean = mean(highErr(1,:), 'omitmissing');
-highErr_pos_std = std(highErr(1,:), 'omitmissing');
-highErr_orient_mean = mean(highErr(2,:), 'omitmissing');
-highErr_orient_std = std(highErr(2,:), 'omitmissing');
+highErr_pos_mean = mean(abs(highErr(1,:)), 'omitmissing');
+highErr_pos_std = std(abs(highErr(1,:)), 'omitmissing');
+highErr_orient_mean = mean(abs(highErr(2,:)), 'omitmissing');
+highErr_orient_std = std(abs(highErr(2,:)), 'omitmissing');
 
-allErr_pos_mean = mean(allErr(1,:), 'omitmissing');
-allErr_pos_std = std(allErr(1,:), 'omitmissing');
-allErr_orient_mean = mean(allErr(2,:), 'omitmissing');
-allErr_orient_std = std(allErr(2,:), 'omitmissing');
+allErr_pos_mean = mean(abs(allErr(1,:)), 'omitmissing');
+allErr_pos_std = std(abs(allErr(1,:)), 'omitmissing');
+allErr_orient_mean = mean(abs(allErr(2,:)), 'omitmissing');
+allErr_orient_std = std(abs(allErr(2,:)), 'omitmissing');
 
 save(fullfile(parentFolder, '/p3pError.mat'), 'lowErr', 'midErr', 'highErr')
 

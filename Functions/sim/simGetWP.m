@@ -1,4 +1,4 @@
-function [trajOut, trajNames, simset] = simGetTraj(simset, trajIn)
+function [trajOut, trajNames, simset] = simGetWP(simset, trajIn)
 %SIMGETTRAJ Summary of this function goes here
 
 if simset.mocapTraj == false %then manual input or some standard trajectories
@@ -17,6 +17,7 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
             %wp_pos = [0 0 0; 0 0 0; t_checker(1:2) -1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
             in_pos = [0 0 0; 0 0 0; 0 0.2 -1.1; 0.5 0.5 -1.5; 0 -0.5 -1.5; 0 0 -1]';
             in_eul = [-0 0 0; 0 0 0; 0 0 0; 20 -20 0; -20 0 10; 0 0 0]';
+            cut = false;
         
         elseif strcmp(trajIn, "elev8")
             %elevated figure eight
@@ -25,6 +26,7 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
                 3, 5, 7, 9, 11]';
             in_pos = [0 0 -1.1; 0 0 -1.1; 0.3 -0.5 -1.1; 0 -0 -1.4; 0.7 0.7 -1.6; -0.5 0.7 -1.4;  0 0 -1.1]';
             in_eul = [0 0 0; 0 0 0;0 -21 -25;  -10 0 -30; 20 -20 0; 15 -5 50;  0 0 0]';
+            cut = false;
  
         elseif strcmp(trajIn, "static")
             %elevated figure eight
@@ -32,6 +34,7 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
             in_times = [0.01, 0.3, 11]';
             in_pos = [0 0 -1; 0 0 -1; 0 0 -1]';
             in_eul = [0 0 0; 0 0 0;0 0 0]';
+            cut = false;
         
         elseif contains(trajIn, "spiral")
             %Archimedes spiral trajectory with camera pointing at target [0 0 0]
@@ -93,16 +96,30 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
             % end
             
             % Generate spiral trajectory using helper function
+            % Parameters: rpm, numLoops, dr_per_loop, dz_per_loop, startHeight, startRadius, numWaypoints, numRollRotations
+            % numRollRotations: number of full 360° roll rotations across the trajectory (default 0)
             [in_times, in_pos, in_eul] = generateSpiralTrajectory(...
-                10, 5, 0.3, 0.1, ...
-                0.5, 0.1, 35);
+                5, 3, 0.5, 0.2, ...
+                0.8, 0.01, 200, 2);  % Set numRollRotations to 0 for no roll, or e.g., 2 for 2 full rotations
+            cut = true;
                         
         end
+
+        simset.duration =in_times(end);
+        % [wp_pos, ~, ~, ~, ~, ~, ~, wp_times] = minsnappolytraj(in_pos, in_times, (simset.duration*simset.simHz));
+        % wp_eul = minsnappolytraj(in_eul, in_times, (simset.duration*simset.simHz));
+        % 
+        % if cut
+        %     cutDur = 2; %ut off last 2 seconds
+        %     numWp = cutDur*simset.simHz;
+        %     wp_pos = wp_pos(:,1:end-numWp);
+        %     wp_eul = wp_eul(:,1:end-numWp);
+        %     wp_times = wp_times(:,1:end-numWp);
+        %     simset.duration = simset.duration-cutDur;
+        % end
+
     end
 
-    simset.duration =in_times(end)+1;
-    [wp_pos, ~, ~, ~, ~, ~, ~, wp_times] = minsnappolytraj(in_pos, in_times, (simset.duration*simset.simHz));
-    wp_eul = minsnappolytraj(in_eul, in_times, (simset.duration*simset.simHz));
     
     trajOut = [wp_times; wp_pos; wp_eul]; 
     
@@ -169,13 +186,21 @@ else
             mc_times = milliseconds(mocap.quadTime(:)-startTime)/1000;
             mc_pos = mocap.quadState(1:3, :);
             mc_eul = ((quat2eul((mocap.quadState(4:7, :)'), 'XYZ')))';   
-            skip =20; %make the array smaller and smoother by skipping a few values
+            skip =50; %make the array smaller and smoother by skipping a few values
             wp_times = mc_times(1:skip:end,:); % [mc_times(1:5,:); mc_times(6:skip:end,:)];
             wp_pos =  mc_pos(:, 1:skip:end); %[mc_pos(:,1:5), mc_pos(:, 6:skip:end)];
             wp_eul =  mc_eul(:, 1:skip:end);%[mc_eul(:,1:5), mc_eul(:, 6:skip:end)];  
             wp_eul = rad2deg(unwrap(wp_eul, [], 2));
-            wp_eul_smooth = smoothdata(wp_eul, 2,"rlowess", 0.05);
-    
+            %wp_eul = smoothdata(wp_eul, 2,"rlowess", 5);
+            %wp_pos = smoothdata(wp_pos, 2,"rlowess", 5);
+
+            %offset z-position to keep target in sight
+            wp_pos = wp_pos + [0 0 -0.4]';
+                
+            %simset.duration =wp_times(end);
+            % [wp_pos, ~, ~, ~, ~, ~, ~, wp_times] = minsnappolytraj(wp_pos, wp_times, ceil(simset.duration*simset.simHz));
+            % wp_eul = minsnappolytraj(wp_eul, wp_times, ceil(simset.duration*simset.simHz));
+
         
             %figure();
             %plot(wp_times, wp_eul);

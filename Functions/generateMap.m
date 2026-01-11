@@ -50,7 +50,7 @@ T_imu2genquad = ([1 0 0 0;
                   0 0 0 1]); %ned
 
 
-T_gencam2genquad = ([ [0 -1 0; 1 0 0; 0  0 1] pos_esp2pixhawk']);
+T_gencam2genquad = ([ [0 -1 0; 1 0 0; 0  0 1] [0; 0; 0]]);
 
 T_gencam2genquad = [T_gencam2genquad; 0 0 0 1];
 %rt_gencam2genquad = ([ [0 1 0; -1 0 0; 0  0 1] pos_esp2pixhawk']);
@@ -69,7 +69,7 @@ T_mocap2world = T_mocap2ned;
  %                   -1 0 0 0;
  %                   0  0 1 0];
 
-T_markers2genquad = [eye(3) pos_fakeDrone2pixhawk'];
+T_markers2genquad = [eul2rotm(deg2rad([7 5 0]), 'XYZ') pos_fakeDrone2pixhawk'];
 T_markers2genquad = [T_markers2genquad; 0 0 0 1];
 
 
@@ -102,8 +102,10 @@ aprilList = [];
 %%
 %Aruco tag
 arucoSize = 0.30; %m
+arucoPos = (T_mocap2world(1:3,1:3)*checkerCentre_pos_mocap')' - [-arucoSize/2,arucoSize/2,0]; %mocap
 %arucoObj0 = aruco(arucoSize, 0, [1,-1,-0.002], [0 0 90], "aruco0", parentFile, T_sim2world); 
-arucoObj1 = aruco(arucoSize, 1, [arucoSize/2,-arucoSize/2,-0.002], [0 0 90], "aruco1", parentFile, T_sim2world);
+%arucoObj1 = aruco(arucoSize, 1, [arucoSize/2,-arucoSize/2,-0.002], [0 0 90], "aruco1", parentFile, T_sim2world);
+arucoObj1 = aruco(arucoSize, 1, arucoPos, [0 0 90], "aruco1", parentFile, T_sim2world);
 
 arucoList = [arucoObj1];
 %arucoList = [];
@@ -145,7 +147,7 @@ floorList = [floorObj];
 worldObjectStruct= struct('transforms', transformStruct, 'walls', wallList, 'checkers', checkerList, 'floors', floorList, 'aprils', aprilList, 'arucos', arucoList);
 
 %save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
-save(fullfile('.', '/Resources/map'), "worldObjectStruct");
+save(fullfile('.', '/Resources/map.mat'), "worldObjectStruct");
 
 
 %save("C:\Users\alyss\OneDrive - University of Cape Town\Sandbox\PnP\Pnp_solver\GitClone\Resources\map", "worldObjectStruct");
