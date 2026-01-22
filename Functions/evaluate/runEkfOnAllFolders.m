@@ -14,9 +14,23 @@ ekfSize_arr = [10 10 16 16];
 alpha_arr = [0 0.99 0 0.99];
 numEkfs = size(ekfSize_arr, 2);
 
+biasPerturb = true;
+
 %% Choose folders
 listOfFolderNames =selector_multiFolder(pwd, 'Select sim folders to run EKF on');
 numFolders = length(listOfFolderNames);
+
+%% Create bias perturb array
+if biasPerturb == true
+    %bias perturbment
+    % Example: Create a sample array
+    A = [-1, -0.9, -0.8, -0.7, -0.6, -0.5, 0.5, 0.6, 0.7, 0.8, 0.9, 1]; 
+    numSamples = 6; 
+    % Generate a vector of 'numSamples' random indices (integers between 1 and length(A))
+    randomIndexes = randi([1, numel(A)], numSamples, numFolders); %
+    % Select the elements using the indices
+    selectedPerturb = A(randomIndexes);
+end
 
 %%
 for f=1:numFolders
@@ -73,14 +87,22 @@ for f=1:numFolders
     u_hist = imuData.rawdata(:, startCalc:end);
     u_timeHist = imuData.time(:, startCalc:end);
 
+    if biasPerturb == true
+        bg_perturb = 0.05*selectedPerturb(1:3,f);
+        ba_perturb = 0.15*selectedPerturb(4:6, f);
+    else
+        bg_perturb = zeroes(3,1);
+        ba_perturb = zeroes(3,1);
+    end
+
     if calibrate == true
         Ka = simset.accelCalib.scale;
-        ba= -simset.accelCalib.turnOnBias';
+        ba= simset.accelCalib.turnOnBias';
         Kg = simset.gyroCalib.scale;
-        bg = -simset.gyroCalib.turnOnBias';
+        bg = simset.gyroCalib.turnOnBias';
         for i = 1:size(u_hist, 2)
-            u_hist(1:3,i) = Kg*u_hist(1:3,i) + bg;
-            u_hist(4:6,i) = Ka*u_hist(4:6,i) - ba;
+            u_hist(1:3,i) = Kg*u_hist(1:3,i) - bg +bg_perturb;
+            u_hist(4:6,i) = Ka*u_hist(4:6,i) + ba -ba_perturb;
         end
     end
 
@@ -202,13 +224,23 @@ for f=1:numFolders
         indices = selectClosestTimeIndices(ekfResult.time, groundTruth.quad.time);
         ekfResult.trueState = groundTruth.quad.state(:,indices);
         ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
+        if size(ekfResult.trueState,1)>10
+            for g=1:size(ekfResult.trueState,2)
+                ekfResult.trueState(11:16,g) = ekfResult.trueState(11:16,g) +[ba_perturb; bg_perturb];
+            end
+        end
         ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.PHat, ekfResult.trueState);
         ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
+        ekfresult.partialNees.pos =  evalNEES(ekfResult.x_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueState(1:3, :));
+        ekfresult.partialNees.orient =  evalNEES(ekfResult.x_(5:7,:), ekfResult.PHat(5:7,5:7,:), ekfResult.trueState(5:7, :));
+        ekfresult.partialNees.vel =  evalNEES(ekfResult.x_(8:10,:), ekfResult.PHat(8:10, 8:10,:), ekfResult.trueState(8:10, :));
+        ekfResult.partialNis.pos = evalNIS(ekfResult.y(1:3,:), ekfResult.S(1:3,1:3,:));
+        ekfResult.partialNis.orient= evalNIS(ekfResult.y(5:7,:), ekfResult.S(5:7, 5:7 ,:));
 
         %% Optionally, save
-        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_modCov2_badInit", ".mat");
-        %saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\sim_2025-12-22_08-03-07_shortStatic\sim_static\";
-        saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
+        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_bbtune5", ".mat");
+        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\comparison\tune5_badBias_adjP\";
+        %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
         destFile = strcat(saveFolder, "\", saveFile);
         save(destFile, '-struct', 'ekfResult');
     end

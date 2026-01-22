@@ -5,7 +5,7 @@ clear ekfMetricsArr
 ekfSearchTerms = {};
 
 %% Choose folders
-listOfFolderNames =selector_multiFolder(pwd, 'Select sim folders to run EKF on');
+listOfFolderNames =selector_multiFolder(pwd, 'Select folders with EKF results to combine');
 numFolders = length(listOfFolderNames);
 
 
@@ -118,7 +118,7 @@ end
 ekfMetrics.trajErr = trajErrArr;
 ekfMetrics.simpleErr = simpleErrArr;
 ekfMetrics.percentVio = percentVioArr;
-ekfMetrics.ekfType = "px4";
+ekfMetrics.ekfType = "px4_bb";
 
 %end
 

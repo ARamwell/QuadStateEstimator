@@ -12,11 +12,12 @@ function [figObj2, stats] = gaussFitIMU(data)
         nexttile();
         
         %tit = statevar{i};
-        histfit(data(i,:));
+        
+        h=histfit(data(:,i), 20, 'normal');
+        hold on;
         title(statevar{i});
 
-        pdFit = fitdist(data(i,:)', 'Normal');
-
+        pdFit = fitdist(data(:,i), 'normal');
         stats(i) = pdFit;
 
    end

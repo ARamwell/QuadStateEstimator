@@ -2,7 +2,7 @@ function [simset, targetSaveFolder] = simGetSettings()
     
     %settings
     simset.envHz = 20;
-    simset.SITL = true;
+    simset.SITL = false;
     simset.mocapTraj = true;
     simset.runEstimator =true;
     simset.imuHz = 8000;

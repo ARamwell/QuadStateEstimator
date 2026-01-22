@@ -33,13 +33,13 @@ function p3pResult_rq2rw = runP3pOnFile(file, camParams_d, K_p3p, T_rq2rc)
         %run Kneip's P3P
         p3pResult_rc2rw.time(i) = refTimeToElapsedTimeDouble(imageTime(i), refTime);
         if ~isnan(x_pnts_i(1,1)) 
-            soln = p3pRun.KneipN(x_pnts_i, X_pnts_W, K_p3p, 4); %can be streamlined, currently much overhead: outputs struct with poses, Rt matrices, most inliers, least reproj...
+            soln = p3pRun.KneipMex(x_pnts_i, X_pnts_W, K_p3p, 4); %can be streamlined, currently much overhead: outputs struct with poses, Rt matrices, most inliers, least reproj...
             p3pResult_rc2rw.poseArr(:,:,i) = soln.poseArr;   
         end
         
     end
     
-    p3pResult_rq2rw = p3pFuncs.convSolnFrame(p3pResult_rc2rw, T_rq2rc);  
+    p3pResult_rq2rw =  p3pFuncs.convSolnFrame(p3pResult_rc2rw, T_rq2rc);  
 
     %import groundtruth
     simout = load(strcat(file, '\simout.mat'));
@@ -51,7 +51,7 @@ function p3pResult_rq2rw = runP3pOnFile(file, camParams_d, K_p3p, T_rq2rc)
 
     %find best solution
     for i = 1: size(p3pResult_rq2rw.time, 2)
-        [p3pResult_rq2rw.selected(:,i), err(:,i)] = chooseMinPoseErr(p3pResult_rq2rw.poseArr(:,:,i), p3pResult_rq2rw.truePose(:,i), 1.2, 3);
+        [p3pResult_rq2rw.selected(:,i), err(:,i)] = chooseMinPoseErr(p3pResult_rq2rw.poseArr(:,:,i), p3pResult_rq2rw.truePose(:,i), 1.2, 1);
     %    [p3pResult_rc2rw.selected(:,i), err_c(:,i)] = chooseMinPoseErr(p3pResult_rc2rw.poseArr(:,:,i), p3pResult_rc2rw.truePose(:,i), 1.2, 0);
     end
     %disp(err);

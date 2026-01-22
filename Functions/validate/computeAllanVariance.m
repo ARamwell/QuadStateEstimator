@@ -41,23 +41,23 @@ pd_z = stats.pd_z;
 % %Fs = 16; %frequency of accel data
 
 %% Do temperature compensation
-% % Get low rate data
-% % Get sensor accel file
-% [filename, pathname] = uigetfile('*.csv', 'Select sensor_accel_0 file');
-% if isequal(filename,0)
-%     disp('User canceled file selection.');
-%     return;
-% end
-% lowratefilepath = fullfile(pathname, filename);
-% 
-% px4LowRateData = readtable(lowratefilepath); 
-% temp_low = px4LowRateData.temperature;
-% idx = ~isnan(temp_low);
-% temp_low = temp_low(idx);
-% ts_low = px4LowRateData.timestamp_sample;
-% ts_low = ts_low(idx);
-% 
-% temp_highrate = interp1(double(ts_low), double(temp_low), double(ts_high), 'linear', 'extrap');
+% Get low rate data
+% Get sensor accel file
+[filename, pathname] = uigetfile('*.csv', 'Select sensor_accel_0 file');
+if isequal(filename,0)
+    disp('User canceled file selection.');
+    return;
+end
+lowratefilepath = fullfile(pathname, filename);
+
+px4LowRateData = readtable(lowratefilepath); 
+temp_low = px4LowRateData.temperature;
+idx = ~isnan(temp_low);
+temp_low = temp_low(idx);
+ts_low = px4LowRateData.timestamp_sample;
+ts_low = ts_low(idx);
+
+temp_highrate = interp1(double(ts_low), double(temp_low), double(ts_high), 'linear', 'extrap');
 % tempOffset_highrate = temp_highrate-25;
 % 
 % biasCorr_x = polyval(poly(1,:), tempOffset_highrate);
@@ -66,19 +66,19 @@ pd_z = stats.pd_z;
 % 
 % biasCorr = [biasCorr_x; biasCorr_y; biasCorr_z]';
 % %rawImuData = 
-% %% or, instead, only consider the portion that has a stable temperature of 40
-% idx_stable = find(temp_highrate==30, 1, 'first');
-% imuData_stable = rawImuData(idx_stable:end, :);
+%% or, instead, only consider the portion that has a stable temperature of 40
+idx_stable = find(temp_highrate==40, 1, 'first');
+imuData_stable = rawImuData(idx_stable:end, :);
 
 %% Custom bins
-% num_bins = 50; % Desired number of bins
-% % Define the range for 'm' (from 1 sample up to a reasonable maximum, 
-% % typically half the total number of samples)
-% m_min = 1;
-% m_max = floor((size(rawImuData, 1) - 1) / 4);
-% m = floor(logspace(log10(m_min), log10(m_max), num_bins));
-% % Ensure 'm' values are unique and ascending integers
-% m = unique(m); 
+num_bins = 50; % Desired number of bins
+% Define the range for 'm' (from 1 sample up to a reasonable maximum, 
+% typically half the total number of samples)
+m_min = 1;
+m_max = floor((size(rawImuData, 1) - 1) / 4);
+m = floor(logspace(log10(m_min), log10(m_max), num_bins));
+% Ensure 'm' values are unique and ascending integers
+m = unique(m); 
 
 %% Do Allan variance / deviation
 
@@ -194,9 +194,9 @@ if isempty(tau_index)
     tau_index = numel(tau); % fall back to largest tau available
 end
 
-VRW_x = adev(tau_index, 1) * sqrt(2);
-VRW_y = adev(tau_index, 2) * sqrt(2);
-VRW_z = adev(tau_index, 3) * sqrt(2);
+VRW_x = adev(tau_index, 1);% * sqrt(2);
+VRW_y = adev(tau_index, 2);% * sqrt(2);
+VRW_z = adev(tau_index, 3);% * sqrt(2);
 
 VRW_tau = tau(tau_index);
 
@@ -229,7 +229,7 @@ targetSlope = 0.5;
 tolerance   = 0.1;
 
 % for x
-idx_rrw_x = find(abs(slope_x - targetSlope) <= tolerance, 3, 'first');
+idx_rrw_x = find(abs(slope_x - targetSlope) <= tolerance, 1, 'first');
 if ~isempty(idx_rrw_x)
     RRW_x = adev(idx_rrw_x+1,1) / sqrt(3);
     RRW_x_tau = tau(idx_rrw_x+1);
@@ -243,7 +243,7 @@ else
 end
 
 % for y
-idx_rrw_y = find(abs(slope_y - targetSlope) <= tolerance, 3, 'first');
+idx_rrw_y = find(abs(slope_y - targetSlope) <= tolerance, 1, 'first');
 if ~isempty(idx_rrw_y)
     RRW_y = adev(idx_rrw_y+1,2) / sqrt(3);
     RRW_y_tau = tau(idx_rrw_y+1);
@@ -257,7 +257,7 @@ else
 end
 
 % for z
-idx_rrw_z = find(abs(slope_z - targetSlope) <= tolerance, 3, 'first');
+idx_rrw_z = find(abs(slope_z - targetSlope) <= tolerance, 1, 'first');
 if ~isempty(idx_rrw_z)
     RRW_z = adev(idx_rrw_z+1,3) / sqrt(3);
     RRW_z_tau = tau(idx_rrw_z+1);

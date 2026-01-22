@@ -71,7 +71,7 @@ function plotViolin(varargin)
         allLowerWhiskers = [allLowerWhiskers, lowerWhisker];
         allUpperWhiskers = [allUpperWhiskers, upperWhisker];
         
-        box_width = 0.15 * max(counts);  % Narrow box width relative to violin
+        box_width = 0.35 * max(counts);  % Narrow box width relative to violin
         rectangle('Position', [pos - box_width, Q1, 2*box_width, Q3 - Q1], ...
                   'EdgeColor', [0 0 0.7451], 'LineWidth', 1.5); % Box for IQR
                   
