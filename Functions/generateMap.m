@@ -102,12 +102,22 @@ aprilList = [];
 %%
 %Aruco tag
 arucoSize = 0.30; %m
-arucoPos = (T_mocap2world(1:3,1:3)*checkerCentre_pos_mocap')' - [-arucoSize/2,arucoSize/2,0]; %mocap
+arucoPos_main = (T_mocap2world(1:3,1:3)*checkerCentre_pos_mocap')' - [-arucoSize/2,arucoSize/2,0]; %mocap
 %arucoObj0 = aruco(arucoSize, 0, [1,-1,-0.002], [0 0 90], "aruco0", parentFile, T_sim2world); 
 %arucoObj1 = aruco(arucoSize, 1, [arucoSize/2,-arucoSize/2,-0.002], [0 0 90], "aruco1", parentFile, T_sim2world);
-arucoObj1 = aruco(arucoSize, 1, arucoPos, [0 0 90], "aruco1", parentFile, T_sim2world);
+arucoObj1 = aruco(arucoSize, 1, arucoPos_main, [0 0 90], "aruco1", parentFile, T_sim2world);
 
-arucoList = [arucoObj1];
+%create a bunch more arucos to surround the main one
+arucoPos_test = repmat(arucoPos_main,8, 1) + ([1 -1 0; 1 0 0; 1 1 0; 0 -1 0; 0 1 0; -1 -1 0; -1 0 0; -1 1 0]*(arucoSize+0.05));
+arucoObj2 = aruco(arucoSize, 2, arucoPos_test(1,:), [0 0 90], "aruco2", parentFile, T_sim2world);
+arucoObj3 =aruco(arucoSize, 3, arucoPos_test(2,:), [0 0 90], "aruco3", parentFile, T_sim2world);
+arucoObj4= aruco(arucoSize, 4, arucoPos_test(3,:), [0 0 90], "aruco4", parentFile, T_sim2world);
+arucoObj5= aruco(arucoSize, 5, arucoPos_test(4,:), [0 0 90], "aruco5", parentFile, T_sim2world);
+arucoObj6= aruco(arucoSize, 6, arucoPos_test(5,:), [0 0 90], "aruco6", parentFile, T_sim2world);
+arucoObj7= aruco(arucoSize, 7, arucoPos_test(6,:), [0 0 90], "aruco7", parentFile, T_sim2world);
+arucoObj8= aruco(arucoSize, 8, arucoPos_test(7,:), [0 0 90], "aruco8", parentFile, T_sim2world);
+arucoObj9= aruco(arucoSize, 9, arucoPos_test(8,:), [0 0 90], "aruco9", parentFile, T_sim2world);
+arucoList = [arucoObj1, arucoObj2, arucoObj3, arucoObj4, arucoObj5, arucoObj6, arucoObj7, arucoObj8, arucoObj9];
 %arucoList = [];
 %%
 %room config

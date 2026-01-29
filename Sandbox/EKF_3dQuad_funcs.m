@@ -564,7 +564,9 @@ classdef EKF_3dQuad_funcs
             % 0.01, 0.01, 0.01]); %Initial, 16 el
 
             %P_px4 - position, orientation, velocity error is a bit made up
-            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.02, 0.02, 0.02, 0.01, 0.01, 0.01]); %Initial, 16 el
+            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.02, 0.02, 0.02, 0.01, 0.01, 0.01]); %Initial, 16 el, good bias calib
+
+            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.15, 0.15, 0.15, 0.05, 0.05, 0.05]); %Initial, 16 el, bad bias calib
             
             %
             if xSize == 10
@@ -598,22 +600,98 @@ classdef EKF_3dQuad_funcs
             
 
             % from full rate histogram
-            w_a = [0.02^2 0.02^2 0.02^2]';%used for full rate
-            w_g = [0.04^2 0.04^2 0.04^2]';
+            %w_a = [0.02^2 0.02^2 0.02^2];%used for full rate
+            %w_g = [0.04^2 0.04^2 0.04^2];
 
             % from batch-integrated histogram @250Hz
-            w_a = [0.005^2 0.005^2 0.005^2]';
-            w_g = [0.02^2 0.02^2 0.02^2]';
+            %w_a = [0.005^2 0.005^2 0.005^2]';
+            %w_g = [0.02^2 0.02^2 0.02^2]';
 
 
-            w_ba = 0.01*w_a;
-            w_bg = 0.01*w_g;
+            %w_ba = 0.01*w_a;
+            %w_bg = 0.01*w_g;
 
             %w_g = [0.015^2 0.015^2 0.015^2]';% PX4
             %w_a = [0.35^2 0.35^2 0.35^2]'; %PX4
             %w_ba = [0.01^2 0.01^2 0.01^2]';
             %w_bg = [0.001^2 0.001^2 0.001^2]';
-            %Q_ = 
+
+            % %%TUNE 1
+            % w_a = [0.02^2 0.02^2 0.02^2];%used for full rate
+            % w_g = [0.04^2 0.04^2 0.04^2];
+            % w_ba = 0.01*w_a;
+            % w_bg = 0.01*w_g;
+
+            %%TUNE 2
+            % w_a = 10*[0.02^2 0.02^2 0.02^2];%used for full rate
+            % w_g = 10*[0.04^2 0.04^2 0.04^2];
+            % w_ba = [0.02^2 0.02^2 0.02^2];
+            % w_bg = 0.01*[0.04^2 0.04^2 0.04^2];
+
+            % %%TUNE 3
+            % w_a = 50^2*[0.02^2 0.02^2 0.02^2];%used for full rate
+            % w_g = 50^2*[0.04^2 0.04^2 0.04^2];
+            % w_ba = 50^2*0.01*[0.02^2 0.02^2 0.02^2];
+            % w_bg = 0.01*[0.04^2 0.04^2 0.04^2];
+            
+            % %%TUNE 4
+            % w_a = 100*[0.02^2 0.02^2 0.02^2];%used for full rate
+            % w_g = 10*[0.04^2 0.04^2 0.04^2];
+            % w_ba = [0.2^2 0.2^2 0.2^2];
+            % w_bg = 0.01*[0.04^2 0.04^2 0.04^2];
+
+            %%TUNE 5
+            % w_a = [0.3^2 0.3^2 0.3^2];%used for full rate
+            % w_g = 10*[0.04^2 0.04^2 0.04^2];
+            % w_ba = [0.4^2 0.4^2 0.4^2];
+            % w_bg = 0.01*[0.04^2 0.04^2 0.04^2];
+
+            %%TUNE 1S
+            w_a = [0.02^2 0.02^2 0.02^2];%used for full rate
+            w_g = [0.08^2 0.08^2 0.08^2];
+            w_ba = 0.01*w_a;
+            w_bg = 0.01*w_g;
+
+            %%TUNE 2S
+             % w_a = [0.04^2 0.04^2 0.04^2];%used for full rate
+             % w_g = [0.16^2 0.16^2 0.16^2];
+             % w_ba = [0.008^2 0.008^2 0.008^2];
+             % w_bg = [0.008^2 0.008^2 0.008^2];
+
+            % %%TUNE 3S
+              % w_a = [0.1^2 0.1^2 0.1^2];%used for full rate
+              % w_g = [0.2^2 0.2^2 0.2^2];
+              % w_ba = [0.02^2 0.02^2 0.02^2];
+              % w_bg = [0.008^2 0.008^2 0.008^2];
+
+             %  %%TUNE 4S
+             %  w_a = [0.15^2 0.15^2 0.15^2];%used for full rate
+             %  w_g = [0.2^2 0.2^2 0.2^2];
+             %  w_ba = [0.05^2 0.05^2 0.05^2];
+             %  w_bg = [0.008^2 0.008^2 0.008^2];
+             % 
+             %  %%TUNE 5S
+             % w_a = [0.2^2 0.2^2 0.2^2];%used for full rate
+             %  w_g = [0.2^2 0.2^2 0.2^2];
+             %  w_ba = [0.1^2 0.1^2 0.1^2];
+             %  w_bg = [0.008^2 0.008^2 0.008^2];
+           
+             %%TUNE 6S
+             % w_a = [0.05^2 0.05^2 0.05^2];%used for full rate
+             % w_g = [0.1^2 0.1^2 0.1^2];
+             % w_ba = 0.1*w_a;
+             % w_bg = 0.01*w_g;
+             % 
+             % %%TUNE 7S
+             % w_a = [0.02^2 0.02^2 0.02^2];%used for full rate
+             % w_g = [0.08^2 0.08^2 0.08^2];
+             % w_ba = w_a;
+             % w_bg = 0.01*w_g;
+
+
+
+           
+            Q_ =diag([w_g w_a w_ba w_bg]);
 
             
 
@@ -627,7 +705,7 @@ classdef EKF_3dQuad_funcs
             %Q_ = 10* diag([1.5e-1, 1.5e-1, 1.5e-1, 2e-2, 2e-2, 2e-2, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba] 
 
            %Q_Modified 2
-           Q_ = diag([1.5e-1, 1.5e-1, 1.5e-1, 2e-1, 2e-1, 2e-1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba] % cust 
+           % Q_ = diag([1.5e-1, 1.5e-1, 1.5e-1, 2e-1, 2e-1, 2e-1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3]); %16 el - [w_g, w_acc, w_ba, w_ba] % cust 
 
             %Q_PX4
             % w_g = 0.015;
@@ -650,16 +728,18 @@ classdef EKF_3dQuad_funcs
             %and measurement covariance
             %W =diag([0.1506^2, 0.1506^2, 0.1506^2, 0.01, 0.007897, 0.007897, 0.007897]);  %robmech
             
-            angle_err = 0.37+0.34;%low distortion lens nano, mean + sd
-            pos_err = 0.08+0.08;%low distortion lens nano, mean + sd
+            %angle_err = 0.37+0.34;%low distortion lens nano, mean + sd
+            %pos_err = 0.08+0.08;%low distortion lens nano, mean + sd
             
-            angle_err =sqrt(5.73);%Px4
-            pos_err = sqrt(0.2);%PX4
-            q_err = (deg2rad(angle_err))^2/4;
+            %angle_err =sqrt(5.73);%Px4
+            %pos_err = sqrt(0.2);%PX4
+            
+            %q_err = (deg2rad(angle_err))^2/4;
             %W =diag([pos_err^2, pos_err^2, pos_err^2, 0.1, q_err, q_err, q_err]);  
             
+            W = diag([0.13^2 0.13^2 0.13^2 0.004^2 0.045^2 0.045^2 0.045^2]); %from p3p histograms
             
-            W = diag([0.038^2 0.038^2 0.038^2 0.025^2 0.028^2 0.028^2 0.028^2]); %means from adaptive 10elR at 250Hz ********
+            %W = diag([0.038^2 0.038^2 0.038^2 0.025^2 0.028^2 0.028^2 0.028^2]); %means from adaptive 10elR at 250Hz ******** - cust settings all cases
             
 
         end

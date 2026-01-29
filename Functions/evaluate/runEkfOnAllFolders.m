@@ -5,8 +5,9 @@ map = load(fullfile(mapfile));
 g = [0 0 -9.81]'; %for simulation
 aiding = true;
 calibrate = true;%true;
-down2kHz =true;
+down2kHz =false;
 downEkf =true;
+diffImuHz =true;
 
 % Which EKFs to run
 integ_arr = {'rect' 'rect' 'rect' 'rect'};
@@ -61,10 +62,11 @@ for f=1:numFolders
     imuHz = simset.imuHz;
     simHz = simset.simHz;
 
+
     %% Get data in usable format
 
     startCalc = 3; %Which log values to start at
-    [groundTruth, imuData, ~, ~ ] = processSimData(simout, 0, 0);
+    [groundTruth, imuData, ~, ~ ] = processSimData(simout, 0, 0, diffImuHz);
     if aiding
         p3pResult = runP3pOnFile(imgfilepath, cameraParameters(simset.camParams), simset.camParams.K, p3pFuncs.invertT(map.worldObjectStruct.transforms.T_gencam2genquad));
     end
@@ -84,15 +86,22 @@ for f=1:numFolders
     end
 
     %Inputs
-    u_hist = imuData.rawdata(:, startCalc:end);
-    u_timeHist = imuData.time(:, startCalc:end);
+    ua_hist = imuData(1).rawdata(4:6, 1:end);
+    ua_timeHist = imuData(1).time;
+    if diffImuHz == true
+        ug_hist = imuData(2).rawdata(1:3, 1:end);
+        ug_timeHist = imuData(2).time;
+    else
+        ug_hist = imuData(1).rawdata(1:3, 1:end);
+        ug_timeHist = imuData(1).time;
+    end
 
     if biasPerturb == true
         bg_perturb = 0.05*selectedPerturb(1:3,f);
         ba_perturb = 0.15*selectedPerturb(4:6, f);
     else
-        bg_perturb = zeroes(3,1);
-        ba_perturb = zeroes(3,1);
+        bg_perturb = zeros(3,1);
+        ba_perturb = zeros(3,1);
     end
 
     if calibrate == true
@@ -100,42 +109,54 @@ for f=1:numFolders
         ba= simset.accelCalib.turnOnBias';
         Kg = simset.gyroCalib.scale;
         bg = simset.gyroCalib.turnOnBias';
-        for i = 1:size(u_hist, 2)
-            u_hist(1:3,i) = Kg*u_hist(1:3,i) - bg +bg_perturb;
-            u_hist(4:6,i) = Ka*u_hist(4:6,i) + ba -ba_perturb;
+        for i = 1:size(ug_hist, 2)
+            ug_hist(1:3,i) = Kg*ug_hist(1:3,i) - bg +bg_perturb;
+        end
+        for i = 1:size(ua_hist, 2)
+            ua_hist(1:3,i) = Ka*ua_hist(1:3,i) + ba - ba_perturb;
         end
     end
 
     %% Downsampler
 
-    if down2kHz
+    if down2kHz || diffImuHz
         k = ceil(imuHz/2000);
 
-        %first, downsample gyro to 2000Hz
-        gyro_2kHz = downsample(u_hist(1:3,:)', k, (k-2))';
+        if diffImuHz == false
+            %first, downsample gyro to 2000Hz
+            gyro_2kHz = downsample(ug_hist(1:3,:)', k)';
+            gyro_times = downsample(ug_hist(1:3,:)', k)';
+            
+        else
+            gyro_2kHz = ug_hist;
+            gyro_times = ug_timeHist;
+        end
+        
+
        
         %then, do basic averaging to downsample accel to 2kHz
-        accel_fullkHz = u_hist(4:6,:);
-        
+        accel_fullkHz = ua_hist(1:3,:);
         accel_means = movmean(accel_fullkHz, k,2);
-        accel_2kHz = downsample(accel_means', k, (k-2))';
-    
-        % u_timeHist = downsample(u_timeHist', k, 0)';
-        % if size(gyro_2kHz,2) > size(accel_2kHz,2)
-        %     accel_2khz = accel_2kHz(:,1:size(gyro_2kHz, 2)
-        % u_hist = [gyro_2kHz; accel_2kHz];
+        accel_2kHz = downsample(accel_means', k)';
+
+        %get new ua and ug
+        u_hist = [gyro_2kHz; accel_2kHz];   
+        u_timeHist = gyro_times;
 
         if downEkf
             %then, do basic averaging
             k = ceil(2000/ekfHz);
-            u_means = movmean(u_hist, k, 2);
-            u_hist = downsample(u_hist', k, (k-2))';
-            u_timeHist = downsample(u_timeHist', k, 0)';
+            % u_means = movmean(u_hist, k, 2);
+            % u_hist = downsample(u_hist', k, (k-2))';
+            % u_timeHist = downsample(u_timeHist', k, 0)';
             
+            % run downsampler
             [u_hist, u_timeHist] = imuHistDownsampler(u_hist, u_timeHist, 2000, ekfHz, 0);  
         end
     end
    
+    u_hist = u_hist(:,startCalc:end);
+    u_timeHist = u_timeHist(:,startCalc:end);
     %% Set up EKF
     for e=1:numEkfs
         clear ekfResult
@@ -205,12 +226,12 @@ for f=1:numFolders
             count = count + 1;
             ekfResult.time(:,count) = t_new;
             ekfResult.x_(:,count) = x_k_;
+            ekfResult.u(:,count) = u_new;
+            ekfResult.z(:,count) = z_out_k;
             ekfResult.xHat(:,count) = xHat_k; 
             ekfResult.zHat(:,count)= zHat_k;
-            ekfResult.u(:,count) = u_new;
             ekfResult.elapsedTime(:,count) = t_new - t0;
             ekfResult.timeSinceLastCorrection(:,count)= timeSinceLastCorrection;
-            ekfResult.z(:,count) = z_out_k;
             ekfResult.y(:,count) = y_k; 
             ekfResult.K(:,:,count) = K_k;
             ekfResult.P(:,:,count) = P_k_; %these might still have zeroes in the lower triangle
@@ -231,15 +252,15 @@ for f=1:numFolders
         end
         ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.PHat, ekfResult.trueState);
         ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
-        ekfresult.partialNees.pos =  evalNEES(ekfResult.x_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueState(1:3, :));
-        ekfresult.partialNees.orient =  evalNEES(ekfResult.x_(5:7,:), ekfResult.PHat(5:7,5:7,:), ekfResult.trueState(5:7, :));
-        ekfresult.partialNees.vel =  evalNEES(ekfResult.x_(8:10,:), ekfResult.PHat(8:10, 8:10,:), ekfResult.trueState(8:10, :));
+        ekfResult.partialNees.pos =  evalNEES(ekfResult.x_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueState(1:3, :));
+        ekfResult.partialNees.orient =  evalNEES(ekfResult.x_(5:7,:), ekfResult.PHat(5:7,5:7,:), ekfResult.trueState(5:7, :));
+        ekfResult.partialNees.vel =  evalNEES(ekfResult.x_(8:10,:), ekfResult.PHat(8:10, 8:10,:), ekfResult.trueState(8:10, :));
         ekfResult.partialNis.pos = evalNIS(ekfResult.y(1:3,:), ekfResult.S(1:3,1:3,:));
         ekfResult.partialNis.orient= evalNIS(ekfResult.y(5:7,:), ekfResult.S(5:7, 5:7 ,:));
 
         %% Optionally, save
-        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_bbtune5", ".mat");
-        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\comparison\tune5_badBias_adjP\";
+        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_tune1_scaledNoise_bb", ".mat");
+        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\badBias\";
         %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
         destFile = strcat(saveFolder, "\", saveFile);
         save(destFile, '-struct', 'ekfResult');
@@ -314,3 +335,19 @@ function [imuHist_ds, imuTimes_ds] = imuHistDownsampler(imuHist, imuTimes, oldRa
     imuTimes_ds = downsample(imuTimes', numToCombine, 0)';
 
 end
+
+        ekfResult1.x_ = x_k_;
+        ekfResult1.u = u_new;
+        ekfResult1.z = z_out_k;
+        ekfResult1.xHat = xHat_k; 
+        ekfResult1.zHat= zHat_k;
+        ekfResult1.elapsedTime = t_new-t0;
+        ekfResult1.timeSinceLastCorrection= timeSinceLastCorrection;
+        ekfResult1.y = y_k; 
+        ekfResult1.K = K_k;
+        ekfResult1.P = P_k_; %these might still have zeroes in the lower triangle
+        ekfResult1.PHat = PHat_k;
+        ekfResult1.S = S_k;
+        ekfResult1.W = W_k;
+        ekfResult1.Q = Q_k;
+        ekfResult1.time = t_new;

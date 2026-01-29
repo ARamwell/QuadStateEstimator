@@ -1,27 +1,36 @@
-function [x_pnts_i, X_pnts_W] = featureDetectMatch(I, featureMap)
+function [x_pnts_i_gd, X_pnts_W, idFound] = featureDetectMatch(I, featureMap)
 %FEATUREDETECTOR Summary of this function goes here
 %   Function wrapper to enable codegen for detectCheckerboardPoints.
 %   Creates predictable-sized output.
 
     %initialise variables
-    x_pnts_i = NaN(2, 4);
-    X_pnts_W = NaN(3, 4);
+    x_pnts_i = NaN(2, 4,1);
+    X_pnts_W = NaN(3, 4,1);
+    x_pnts_i_gd = NaN(2, 4,1);
+    idFound = NaN(1);
     
     %run detection
-    [x_pnts_i(1:2, 1:4), id] = detectAruco(I, x_pnts_i); 
+    [x_pnts_i, id] = detectAruco(I); 
     %[x_i, X_W] = detectChecker(I, featureMap);
     %x_pnts_i = x_i';
     %X_pnts_W = X_W';
     
 
     %if any tags detected, match them
-    if ~isnan(x_pnts_i(1,1))
+    if ~isnan(id(1))
         %img_m = insertMarker(I, x_pnts_i(:,3)');
         %imshow(img_m)
-       X_pnts_W(1:3, 1:4) = matchAruco(featureMap.arucos, id);
-       if isnan(X_pnts_W(1,1))
-           x_pnts_i = NaN(2,4);
+      [X_pnts_W, idFound] = matchAruco(featureMap.arucos, id);
+       
+       if isnan(X_pnts_W(1,1))  %only pass on identified tags
+           x_pnts_i_gd = NaN(2,4);
+       else
+           for m=1:size(idFound,2)
+                gdIdx = ismember(id, idFound);
+                x_pnts_i_gd = x_pnts_i(:,:,gdIdx);
+           end
        end
+
     end
 
 
@@ -47,9 +56,9 @@ function [x_pnts_i, X_pnts_W] = detectChecker(I, featureMap)
     
 end
 
-function [x_pnts_i, tagID] = detectAruco(I, x_pnts_i)
+function [x_pnts_i, tagID] = detectAruco(I)
 
-    tagID = NaN;
+
     [id,loc] = readArucoMarker(I,"DICT_4X4_50");
 
     %extract centre points
@@ -59,26 +68,60 @@ function [x_pnts_i, tagID] = detectAruco(I, x_pnts_i)
     % end
     % %loc_flat = reshape(loc(1,1:2,:), 2, []);
 
+    tagID = NaN;
+    x_pnts_i = nan(2,4,size(id,2));
     
     if ~isempty(loc)
-          x_pnts_i(1:2, 1:4) = loc(1:4,1:2)';
-          tagID = id;
+        tagID = id;
+        for a=1:size(id, 2)
+            x_a = loc(1:4,1:2,a);
+            x_pnts_i(1:2, 1:4,a) = x_a';
+        end       
     end
     
 end
 
-function X_pnts_W = matchAruco(map_arucoList, tagID)
+function [X_pnts_W, idFound] = matchAruco(map_arucoList, tagID)
 
-    X_pnts_W = NaN(3, 4);
+    numTags = size(tagID, 2);
+    X_pnts_W = NaN(3, 4,numTags);
+    idFound = NaN(numTags);
+    cntFound=0;
+    % 
+    % %Loop through list
+    % for i = 1:size(map_arucoList,2)
+    %     %check if tag is there
+    %     if map_arucoList(i).id == tagID
+    %         X_pnts_W(1:3, 1:4) = (map_arucoList(i).corners);
+    %         return; % Field found, exit
+    %     end
+    % end
 
-    %Loop through list
-    for i = 1:size(map_arucoList,2)
-        %check if tag is there
-        if map_arucoList(i).id == tagID
-            X_pnts_W(1:3, 1:4) = (map_arucoList(i).corners);
-            return; % Field found, exit
+    %Loop through identified tags
+    for t=1:length(tagID)
+        for a=1:size(map_arucoList, 2) %then loop through map
+            if map_arucoList(a).id == tagID(t)
+                cntFound = cntFound+1;
+                X_pnts_W(1:3, 1:4, cntFound) = (map_arucoList(a).corners);
+                idFound(cntFound) = tagID(t);
+                
+                break;
+            end
         end
     end
+
+    %trim off NaNs
+    X_pnts_W = X_pnts_W(:,:,~isnan(X_pnts_W(1,1,:)));
+    idFound = idFound(~isnan(idFound));
+
+    % 
+    % if size(idFound)<1
+    %     idFound = NaN(1);
+    %     X_pnts_W = nan(3,4);
+    % end
+    % 
+
+
 
 end
 

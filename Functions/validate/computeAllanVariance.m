@@ -106,12 +106,13 @@ hold on;
 loglog(tau, adev(:,2),  'LineWidth', 1.5, Color='#EA5F94');
 hold on;
 loglog(tau, adev(:,3), 'LineWidth', 1.5, Color='#0000E3');
-xlabel('$\mathbf{\tau [s]}$')
-ylabel('$\mathbf{\sigma(\tau)}$')
-title('Allan Deviation (IMU)')
+xlabel('averaging time $\tau$ (s)', 'FontSize',14, 'Interpreter','latex')
+ylabel('Allan deviation $\sigma $', 'FontSize',14, 'Interpreter','latex')
+title('Allan Deviation (IMU)', 'FontSize',14, 'Interpreter','latex')
 grid on
 
-lgdEntries = {'x', 'y', 'z'};
+lgdEntries = {'$x$-channel', '$y$-channel', '$z$-channel'};
+legend(lgdEntries, 'Location', 'southeast', 'FontSize',12, 'Interpreter','latex');
 
 hold on;
 

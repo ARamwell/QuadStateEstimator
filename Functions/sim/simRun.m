@@ -17,7 +17,7 @@ for i = 1: size(trajList, 3)
     [saveFolder, px4LogFile] = simSave(parentSaveFolder, trajNames(i), out, simset); %saves simset, out, PX4 logs, and captured images to parentSaveFolder/trajName
 
     %% PROCESS SIM DATA
-    [groundTruth, imuData,ekfResult, p3pResult] = processSimData(out, estset.runEKF, estset.runP3P); %make simout more usable and readable
+    %[groundTruth, imuData,ekfResult, p3pResult] = processSimData(out, estset.runEKF, estset.runP3P); %make simout more usable and readable
     %px4Result = processPx4Data(px4LogFile, simset.aidingActive, groundTruth); %import ulogs into readable and useful format\
 
     %% DO COMPARISONS, MAKE GRAPHS

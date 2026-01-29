@@ -90,14 +90,16 @@ titles = {'$x$-channel', '$y$-channel', '$z$-channel'};
 for i = 1:3 %for each channel 
     
     channelData = imuData(i,:);%imuData(i, :) - biasCorr(i,:);
-    channelData_clean = rmoutliers(channelData, 'mean', 'ThresholdFactor', 6);   
-    
+    channelData_clean = rmoutliers(channelData, 'mean', 'ThresholdFactor', 6);  
+
     nexttile;
     plotGaussNoise(channelData_clean, figObj, '', '', titles(i));
-
+    set(gca, 'YMinorTick', 'on', 'TickDir', 'out');
+    
 end
 
 formatFigForLatex(figObj);
+
 
 
 

@@ -19,22 +19,22 @@ function plotMeanAndStd(figObj, meanVal, stdVal, colMean, colStd)
 
     xlims = xlim;
     xLabelPosLeft = xlims(2) * 0.05;   % near the left edge
-    xLabelPosRight = xlims(2) * 0.25;   % near the left edge
+    xLabelPosRight = xlims(2) * 0.5;   % near the left edge
     %text(xLabelPos, meanVal, 'mean', Color=colMean, VerticalAlignment='bottom');
     %text(xLabelPos, meanVal+stdVal, '+1 standard deviation', Color=colStd, VerticalAlignment='bottom');
     %text(xLabelPos, meanVal-stdVal, '-1 standard deviation', Color=colStd, VerticalAlignment='top');
 
     text(xLabelPosLeft, meanVal, ...
-        sprintf(' mean = %.4f', meanVal), ...
-        'Color', colMean, 'VerticalAlignment', 'bottom');
+        sprintf('mean = %.4f', meanVal), ...
+        'Color', colMean, 'VerticalAlignment', 'bottom', 'Interpreter','latex');
 
     text(xLabelPosRight, upperLine, ...
-        sprintf('+1 standard deviation = %.4f', upperLine), ...
-        'Color', colStd, 'VerticalAlignment', 'bottom');
+        sprintf('+1 s.d. = %.4f', upperLine), ...
+        'Color', colStd, 'VerticalAlignment', 'bottom', 'Interpreter','latex');
 
     text(xLabelPosRight, lowerLine, ...
-        sprintf('-1 standard deviation = %.4f', lowerLine), ...
-        'Color', colStd, 'VerticalAlignment', 'top');
+        sprintf('-1 s.d. = %.4f', lowerLine), ...
+        'Color', colStd, 'VerticalAlignment', 'top', 'Interpreter','latex');
 
     hold off;
 

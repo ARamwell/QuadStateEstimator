@@ -35,7 +35,7 @@ for f=1:numFolders
     currentFolder = string(listOfFolderNames(f));
     
     %% There is more than one EKF in each folder
-    extraID = "bbtune5";
+    extraID = "tune1_scaledNoise_bb";
     searchTerm = strcat("ekfResult*", extraID, ".mat");
     fileStruct = dir(fullfile(currentFolder, searchTerm));
     fileTable = struct2table(fileStruct);
@@ -70,49 +70,49 @@ for i=1:numEkfs
      nisPercArr = createArray(6,0);
      ttcArr = createArray(2,0);
      ttcNeesArr = createArray(1,0);
+     maxStableErrArr =createArray(5,0);
 
-    % areFig = figure;
-    % hold on;
-    % title(strcat("ARE: ", string(ekfSearchTerms{i}), extraID));
-    % xlabel("time (s)");
-    % ylabel("absolute rotation error (degrees)");
-    % 
-    % ateFig = figure;
-    % hold on;
-    % title(strcat("ATE: ", string(ekfSearchTerms{i}), extraID));
-    % xlabel("time (s)");
-    % ylabel("absolute translation error (m)");
+    %% init figures
+    areFig = figure;
+    hold on;
+    title(strcat("ARE: ", string(ekfSearchTerms{i}), extraID));
+    xlabel("time (s)");
+    ylabel("absolute rotation error (degrees)");
 
-    % figObj3 = figure;
-    % hold on;
-    % title(strcat("NEES: ", string(ekfSearchTerms{i}), extraID));
-    % xlabel("time (s)");
-    % ylabel("NEES")
-    % 
-    % figObj4 = figure;
-    % hold on;
-    % title(strcat("NIS: ", string(ekfSearchTerms{i}), extraID));
-    % xlabel("time (s)");
-    % ylabel("NIS")
+    ateFig = figure;
+    hold on;
+    title(strcat("ATE: ", string(ekfSearchTerms{i}), extraID));
+    xlabel("time (s)");
+    ylabel("absolute translation error (m)");
 
+    figObj3 = figure;
+    hold on;
+    title(strcat("NEES: ", string(ekfSearchTerms{i}), extraID));
+    xlabel("time (s)");
+    ylabel("NEES")
+
+    figObj4 = figure;
+    hold on;
+    title(strcat("NIS: ", string(ekfSearchTerms{i}), extraID));
+    xlabel("time (s)");
+    ylabel("NIS")
+
+    %% Analysis
 
     for j=1:length(selectListOfFileNames)
         ekfResult = load(selectListOfFileNames{j});
         parts = strsplit(string(selectListOfFileNames{j}), '\');
         trajName = string((parts{end-1}));
         trajName = erase(trajName, "sim_");
-
+        
+        %*******************************************
         %optionally, scrub of results with more than 1 second of blindndess
         idx = find(ekfResult.timeSinceLastCorrection > 0.4, 1, "first");
         if isempty(idx)
             idx = size(ekfResult.x_, 2);
         end
-
-        %test if the biases could maybe be the wrong way round
-        % if size(ekfResult.trueState, 1)>10
-        %     ekfResult.trueState(11:16,:) = -ekfResult.trueState(11:16,:);
-        % end
        
+        %*******************************************
         %time to converge
         ttc_are_idx = find(ekfResult.trajErr.AbsoluteError(1:idx,1)'<= 5, 1, "first");%time to converge
         if isempty(ttc_are_idx)
@@ -130,16 +130,17 @@ for i=1:numEkfs
 
         ttc_nees = ekfResult.time(:,testNeesConv(ekfResult.nees));
 
-             
-
-
+           
         % %remove  first 20 estimates
         % ekfMetrics = ekfMetricsArr(i);
         % [trajErrClean, rmIdx] = rmoutliers(ekfMetrics.trajErr(:,20:end)', "mean");
         % ekfMetrics.trajErr_clean = trajErrClean';
         % ekfMetrics.simpleErr_clean
 
-    
+
+
+
+        %*******************************************
         %nees percent exceed
         alpha = 0.05; %confidence
         numMonteCarloRuns = 1;%;length(selectListOfFileNames);
@@ -151,7 +152,8 @@ for i=1:numEkfs
         neesVioEith_idx = unique([neesVioHi_idx, neesVioLo_idx]);
         neesVioPercent = [size(neesVioLo_idx, 2); size(neesVioHi_idx, 2); size(neesVioEith_idx, 2)]/idx;
         nees_i = rmoutliers(nees_i, 'mean', 'ThresholdFactor', 8);
-
+        
+        %*******************************************
         %nis percent exceed
         alpha = 0.05; %confidence
         numMonteCarloRuns = 1;%length(selectListOfFileNames);
@@ -171,46 +173,80 @@ for i=1:numEkfs
         nis_i = nis_i(:,nan_idx);
         nis_i =rmoutliers(nis_i, 'mean', 'ThresholdFactor', 8);
     
+        %*******************************************
         % 
         % %max, min, mean error per state
+        trajErr_i =ekfResult.trajErr.AbsoluteError(1:idx,:)';
+        [vio, x_err]=evalPercentDivergence(ekfResult.x_(:, 1:idx), ekfResult.trueState(:, 1:idx), ekfResult.P(:, :,1:idx), 2);
+        velErr_i = abs(vecnorm(x_err(8:10,:), 2, 1));
+        velErr_i = rmoutliers(velErr_i, 'mean');
+        if size(x_err,1)>10
+            baErr_i = abs(vecnorm(x_err(11:13,:), 2, 1));
+            bgErr_i = abs(vecnorm(x_err(14:16,:), 2, 1));
+        else
+            baErr_i = nan(size(x_err, 2));
+            bgErr_i= nan(size(x_err, 2));
+        end
+
+        %*******************************************
+        % get max stabilised error per state
+        maxStableErr(1,1) = max(trajErr_i(2,250:end));
+        maxStableErr(2,1) = max(trajErr_i(1,250:end));
+        maxStableErr(3,1) = max(velErr_i(250:end));
+        %if size(ekfMetricsArr(i).simpleErr, 1) > 10
+            maxStableErr(4,1) = max(baErr_i(250:end));
+            maxStableErr(5,1) = max(bgErr_i(250:end));
+        %end
+
         % % put all vel, all bias together? like position
         % velErr = vecnorm(x_err(8:10,:), 2,2);
         % if stateSize>10
         %     baErr = vecnorm()
-    
-        trajErrArr = [trajErrArr, ekfResult.trajErr.AbsoluteError(1:idx,:)'];
-        [vio, x_err]=evalPercentDivergence(ekfResult.x_(:, 1:idx), ekfResult.trueState(:, 1:idx), ekfResult.P(:, :,1:idx), 2);
+           % Get a few extra error metrics
+
+        
+    %*******************************************
+    %build arrays
+        trajErrArr = [trajErrArr, trajErr_i];
         simpleErrArr = [simpleErrArr, x_err];
         percentVioArr = [percentVioArr, vio];
         ttcArr = [ttcArr, ttc];
         nisPercArr = [nisPercArr, nisVioPercent];
         neesPercArr = [neesPercArr, neesVioPercent];
         ttcNeesArr = [ttcNeesArr, ttc_nees];
+        maxStableErrArr = [maxStableErrArr, maxStableErr];
         % 
-        % figure(areFig);
-        % plot(ekfResult.time(:, 1:idx),  ekfResult.trajErr.AbsoluteError(1:idx,1)', 'DisplayName', trajName);
-        % hold on;
-        % 
-        % figure(ateFig);
-        % plot(ekfResult.time(:, 1:idx),  ekfResult.trajErr.AbsoluteError(1:idx,2)','DisplayName', trajName);
-        % hold on;
-        % 
-        % figure(figObj3);
-        % plot(ekfResult.time(:, 1:idx),  ekfResult.nees(:, 1:idx)','DisplayName', trajName);
-        % hold on;
-        % 
-        % 
-        % figure(figObj4);
-        % plot(ekfResult.time(:, nan_idx),  ekfResult.nis(:, nan_idx)','DisplayName', trajName);
-        % hold on;
+
+        %*******************************************
+        %plot
+        figure(areFig);
+        plot(ekfResult.time(:, 1:idx),  ekfResult.trajErr.AbsoluteError(1:idx,1)', 'DisplayName', trajName);
+        hold on;
+
+        figure(ateFig);
+        plot(ekfResult.time(:, 1:idx),  ekfResult.trajErr.AbsoluteError(1:idx,2)','DisplayName', trajName);
+        hold on;
+
+        figure(figObj3);
+        plot(ekfResult.time(:, 1:idx),  ekfResult.nees(:, 1:idx)','DisplayName', trajName);
+        hold on;
+
+
+        figure(figObj4);
+        plot(ekfResult.time(:, nan_idx),  ekfResult.nis(:, nan_idx)','DisplayName', trajName);
+        hold on;
         
     end
     % 
-    % saveDest = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\comparison\tune5_badBias_test";
-    % name_areFig = strcat(saveDest, "are_combined_", ekfSearchTerms{i}, extraID, ".fig");
-    % name_ateFig = strcat(saveDest, "ate_combined_", ekfSearchTerms{i}, extraID, ".fig");
-    % savefig(areFig, name_areFig);
-    % savefig(ateFig, name_ateFig);
+    saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\badBias\";
+    formatFigForLatex(areFig);
+    formatFigForLatex(ateFig);
+    formatFigForLatex(figObj3);
+    formatFigForLatex(figObj4);
+    name_areFig = strcat(saveDest, "are_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    name_ateFig = strcat(saveDest, "ate_combined_", ekfSearchTerms{i}, extraID, ".fig");
+     savefig(areFig, name_areFig);
+     savefig(ateFig, name_ateFig);
 
     
     ekfMetrics.trajErr = trajErrArr;
@@ -220,6 +256,7 @@ for i=1:numEkfs
     ekfMetrics.percentNis = nisPercArr;
     ekfMetrics.ttc = ttcArr;
     ekfMetrics.ekfType = ekfSearchTerms{i};
+    ekfMetrics.maxStableErr = maxStableErrArr;
 
     ekfMetricsArr(i) = ekfMetrics;
 

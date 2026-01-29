@@ -75,15 +75,12 @@ if exist('dynArgs_ba', 'var')
 end
 
 
-%% Plot
+% %% Plot
 plotViolin(dynArgs_are{:})
 
 plotViolin(dynArgs_ate{:})
-
 plotViolin(dynArgs_vel{:})
-
 if exist('dynArgs_ba', 'var')
     plotViolin(dynArgs_ba{:})
-
     plotViolin(dynArgs_bg{:})
 end
