@@ -121,7 +121,7 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
     end
 
     
-    trajOut = [wp_times; wp_pos; wp_eul]; 
+    trajOut = [in_times'; in_pos; in_eul]; 
     
 
 else

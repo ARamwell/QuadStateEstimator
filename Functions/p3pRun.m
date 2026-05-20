@@ -197,8 +197,8 @@ classdef p3pRun
             T_W2C_Arr = zeros(4,4,1);
 
             if size(X_pnts_W, 2) <=4
-                x_ABCD_i = x_pnts_i;%(:,[1 2 4 3]);
-                X_ABCD_W = X_pnts_W;%(:,[1 2 4 3]);
+                x_ABCD_i = x_pnts_i(:,:,1);%(:,[1 2 4 3]);
+                X_ABCD_W = X_pnts_W(:,:,1);%(:,[1 2 4 3]);
              else
                  checkerSize = [5, 8];
                  [x_ABCD_i, X_ABCD_W] = p3pFuncs.checkerOuterCornerSelector(x_pnts_i, X_pnts_W, checkerSize(1), checkerSize(2));

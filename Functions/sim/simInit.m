@@ -17,8 +17,8 @@
 
     %% OLD INIT
         
-    map = load(fullfile('.', '/Resources/map.mat'));
-    load(fullfile('.', '/Resources/featureMap.mat'));
+    map = simset.map;%load(fullfile('.', '/Resources/map.mat'));
+    %featureMap = featureMap;
     
     T_imu2rq = map.worldObjectStruct.transforms.T_imu2genquad;
     R_imu2rq = T_imu2rq(1:3, 1:3);

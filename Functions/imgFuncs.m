@@ -168,12 +168,12 @@ classdef imgFuncs
         %------------------------------------------------------------%
             
 
-        function [I_seq, I_seq_t] = importImageSeq(imgFolder, realTimestamps, refTime)
+        function [I_seq, I_seq_t] = importImageSeq(imgFolder, realTimestamps, refTime, ext)
             %Function to import images from a folder into a big 3D array.
             %Also outputs the time (in ms), from the video start, to the
             %respective frame. 
 
-            imgFiles_ds = fileDatastore(imgFolder, 'ReadFcn', @importdata, "FileExtensions",".jpg");
+            imgFiles_ds = fileDatastore(imgFolder, 'ReadFcn', @importdata, "FileExtensions",ext);
             imgNames = imgFiles_ds.Files;
             numImgs = length(imgNames);
 

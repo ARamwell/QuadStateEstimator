@@ -3,8 +3,8 @@
 %% Initialise preliminaries
 g = [0 0 -9.81]'; %for simulation
 biasPerturb = true;
-invKa = inv(simset.accelCalib.scale);
-invKb =inv(simset.gyroCalib.scale);
+diffHz = true;
+
 
 %% Choose folders
 listOfFolderNames =selector_multiFolder(pwd, 'Select sim folders to run EKF on');
@@ -34,6 +34,12 @@ for f=1:numFolders
     if length(fieldnames(simset)) == 1
         simset = simset.simset;
     end
+
+    %% set some parameters
+    invKa = inv(simset.accelCalib.scale);
+    invKb =inv(simset.gyroCalib.scale);
+    imuHz = simset.imuHz;
+    
 
 
     %% get timeseries data out
@@ -80,20 +86,21 @@ for f=1:numFolders
     px4LogFile = strcat(px4LogFile_struct.folder, "\", px4LogFile_struct.name);
 
     %% PROCESS SIM DATA
-    [groundTruth, imuData,ekfResult, p3pResult] = processSimData(simin, 0, 0); %make simout more usable and readable
-    %%add perturbment to ground truth
+    [groundTruth, imuData,ekfResult, p3pResult] = processSimData(simin, 0, 0, diffHz); %make simout more usable and readable
+    %%add perturbment to ground truth, 
     if size(groundTruth.quad.state,1)>10
             for g=1:size(groundTruth.quad.state,1,2)
                 groundTruth.quad.state(11:16,g) = groundTruth.quad.state(11:16,g) +[ba_perturb; bg_perturb];
             end
-        end
+    end
+
     px4Result = processPx4Data(px4LogFile, simset.aidingActive, groundTruth); %import ulogs into readable and useful format\
 
     %% DO COMPARISONS, MAKE GRAPHS
     % p3pName = strcat('p3pResult_', trajNames(i), '.mat');
     % p3pFile = strcat(p3pFolder, '\', p3pName);
     % save(p3pFile, 'p3pResult.mat', '-struct');
-    saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\comparison\px4_default_badBias";
+    saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\px4_badBias";
     px4File = strcat(saveFolder, '\px4Result_gb_bb', trajName, '.mat');
     save(px4File, '-struct', 'px4Result');
     

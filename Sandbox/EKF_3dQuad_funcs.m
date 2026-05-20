@@ -59,24 +59,13 @@ classdef EKF_3dQuad_funcs
             %Predict new state covariance (in state space)
             P_new_hat = F_new * P_k * transpose(F_new) + L_new * Q_k * transpose(L_new);
 
-            %Quaternion patch: limit scalar term size
-            % if P_new_hat(4,4) < 0.1
-            %     P_new_hat(4,4) = 0.1;
-            % end
-
-            % %Limit how small PHat can get
-            % epsP = 1e-8;
-            % d = diag(P_new_hat);
-            % d(d < epsP) = epsP;
-            % P_new_hat = P_new_hat - diag(diag(P_new_hat)) + diag(d);
-
             %Enforce positive definite-ness
             P_new_hat = (P_new_hat + P_new_hat')/2;
  
         %*************************************************
         %ONLY RUN CORRECTION IF A NEW MEASUREMENT HAS BEEN DETECTED
 
-            if isnan(z_new)
+            if isnan(z_new(1,1))
                 x_new = x_new_hat;
                 P_new = P_new_hat;
                 z_new_hat = nan(7,1);
@@ -124,27 +113,7 @@ classdef EKF_3dQuad_funcs
                 
                 %Enforce positive definite-ness
                 P_new = (P_new + P_new')/2;
-        
-
-                % %*************************************************
-                % %------------ STEP 4: MEAS COV UPDATE ------------
-                % if alpha ~= 0 %this is effectively the control flag
-                %     threshold = 1/(1-alpha);
-                % 
-                %     if meas_count<threshold %if not enough measurements have been taken
-                %         C_new = (C_k * (meas_count-1) + (y_new * y_new'))/meas_count;
-                %         W_new = W_k;
-                %     else
-                %         C_new = alpha*C_k + (1-alpha) * (y_new * y_new');
-                %         W_new = C_new - H_new * P_new_hat * H_new';
-                %     end
-                % 
-                % else
-                %     C_new = zeros(size(W_k));
-                %     W_new = W_k;
-                % end
-                % %*************************************************
-
+       
                 %*************************************************
                 %------------ STEP 4: MEAS COV UPDATE ------------
                 if alpha ~= 0 %this is effectively the control flag
@@ -155,10 +124,9 @@ classdef EKF_3dQuad_funcs
 
                     %a posteriori measurement residual
                     v_new = z_new - z_new_post;
-                    %v_new = (eye() - H_new_hat * K_new) * y_new;
 
                     if meas_count<threshold %if not enough measurements have been taken
-                        W_new = W_k;% * (meas_count-1) + (1/meas_count)*((v_new * v_new') +  H_new * P_new_hat * H_new');                        
+                        W_new = W_k;                       
                     else
                         W_new = alpha*W_k + (1-alpha)*((v_new * v_new') +  H_new * P_new_hat * H_new');
                     end
@@ -178,9 +146,6 @@ classdef EKF_3dQuad_funcs
             if norm(x_new(4:7,1)) > 0.001
                 x_new(4:7,1) =x_new(4:7,1)/norm(x_new(4:7,1));
             end        
-
-            %enforce a minimum P and PHat
-
             
         end
       
@@ -336,11 +301,12 @@ classdef EKF_3dQuad_funcs
             %***** RECTANGULAR *****
             if integ == 'rect'
                 % define state changes - rectangular
-                p_dot = v;
-                w_Q = R_imu2rq * (u_g_new - bg + w_g); %get current angular accel in quad frame
+                w_Q = R_imu2rq * (u_g_new - bg - w_g); %get current angular accel in quad frame
                 q_u = [0; w_Q]; %turn gyro reading into a quaternion - it is a rate! Don't normalise
                 
-                v_dot = (R_rq2rw * R_imu2rq * (u_a_new - ba + w_a)) + g;
+                v_dot = (R_rq2rw * R_imu2rq * (u_a_new - ba - w_a)) + g;
+                p_dot = v;
+                %p_dot = v + (0.5 * v_dot*dt);
                 ba_dot = w_ba;
                 bg_dot = w_bg;
                 dAngle = norm(w_Q) * dt; %get incremental angle change

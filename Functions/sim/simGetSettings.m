@@ -1,13 +1,13 @@
 function [simset, targetSaveFolder] = simGetSettings()
     
     %settings
-    simset.envHz = 20;
-    simset.SITL = false;
-    simset.mocapTraj = true;
-    simset.runEstimator =true;
+    simset.envHz = 40;
+    simset.SITL = true;
+    simset.mocapTraj = false;
+    simset.runEstimator =false;
     simset.imuHz = 8000;
     simset.simHz = 8000;
-    simset.fps = 20;
+    simset.fps = 10;
     simset.ekfHz = 250;
     simset.pos0 = [0 0 0]';
     simset.eul0 = [0 0 0]';
@@ -16,14 +16,14 @@ function [simset, targetSaveFolder] = simGetSettings()
     simset.duration = 10;
     simset.aidingActive = true;
     simset.save = true;
-    simset.multisim = true;
+    simset.multisim = false;
     simset.imu = 0; %0-no processing; 1-no downsampling; 2-downsampled; 3-PX4 downsampled (ROS2)
    
     
     
     %directories
     targetFolder = 'C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim';
-    mapFile = './Resources/map.mat';
+    mapFile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map_real';
     accelParamFile = './Resources/Calibrations/accel_accel0_20251211_allan_stable.mat';
     gyroParamFile = './Resources/Calibrations/gyro_gyro0_20251211_allan.mat';
     camParamFile = fullfile('C:/Users/Alyssa/Documents/QuadStateEstimator/Resources/Calibrations/params_imx219_640p_lowdist.mat');

@@ -1,4 +1,4 @@
-function p3pResult_rq2rw = runP3pOnFile(file, camParams_d, K_p3p, T_rq2rc)
+function p3pResult_rq2rw = runP3pOnFile(file, K_p3p, T_rq2rc, featMap)
     
     refTime = datetime(2000, 01, 01); %if importing simulation data
     featMap = load('C:/Users/Alyssa/Documents/QuadStateEstimator/Resources/featureMap.mat');
@@ -40,22 +40,6 @@ function p3pResult_rq2rw = runP3pOnFile(file, camParams_d, K_p3p, T_rq2rc)
     end
     
     p3pResult_rq2rw =  p3pFuncs.convSolnFrame(p3pResult_rc2rw, T_rq2rc);  
-
-    %import groundtruth
-    simout = load(strcat(file, '\simout.mat'));
-    simout = simout.simout;
-    groundTruth = processSimGroundTruth(simout);
-    indices = selectClosestTimeIndices(p3pResult_rq2rw.time, groundTruth.quad.time);
-    p3pResult_rq2rw.truePose = groundTruth.quad.state(1:7,indices);
-    %p3pResult_rc2rw.truePose = groundTruth.cam.state(1:7,:);
-
-    %find best solution
-    for i = 1: size(p3pResult_rq2rw.time, 2)
-        [p3pResult_rq2rw.selected(:,i), err(:,i)] = chooseMinPoseErr(p3pResult_rq2rw.poseArr(:,:,i), p3pResult_rq2rw.truePose(:,i), 1.2, 1);
-    %    [p3pResult_rc2rw.selected(:,i), err_c(:,i)] = chooseMinPoseErr(p3pResult_rc2rw.poseArr(:,:,i), p3pResult_rc2rw.truePose(:,i), 1.2, 0);
-    end
-    %disp(err);
-
 
 end
 

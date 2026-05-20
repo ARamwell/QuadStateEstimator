@@ -121,26 +121,26 @@ classdef p3pFuncs
         end
         %------------------------------------------------------------%
 
-        function err = calcReprojErrorW2C(K, x_i, X_W, Rt_W2C)
-
-            %Initialise output variables
-            x_i_star = zeros(2,1);
-
-            %Extract input variables
-            R_W2C = Rt_W2C(1:3, 1:3);
-            t_W2C = Rt_W2C(1:3, 4);           
-
+        function err = calcReprojErrorW2C(K, x_i, X_W, T_W2C)
             
-            %Project the world point into the camera frame
-            x_c_star = K*((R_W2C * X_W) + t_W2C);
+            K_aug = K;
+            if size(K,1)<4 %if K is not augmented
+               K_aug = [K, [0 0 0]'];
+            end
 
-            %Normalise by the 3rd dimension to get the pixel coords
-            x_i_star(1,1) = x_c_star(1,1)/norm(x_c_star(3,1)); 
-            x_i_star(2,1) = x_c_star(2,1)/norm(x_c_star(3,1));
+            if size(T_W2C,1)<4 %if it is an Rt matrix
+                T_W2C = [T_W2C; [0 0 0 1]];
+            end
 
+            %Project the image point into the camera frame
+            x_i_star_aug = K_aug * T_W2C * [X_W; 1];
+            
+            %Normalise
+            x_i_star = x_i_star_aug/(x_i_star_aug(3));
+            x_i_star = x_i_star(1:2);
+        
             %Calculate reproj error
-            err = norm(x_i - x_i_star);
-            %err = norm(x_c - x_c_star);
+            err = vecnorm(x_i - x_i_star);
         end
     
         %------------------------------------------------------------%
@@ -288,6 +288,159 @@ classdef p3pFuncs
             end
         end
         %------------------------------------------------------------%
+        function [bestRt, mostInliers, bestIdx] = chooseRtWithMostInliers_nano_tieBreaker(K, Rt_arr, x_pnts_i, X_pnts_W)
+
+            bestRt = nan(3,4);
+            mostInliers = 0;
+            bestIdx =nan(1,1);
+
+            %first try with low threshold - 0.5
+            inlierThreshold = 10;
+            % for n=1:3
+            %     numInliers = countInliers(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            % 
+            %     [maxInliers_val, maxInliers_idx] = max(numInliers);
+            %     inlierSpread = abs(numInliers - maxInliers_val);
+            % 
+            %     if maxInliers_val <= 1
+            %         %try higher threshold - 1
+            %         inlierThreshold = 2*inlierThreshold;           
+            %     else
+            %         bestRt = Rt_arr(:,:,maxInliers_idx);
+            %         mostInliers = maxInliers_val;
+            %         bestIdx = maxInliers_idx;
+            %
+            % 
+            %         if any(inlierSpread <= 0)
+            %             %try lower threshold - 0.65 times current
+            %             inlierThreshold = 0.65 * inlierThreshold;
+            %         else
+            %             return
+            %         end
+            %     end
+            % end
+
+            %other strategy: use smallest cumulative error
+            [numInliers, cumErr] = p3pFuncs.countInliers_W2C(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            meanErr = cumErr ./ numInliers; 
+            [maxInliers_val, maxInliers_idx] = max(numInliers);
+            bestRt = Rt_arr(:,:,maxInliers_idx);
+            mostInliers = maxInliers_val;
+            bestIdx = maxInliers_idx;
+
+            inlierSpread = abs(numInliers - maxInliers_val);
+            idx_closeInliers = inlierSpread <= 2;
+            inlierSpread(maxInliers_idx) = nan;
+            meanErr(~idx_closeInliers) = nan;
+            if any(inlierSpread <= 2)
+              
+                [minErr_val, minErr_idx] = min(meanErr);
+                bestRt = Rt_arr(:,:,minErr_idx);
+                mostInliers = numInliers(minErr_idx);
+                bestIdx = minErr_idx;
+
+            end
+        end
+
+        function [numInliers, cumErr] = countInliers_W2C(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W)
+
+            %Initialise variables
+            % bestRt = Rt_arr(:,:,1);
+            % mostInliers = 0;
+            % bestIdx = 1;
+            numInliers = zeros(1,4);
+            K_aug = [K, [0 0 0]'];
+            cumErr = zeros(1,4);
+
+            %For each Rt in the array
+            for j=1:size(Rt_arr, 3)
+                Rt_j = Rt_arr(:,:,j);
+                %numInliers_j = 0;
+
+                %Calculate reproj error for each set of points
+                for n=1:size(x_pnts_i,2)
+                    x_n_i = x_pnts_i(:,n);
+                    X_n_W = X_pnts_W(:,n);
+                    T_j = [Rt_j; 0 0 0 1];
+                    %err_n = calcReprojErrorC2W(K, x_n_i, X_n_W, Rt_j);
+
+                    err_n = p3pFuncs.calcReprojErrorW2C(K_aug, x_n_i, X_n_W, invertT(T_j));
+                    
+                    %If reproj error is low enough, increment inlier count
+                    if err_n <= inlierThreshold
+                        %numInliers_j = numInliers_j + 1;
+                        numInliers(1,j) = numInliers(1,j)+1; 
+                        cumErr(1,j) =cumErr(1,j)+err_n;
+                    end
+                    %and move onto next point
+                end
+                % %check if this Rt is better than the last best
+                % if numInliers_j > mostInliers
+                %     mostInliers = numInliers_j;
+                %     bestRt = Rt_j;
+                %     bestIdx= j;
+                % end
+            end
+
+            
+        end
+        %------------------------------------------------------------%
+        function [bestRt, mostInliers, bestIdx] = chooseRtWithMostInliers_nano(K, Rt_arr, x_pnts_i, X_pnts_W)
+
+            bestRt = nan(3,4);
+            mostInliers = 0;
+            bestIdx =nan(1,1);
+
+            %first try with low threshold
+            inlierThreshold = 10;
+            for n=1:3
+                numInliers = countInliers(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W);
+
+                [maxInliers_val, maxInliers_idx] = max(numInliers);
+                inlierSpread = abs(numInliers - maxInliers_val);
+
+                if maxInliers_val <= 1
+                    %try higher threshold - 1
+                    inlierThreshold = 2*inlierThreshold;           
+                else
+                    bestRt = Rt_arr(:,:,maxInliers_idx);
+                    mostInliers = maxInliers_val;
+                    bestIdx = maxInliers_idx;
+
+
+                    if any(inlierSpread <= 0)
+                        %try lower threshold - 0.65 times current
+                        inlierThreshold = 0.65 * inlierThreshold;
+                    else
+                        return
+                    end
+                end
+            end
+
+            %other strategy: use smallest cumulative error
+            [numInliers, cumErr] = countInliers(K, Rt_arr, inlierThreshold, x_pnts_i, X_pnts_W);
+            meanErr = cumErr ./ numInliers; 
+            [maxInliers_val, maxInliers_idx] = max(numInliers);
+            bestRt = Rt_arr(:,:,maxInliers_idx);
+            mostInliers = maxInliers_val;
+            bestIdx = maxInliers_idx;
+
+            inlierSpread = abs(numInliers - maxInliers_val);
+            idx_closeInliers = inlierSpread <= 2;
+            inlierSpread(maxInliers_idx) = nan;
+            meanErr(~idx_closeInliers) = nan;
+            if any(inlierSpread <= 2)
+              
+                [minErr_val, minErr_idx] = min(meanErr);
+                bestRt = Rt_arr(:,:,minErr_idx);
+                mostInliers = numInliers(minErr_idx);
+                bestIdx = minErr_idx;
+
+            end
+        end
+
+
+        %------------------------------------------------------------%
         
         function T_inv = invertT(T)
 
@@ -302,7 +455,38 @@ classdef p3pFuncs
         end
 
         %------------------------------------------------------------%
-
+        function [Rt_C2W_Arr] = kneipWrapper(x_pnts_i, X_pnts_W, K)
+                    %expects three points. if there are more, it will only use the
+                    %first three for pose calculation
+                   
+                    %Get projection rays
+                    x_pnts_c = createArray(3, size(x_pnts_i, 2));
+                    Rt_C2W_Arr = createArray(3,4,4);
+                
+                    for j=1:size(x_pnts_i, 2)
+                        x_pnt_i_aug = [x_pnts_i(:,j); 1];     %Augment vector to homogenise
+                        K_inv = inv(K);
+                        
+                        x_pnt_c = K_inv * x_pnt_i_aug;      %Times by inverse of K. Apparently divide is faster.
+                        
+                        x_pnts_c(:,j) = x_pnt_c / norm(x_pnt_c);
+        
+                    end
+        
+                    %Correct for radial distortion
+                    %x_ABCD_c = p3pFuncs.fixRadialDistortion(x_ABCD_c, -0.3434, 0.1096);
+        
+                    %Run Kneip's p3p to get up to 4 solutions for the Rt matrix.
+                    %(comes out as 3x16 tR matrix)
+                    %[Rt_C2W_Arr] = opengv('p3p_kneip', X_pnts_W(:,1:4), x_pnts_c(:,1:4));
+                    Rt_C2W_Arr_flat = KneipP3P_Or(X_pnts_W(:,1:3), x_pnts_c(:,1:3));
+                    for a=1:floor(size(Rt_C2W_Arr_flat,2)/4)
+                        idx = (a*4)-3;
+                        Rt_C2W_Arr(1:3,4,a) = Rt_C2W_Arr_flat(1:3,idx);
+                        Rt_C2W_Arr(1:3,1:3,a) = Rt_C2W_Arr_flat(1:3,(idx+1):(idx+3));
+                        %reshape(Rt_C2W_Arr_flat, 3, 4, []);
+                    end
+        end
 
         %------------------------------------------------------------%
 
@@ -401,6 +585,7 @@ classdef p3pFuncs
             pose = [pos; orient'];
             
         end
+        %--------------------------------------------------%
 
         function x_projected = projectPnt2Image(Rt_cam, X_W, K)
 
@@ -419,6 +604,7 @@ classdef p3pFuncs
             x_projected(2,1) = x_projected_homo(2,1)/norm(x_projected_homo(3,1));
 
         end
+        %--------------------------------------------------%
 
         function rt_out = transformPose(rt_a, rt_b)
             
@@ -427,6 +613,7 @@ classdef p3pFuncs
             rt_out = rt_temp(1:3, 1:4);
             
         end
+        %--------------------------------------------------%
 
         function pq_c2b = tformPQRight(pq_a2b, T_c2a)
             

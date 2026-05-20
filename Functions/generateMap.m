@@ -49,8 +49,9 @@ T_imu2genquad = ([1 0 0 0;
                   0 0 1 0; ...
                   0 0 0 1]); %ned
 
-
-T_gencam2genquad = ([ [0 -1 0; 1 0 0; 0  0 1] [0; 0; 0]]);
+%p_gc2gq=[-27.1; 0; 92.9]*10^-3;
+p_gc2gq=[27.1; 0; 92.9]*10^-3;
+T_gencam2genquad = ([ [0 -1 0; 1 0 0; 0  0 1] p_gc2gq]);
 
 T_gencam2genquad = [T_gencam2genquad; 0 0 0 1];
 %rt_gencam2genquad = ([ [0 1 0; -1 0 0; 0  0 1] pos_esp2pixhawk']);
@@ -101,14 +102,16 @@ aprilList = [];
 
 %%
 %Aruco tag
-arucoSize = 0.30; %m
-arucoPos_main = (T_mocap2world(1:3,1:3)*checkerCentre_pos_mocap')' - [-arucoSize/2,arucoSize/2,0]; %mocap
+arucoSize = 0.28;%0.1475; %m
+arucoGap =0.015;%0.05;
+%arucoPos_main = (T_mocap2world(1:3,1:3)*checkerCentre_pos_mocap')' - [-arucoSize/2,arucoSize/2,0]; %mocap
+arucoPos_main = [0 0 0] - [-arucoSize/2, arucoSize/2, 0.003]; %mocap
 %arucoObj0 = aruco(arucoSize, 0, [1,-1,-0.002], [0 0 90], "aruco0", parentFile, T_sim2world); 
 %arucoObj1 = aruco(arucoSize, 1, [arucoSize/2,-arucoSize/2,-0.002], [0 0 90], "aruco1", parentFile, T_sim2world);
 arucoObj1 = aruco(arucoSize, 1, arucoPos_main, [0 0 90], "aruco1", parentFile, T_sim2world);
 
 %create a bunch more arucos to surround the main one
-arucoPos_test = repmat(arucoPos_main,8, 1) + ([1 -1 0; 1 0 0; 1 1 0; 0 -1 0; 0 1 0; -1 -1 0; -1 0 0; -1 1 0]*(arucoSize+0.05));
+arucoPos_test = repmat(arucoPos_main,8, 1) + ([1 -1 0; 1 0 0; 1 1 0; 0 -1 0; 0 1 0; -1 -1 0; -1 0 0; -1 1 0]*(arucoSize+arucoGap));
 arucoObj2 = aruco(arucoSize, 2, arucoPos_test(1,:), [0 0 90], "aruco2", parentFile, T_sim2world);
 arucoObj3 =aruco(arucoSize, 3, arucoPos_test(2,:), [0 0 90], "aruco3", parentFile, T_sim2world);
 arucoObj4= aruco(arucoSize, 4, arucoPos_test(3,:), [0 0 90], "aruco4", parentFile, T_sim2world);
@@ -157,7 +160,7 @@ floorList = [floorObj];
 worldObjectStruct= struct('transforms', transformStruct, 'walls', wallList, 'checkers', checkerList, 'floors', floorList, 'aprils', aprilList, 'arucos', arucoList);
 
 %save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
-save(fullfile('.', '/Resources/map.mat'), "worldObjectStruct");
+save(fullfile('.', '/Resources/map_real.mat'), "worldObjectStruct");
 
 
 %save("C:\Users\alyss\OneDrive - University of Cape Town\Sandbox\PnP\Pnp_solver\GitClone\Resources\map", "worldObjectStruct");
@@ -175,4 +178,4 @@ for i=1:size(checkerList, 2)
 end
 
 %save to .mat filefullfile('.', '/QuadSimEnv/Results/Traj-0005/fps_20');
-save(fullfile('.', '/Resources/featureMap'), "featureMap");
+save(fullfile('.', '/Resources/featureMap_real'), "featureMap");

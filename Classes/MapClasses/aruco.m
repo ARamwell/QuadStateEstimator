@@ -15,7 +15,7 @@ classdef aruco < worldObject
             %   Detailed explanation goes here
 
              %Set up important variables
-            %Body frame of aruco is positioned at top left corner right of
+            %Body frame of aruco is positioned at top left corner of
             %top left block (black square. landscape). x goes right, y goes
             %down. z is into the board. Meanwhile, Actor has frame at
             %centre. Same x and y as Body, but z comes out of the board.
@@ -26,8 +26,8 @@ classdef aruco < worldObject
             R_A2B = [1 0 0;
                      0 1 0;
                      0 0 -1];
-            t_A2B = [(edgeLength/numBlocks)*(numBlocks/2)*1000;
-                     (edgeLength/numBlocks)*(numBlocks/2)*1000;
+            t_A2B = [(edgeLength/2)*1000;
+                     (edgeLength/2)*1000;
                       0]/1000;
             T_A2B = [R_A2B t_A2B; 0 0 0 1];
 
@@ -73,7 +73,7 @@ classdef aruco < worldObject
             dpmm = round((dpi/2.54), 0);%pixels per mm
 
             %Generate aruco image
-            markerSize_pix = (targetSize*1000*dpmm);
+            markerSize_pix = ceil(targetSize*1000*dpmm);
             markerFamily = "DICT_4x4_50";
             img = generateArucoMarker(markerFamily, id, markerSize_pix);
             img_f = flipdim(img ,2); 
