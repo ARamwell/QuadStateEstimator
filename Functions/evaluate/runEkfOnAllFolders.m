@@ -10,9 +10,9 @@ downEkf =true;
 diffImuHz =true;
 
 % Which EKFs to run
-integ_arr = {'rect' 'rect' 'rect' 'rect'};
-ekfSize_arr = [10 10 16 16];
-alpha_arr = [0 0.99 0 0.99];
+integ_arr = {'rect' 'rect'};
+ekfSize_arr = [16 16];
+alpha_arr = [0 0.99];
 numEkfs = size(ekfSize_arr, 2);
 
 biasPerturb = true;
@@ -68,7 +68,7 @@ for f=1:numFolders
     startCalc = 3; %Which log values to start at
     [groundTruth, imuData, ~, ~ ] = processSimData(simout, 0, 0, diffImuHz);
     if aiding
-        p3pResult = runP3pOnFile(imgfilepath, cameraParameters(simset.camParams), simset.camParams.K, p3pFuncs.invertT(map.worldObjectStruct.transforms.T_gencam2genquad));
+        p3pResult = runP3pOnFile(imgfilepath,  simset.camParams.K, p3pFuncs.invertT(map.worldObjectStruct.transforms.T_gencam2genquad));
     end
 
 
@@ -82,7 +82,13 @@ for f=1:numFolders
     if aiding
         z_timeHist = p3pResult.time;
         z_arr = p3pResult.poseArr;
-        z_best = p3pResult.selected;
+        z_best = nan(7,size(z_timeHist, 2));
+        for t=1:size(z_timeHist,2)
+            [closestDiff, closestIndex] = min(abs(groundTruth.quad.time(1,:)-z_timeHist(1,t))); %find index of closest time
+            %idx_gt = find(groundTruth.quad.time(1,:)==z_timeHist(1,t), 1, "first");
+            z_best(:,t) = chooseMinPoseErr(z_arr(:,:,t), groundTruth.quad.state(1:7, closestIndex), 1.2, 2);
+        end
+        %z_best = p3pResult.selected;
     end
 
     %Inputs
@@ -97,8 +103,8 @@ for f=1:numFolders
     end
 
     if biasPerturb == true
-        bg_perturb = 0.05*selectedPerturb(1:3,f);
-        ba_perturb = 0.15*selectedPerturb(4:6, f);
+        bg_perturb = 0.05*selectedPerturb(f, 1:3)';
+        ba_perturb = 0.15*selectedPerturb(f, 4:6)';
     else
         bg_perturb = zeros(3,1);
         ba_perturb = zeros(3,1);
@@ -260,7 +266,7 @@ for f=1:numFolders
 
         %% Optionally, save
         saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_tune1_scaledNoise_bb", ".mat");
-        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\badBias\";
+        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\spiral\";
         %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
         destFile = strcat(saveFolder, "\", saveFile);
         save(destFile, '-struct', 'ekfResult');

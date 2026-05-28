@@ -1,18 +1,26 @@
+%% Choose folders
+listOfFolderNames =selector_multiFolder(pwd, 'Select folders to search for trajectories');
+numFolders = length(listOfFolderNames);
+
+
 %% Initialise preliminaries
 mapfile = './Resources/map.mat';
+%mapfile = "C:\Users\Alyssa\Documents\nanoStateEstimator\mainStateEstimator\map.mat";
 map = load(fullfile(mapfile));
 
-g = [0 0 -9.81]'; %for simulation
+g=[0 0 -9.81]'; %for simulation
+%g = [0 0 -9.79]'; %for physical
 aiding = true;
 calibrate = true;%true;
 down2kHz =true;
 downEkf =true;
 
 % Which EKFs ran
-integ_arr = {'rect' 'rect' 'rect' 'rect'};
-ekfSize_arr = [10 10 16 16];
-alpha_arr = [0 0.99 0 0.99];
+integ_arr = {'rect' 'rect'};
+ekfSize_arr =[16 16];
+alpha_arr = [0 0.99];
 numEkfs = size(ekfSize_arr, 2);
+extraID = "_tune1_scaledNoise_bb";
 
 %ekfMetricsArr = createArray(numEkfs,0);
 clear ekfMetricsArr ekfTempMetricsArr
@@ -21,9 +29,6 @@ for i = 1:numEkfs
     ekfSearchTerms{i} = strcat(string(ekfSize_arr(i)), "el", "_", string(integ_arr(i)), "_a", string(alpha_arr(i)), "_");
 end
 
-%% Choose folders
-listOfFolderNames =selector_multiFolder(pwd, 'Select folders to search for trajectories');
-numFolders = length(listOfFolderNames);
 
 
 %% Search for patterns in all folders
@@ -35,8 +40,8 @@ for f=1:numFolders
     currentFolder = string(listOfFolderNames(f));
     
     %% There is more than one EKF in each folder
-    extraID = "tune1_scaledNoise_bb";
-    searchTerm = strcat("ekfResult*", extraID, ".mat");
+    searchTerm = strcat("ekfResult_", "*", extraID,  ".mat");
+    %searchTerm =strcat("ekfResult*", extraID);
     fileStruct = dir(fullfile(currentFolder, searchTerm));
     fileTable = struct2table(fileStruct);
     newFileNames = string(fileTable.name);
@@ -59,36 +64,43 @@ for i=1:numEkfs
     for m=1:length(listOfFileNames)
         logicalIndices = [logicalIndices, contains(listOfFileNames{m}, ekfSearchTerms{i})];
     end
+    idxStatic=find(contains(listOfFileNames, 'tatic'));
+    logicalIndices(idxStatic)=0;
     indices = find(logicalIndices, length(listOfFileNames));
     selectListOfFileNames = listOfFileNames(indices);
 
-    [ekfMetrics, ateFig, areFig, neesFig, nisFig]=analyseEkf(ekfSize_arr(i),ekfSearchTerms{i}, selectListOfFileNames, extraID);
+    [ekfMetrics, ateFig, areFig, neesFig, nisFig]=analyseEkf(ekfSize_arr(i),ekfSearchTerms{i}, selectListOfFileNames, extraID,false);
 
     %%
     
     % 
-    saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\badBias\";
-    formatFigForLatex(areFig);
-    formatFigForLatex(ateFig);
-    formatFigForLatex(neesFig);
-    formatFigForLatex(nisFig);
-    name_areFig = strcat(saveDest, "are_combined_", ekfSearchTerms{i}, extraID, ".fig");
-    name_ateFig = strcat(saveDest, "ate_combined_", ekfSearchTerms{i}, extraID, ".fig");
-     savefig(areFig, name_areFig);
-     savefig(ateFig, name_ateFig);
+    % saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\badBias\";
+    % formatFigForLatex(areFig);
+    % formatFigForLatex(ateFig);
+    % formatFigForLatex(neesFig);
+    % formatFigForLatex(nisFig);
+    % name_areFig = strcat(saveDest, "are_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    % name_ateFig = strcat(saveDest, "ate_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    % savefig(areFig, name_areFig);
+    % savefig(ateFig, name_ateFig);
+    % 
+    % name_neesFig = strcat(saveDest, "nees_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    % name_nisFig = strcat(saveDest, "nis_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    % savefig(neesFig, name_neesFig);
+    % savefig(nisFig, name_nisFig);
 
     ekfMetricsArr(i) = ekfMetrics;
 
-    ekfTempMetricsArr(i).nees = nees_i;
-    ekfTempMetricsArr(i).nis = nis_i;
-    ekfTempMetricsArr(i).ekfType = ekfSearchTerms{i};
-    ekfTempMetricsArr(i).ttc_nees = ttcNeesArr;
+    % ekfTempMetricsArr(i).nees = nees_i;
+    % ekfTempMetricsArr(i).nis = nis_i;
+    % ekfTempMetricsArr(i).ekfType = ekfSearchTerms{i};
+    % ekfTempMetricsArr(i).ttc_nees = ttcNeesArr;
 
 end
 
-mean(ekfMetricsArr(1).trajErr(1,:))
+mean(ekfMetricsArr(1).trajErr(1,:));
 
-mean(ekfMetricsArr(1).trajErr(2,:))
+mean(ekfMetricsArr(1).trajErr(2,:));
 %%
 %neesnisViolin(ekfTempMetricsArr);
 
@@ -111,9 +123,9 @@ function neesnisViolin(metricsArr)
         dynArgs_nis{i*2} = group_i;
     end
 
-    dynArgs_nees{end+1} = 150;
+    dynArgs_nees{end+1} = 0.5;   % bin size
     dynArgs_nees{end+1} = 'NEES';
-    dynArgs_nis{end+1} = 150;
+    dynArgs_nis{end+1} = 0.5;   % bin size
     dynArgs_nis{end+1} = 'NIS';
 
     plotViolin(dynArgs_nees{:})

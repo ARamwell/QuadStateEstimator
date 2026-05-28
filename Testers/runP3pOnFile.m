@@ -1,10 +1,10 @@
-function p3pResult_rq2rw = runP3pOnFile(file, K_p3p, T_rq2rc, featMap)
+function p3pResult_rq2rw = runP3pOnFile(file, K_p3p, T_rq2rc)
     
     refTime = datetime(2000, 01, 01); %if importing simulation data
     featMap = load('C:/Users/Alyssa/Documents/QuadStateEstimator/Resources/featureMap.mat');
 
        
-    [imageStream, imageTime] = imgFuncs.importImageSeq(file, 0, refTime); %returns grayscale
+    [imageStream, imageTime] = imgFuncs.importImageSeq(file, 0, refTime, '.jpg'); %returns grayscale
     totalFrames = size(imageTime,2);
 
     p3pResult_rc2rw = struct('poseArr', createArray(7,4, totalFrames), 'time', createArray(1,totalFrames));

@@ -6,64 +6,87 @@ function plotViolin(varargin)
     %
     % Inputs:
     %   - Data vectors (each data vector should be followed by its name)
-    %   - numbins: number of bins for the histogram
+    %   - 'TailBinPct', p (optional, plot-wide): cap equal-width bins at the p-th
+    %     percentile and place all larger values in one overflow bin per violin.
+    %     Each violin uses its own p-th percentile of its own data; only the
+    %     percentile level p is shared across violins on the same figure.
+    %   - binSize: fixed width of histogram bins (same units as the data)
     %   - data label: a string for the ylabel of the plot 
     %
     % Example usage:
-    %   plotViolin(V1, 'nameV1', V2, 'nameV2', ..., 150, 'delay')
-    %   Where V1, V2, ... are vectors of data, 'nameV1', 'nameV2', ... are their names,
-    %   150 is the number of bins, and 'delay' is the data label for the plot
+    %   plotViolin(V1, 'nameV1', V2, 'nameV2', 'TailBinPct', 95, 0.05, 'delay (s)')
 
     if nargin < 4
-        error('You must pass at least 4 arguments: data, names, numbins, and ylabel text.');
+        error('You must pass at least 4 arguments: data, names, binSize, and ylabel text.');
     end
     
-    numArgs = length(varargin); 
-    numbins = varargin{numArgs-1};  
-    data_label = varargin{numArgs};    
+    binSize = varargin{end-1};  
+    data_label = varargin{end};    
+    args = varargin(1:end-2);
     
-    if ~isnumeric(numbins) || ~ischar(data_label)
-        error('numbins must be numeric and ylabel_text must be a char.');
+    if ~isnumeric(binSize) || ~isscalar(binSize) || binSize <= 0 || ~ischar(data_label)
+        error('binSize must be a positive scalar and ylabel_text must be a char.');
+    end
+
+    tailBinPct = [];
+    k = 1;
+    while k < numel(args)
+        if ischar(args{k}) && strcmpi(args{k}, 'TailBinPct')
+            if k >= numel(args)
+                error('plotViolin:TailBinPct', 'TailBinPct requires a numeric percentile value.');
+            end
+            tailBinPct = args{k+1};
+            args(k:k+1) = [];
+        else
+            k = k + 1;
+        end
+    end
+
+    if ~isempty(tailBinPct)
+        validateattributes(tailBinPct, {'numeric'}, {'scalar', 'real', '>', 0, '<', 100});
+    end
+
+    if mod(numel(args), 2) ~= 0
+        error('plotViolin:InvalidArgs', 'Each data vector must be followed by its name.');
     end
     
     Spacing = 2.5;  % Fixed spacing between violins (I do not suggest to change it)
     
-    numStructures = (numArgs - 2) / 2;  % Each structure consists of 2 arguments (data + name)
+    numStructures = numel(args) / 2;
     
     figure;
     hold on;
     
-    xticksPos = zeros(1, numStructures);  % X tick positions
-    xticklabelsPos = cell(1, numStructures);  % X tick labels
+    xticksPos = zeros(1, numStructures);
+    xticklabelsPos = cell(1, numStructures);
     
     allLowerWhiskers = [];  
     allUpperWhiskers = [];  
     
     for i = 1:numStructures
 
-        data = varargin{2*i - 1};   % Data vector
-        name = varargin{2*i};       % Name for the X-axis label
+        data = args{2*i - 1};
+        name = args{2*i};
         
-        % Compute distribution
-        [counts, edges] = histcounts(data, numbins, 'Normalization', 'pdf'); % Normalized count as PDF
-        centers = edges(1:end-1) + diff(edges) / 2; % Bin centers
+        idx_validData = ~isnan(data);
+        d = data(idx_validData);
+
+        edges = buildViolinEdges(d, binSize, tailBinPct);
+        [counts, edges] = histcounts(d, edges, 'Normalization', 'pdf');
+        centers = edges(1:end-1) + diff(edges) / 2;
         maxCount = max(counts); 
-        counts = counts / maxCount; % Normalize to 1
+        counts = counts / maxCount;
               
-        % violin plot
         pos = (i-1) * Spacing;
         fill([pos + counts, pos - flip(counts)], [centers, flip(centers)], [0 0 0.7451], 'FaceAlpha', 0.3, 'EdgeColor', 'none');
         
-        % Mean and median
-        meanVal = mean(data);
-        medianVal = median(data);
+        meanVal = mean(d);
+        medianVal = median(d);
         
-        % Interquartile Range
-        Q1 = prctile(data, 25);  % First quartile
-        Q3 = prctile(data, 75);  % Third quartile
+        Q1 = prctile(d, 25);
+        Q3 = prctile(d, 75);
         IQR = Q3 - Q1;
         
-        % Whisker boundaries
         upperWhiskerLimit = Q3 + 1.5 * IQR;
         lowerWhiskerLimit = Q1 - 1.5 * IQR;
         upperWhisker = max(data(data <= upperWhiskerLimit));
@@ -71,9 +94,9 @@ function plotViolin(varargin)
         allLowerWhiskers = [allLowerWhiskers, lowerWhisker];
         allUpperWhiskers = [allUpperWhiskers, upperWhisker];
         
-        box_width = 0.35 * max(counts);  % Narrow box width relative to violin
+        box_width = 0.35 * max(counts);
         rectangle('Position', [pos - box_width, Q1, 2*box_width, Q3 - Q1], ...
-                  'EdgeColor', [0 0 0.7451], 'LineWidth', 1.5); % Box for IQR
+                  'EdgeColor', [0 0 0.7451], 'LineWidth', 1.5);
                   
         plot([pos - box_width, pos + box_width], [meanVal, meanVal], 'LineWidth', 3, ...
              'Color', [0 0 0.7451], 'LineStyle','-');
@@ -81,7 +104,6 @@ function plotViolin(varargin)
         plot([pos - box_width, pos + box_width], [medianVal, medianVal], 'LineWidth', 1.5, ...
              'Color', [0 0 0.7451], 'LineStyle', '-');
         
-        % Whiskers following the 1.5*IQR rule
         plot([pos, pos], [lowerWhisker, Q1], 'Color', [0 0 0.7451], 'LineWidth', 1.2,'LineStyle','-');  
         plot([pos, pos], [Q3, upperWhisker], 'Color', [0 0 0.7451], 'LineWidth', 1.2,'LineStyle','-');  
         
@@ -104,3 +126,36 @@ function plotViolin(varargin)
 
 end
 
+function edges = buildViolinEdges(d, binSize, tailBinPct)
+%BUILDVIOLINEDGES  Fixed-width bins from min(d) to cap, optional single tail bin.
+
+    lo = min(d);
+    hi = max(d);
+
+    if isempty(tailBinPct)
+        cap = hi;
+    else
+        cap = prctile(d, tailBinPct);
+    end
+
+    if hi <= lo
+        edges = [lo, hi];
+        return;
+    end
+
+    edges = lo;
+    while edges(end) + binSize < cap
+        edges(end+1) = edges(end) + binSize; %#ok<AGROW>
+    end
+    if edges(end) < cap
+        edges(end+1) = cap;
+    end
+
+    if ~isempty(tailBinPct) && hi > cap
+        if edges(end) < hi
+            edges(end+1) = hi;
+        end
+    elseif edges(end) < hi
+        edges(end+1) = hi;
+    end
+end
