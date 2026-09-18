@@ -1,21 +1,21 @@
 %% Initialise preliminaries
-mapfile = './Resources/map.mat';
+mapfile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map_real';
 map = load(fullfile(mapfile));
 
 g = [0 0 -9.81]'; %for simulation
 aiding = true;
-calibrate = true;%true;
+calibrate = true;
 down2kHz =false;
 downEkf =true;
 diffImuHz =true;
 
 % Which EKFs to run
-integ_arr = {'rect' 'rect'};
-ekfSize_arr = [16 16];
-alpha_arr = [0 0.99];
+integ_arr = {'rect'};
+ekfSize_arr = [16];
+alpha_arr = [0];
 numEkfs = size(ekfSize_arr, 2);
 
-biasPerturb = true;
+biasPerturb = false;
 
 %% Choose folders
 listOfFolderNames =selector_multiFolder(pwd, 'Select sim folders to run EKF on');
@@ -112,9 +112,9 @@ for f=1:numFolders
 
     if calibrate == true
         Ka = simset.accelCalib.scale;
-        ba= simset.accelCalib.turnOnBias';
+        ba= 0*simset.accelCalib.turnOnBias';
         Kg = simset.gyroCalib.scale;
-        bg = simset.gyroCalib.turnOnBias';
+        bg = 0*simset.gyroCalib.turnOnBias';
         for i = 1:size(ug_hist, 2)
             ug_hist(1:3,i) = Kg*ug_hist(1:3,i) - bg +bg_perturb;
         end
@@ -265,9 +265,10 @@ for f=1:numFolders
         ekfResult.partialNis.orient= evalNIS(ekfResult.y(5:7,:), ekfResult.S(5:7, 5:7 ,:));
 
         %% Optionally, save
-        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_tune1_scaledNoise_bb", ".mat");
-        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\spiral\";
+        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_uncalibrated", ".mat");
+        %saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\spiral\";
         %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
+        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\sim_2026-06-02_22-45-56-settleAndWiggle_statPhase";
         destFile = strcat(saveFolder, "\", saveFile);
         save(destFile, '-struct', 'ekfResult');
     end
@@ -357,3 +358,54 @@ end
         ekfResult1.W = W_k;
         ekfResult1.Q = Q_k;
         ekfResult1.time = t_new;
+
+
+        %%
+        t_full = imuData(1).time;
+
+        rawAccel=imuData(1).rawdata(4:6,:);
+        rawNorm = vecnorm(rawAccel, 2,1);
+              
+        calibAccel = (imuData(1).rawdata(4:6,:));
+        for i=1:size(imuData(1).rawdata, 2)
+            calibAccel(:,i) = Ka*imuData(1).rawdata(4:6, i);
+        end
+        calibNorm =vecnorm(calibAccel, 2,1);
+        
+    
+        t_ideal = simout.idealIMU.time;
+        idealAccel = simout.idealIMU.signals.values(:,4:6)';
+        idealNorm = vecnorm(idealAccel,2,1);
+
+        idealBias = calibAccel-idealAccel;
+        
+        idealCorrAccel = calibAccel-repmat(mean(idealBias,2), 1, size(calibAccel,2));
+        idealCorrNorm = vecnorm(idealCorrAccel,2,1);
+
+        liveBias = ekfResult.x_(11:13,:);
+        liveCorrAccel = ekfResult.u(4:6,:)-liveBias;
+        liveCorrNorm =vecnorm(liveCorrAccel,2,1);
+
+        calibDsAccel =ekfResult.u(4:6,:);
+        calibDsNorm = vecnorm(calibDsAccel,2,1);
+
+        
+        finalBias = ekfResult.x_(11:13,end);
+        finalCorrAccel = calibAccel-repmat(finalBias, 1, size(calibAccel,2));
+        finalCorrNorm = vecnorm(finalCorrAccel,2,1);
+        finalCorrDsAccel = calibDsAccel-repmat(finalBias, 1, size(calibDsAccel,2));
+        finalCorrDsNorm = vecnorm(finalCorrDsAccel,2,1);
+
+
+        figure;
+        plot(t_full, rawNorm);
+        hold on;
+        plot(t_full, calibNorm);
+        hold on;
+        plot(ekfResult.time, calibDsNorm);
+        hold on;
+        plot(ekfResult.time, finalCorrDsNorm);
+        hold on;
+        plot(ekfResult.time, liveCorrNorm);
+        hold on;
+        plot(t_ideal, idealNorm);

@@ -50,7 +50,7 @@ function plotViolin(varargin)
         error('plotViolin:InvalidArgs', 'Each data vector must be followed by its name.');
     end
     
-    Spacing = 2.5;  % Fixed spacing between violins (I do not suggest to change it)
+    Spacing = 2;  % Fixed spacing between violins (I do not suggest to change it)
     
     numStructures = numel(args) / 2;
     

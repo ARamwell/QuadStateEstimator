@@ -4,23 +4,23 @@ numFolders = length(listOfFolderNames);
 
 
 %% Initialise preliminaries
-mapfile = './Resources/map.mat';
-%mapfile = "C:\Users\Alyssa\Documents\nanoStateEstimator\mainStateEstimator\map.mat";
+%mapfile = './Resources/map.mat';
+mapfile = "C:\Users\Alyssa\Documents\nanoStateEstimator\mainStateEstimator\map.mat";
 map = load(fullfile(mapfile));
 
-g=[0 0 -9.81]'; %for simulation
-%g = [0 0 -9.79]'; %for physical
+%g=[0 0 -9.81]'; %for simulation
+g = [0 0 -9.79]'; %for physical
 aiding = true;
 calibrate = true;%true;
 down2kHz =true;
 downEkf =true;
 
 % Which EKFs ran
-integ_arr = {'rect' 'rect'};
-ekfSize_arr =[16 16];
-alpha_arr = [0 0.99];
+integ_arr = {'rect'};%{'rect' 'rect'};
+ekfSize_arr =[16];%[16 16  ];
+alpha_arr = [0.99];%[0 0.99];
 numEkfs = size(ekfSize_arr, 2);
-extraID = "_tune1_scaledNoise_bb";
+extraID = "_inflateQz_reprojOnly_trueDt";
 
 %ekfMetricsArr = createArray(numEkfs,0);
 clear ekfMetricsArr ekfTempMetricsArr
@@ -64,30 +64,30 @@ for i=1:numEkfs
     for m=1:length(listOfFileNames)
         logicalIndices = [logicalIndices, contains(listOfFileNames{m}, ekfSearchTerms{i})];
     end
-    idxStatic=find(contains(listOfFileNames, 'tatic'));
-    logicalIndices(idxStatic)=0;
+    %idxStatic=find(contains(listOfFileNames, 'tatic'));
+    %logicalIndices(idxStatic)=0;
     indices = find(logicalIndices, length(listOfFileNames));
     selectListOfFileNames = listOfFileNames(indices);
 
-    [ekfMetrics, ateFig, areFig, neesFig, nisFig]=analyseEkf(ekfSize_arr(i),ekfSearchTerms{i}, selectListOfFileNames, extraID,false);
+    [ekfMetrics, ateFig, areFig, neesFig, nisFig]=analyseEkf(ekfSize_arr(i),ekfSearchTerms{i}, selectListOfFileNames, extraID,true);
 
     %%
     
     % 
-    % saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\badBias\";
-    % formatFigForLatex(areFig);
-    % formatFigForLatex(ateFig);
-    % formatFigForLatex(neesFig);
-    % formatFigForLatex(nisFig);
-    % name_areFig = strcat(saveDest, "are_combined_", ekfSearchTerms{i}, extraID, ".fig");
-    % name_ateFig = strcat(saveDest, "ate_combined_", ekfSearchTerms{i}, extraID, ".fig");
-    % savefig(areFig, name_areFig);
-    % savefig(ateFig, name_ateFig);
-    % 
-    % name_neesFig = strcat(saveDest, "nees_combined_", ekfSearchTerms{i}, extraID, ".fig");
-    % name_nisFig = strcat(saveDest, "nis_combined_", ekfSearchTerms{i}, extraID, ".fig");
-    % savefig(neesFig, name_neesFig);
-    % savefig(nisFig, name_nisFig);
+    saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-m11_s3-6_trueDt\";
+    formatFigForLatex(areFig);
+    formatFigForLatex(ateFig);
+    formatFigForLatex(neesFig);
+    formatFigForLatex(nisFig);
+    name_areFig = strcat(saveDest, "are_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    name_ateFig = strcat(saveDest, "ate_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    savefig(areFig, name_areFig);
+    savefig(ateFig, name_ateFig);
+
+    name_neesFig = strcat(saveDest, "nees_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    name_nisFig = strcat(saveDest, "nis_combined_", ekfSearchTerms{i}, extraID, ".fig");
+    savefig(neesFig, name_neesFig);
+    savefig(nisFig, name_nisFig);
 
     ekfMetricsArr(i) = ekfMetrics;
 

@@ -1,7 +1,7 @@
 function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfName,trajFolderList, extraID, doScrub)
 %ANALYSEEKF Summary of this function goes here
 %   Detailed explanation goes here
-    doPlot = false;
+    doPlot = true;
 
     %% do some analysis for this type of EKF
     trajErrArr = createArray(2,0);
@@ -9,13 +9,16 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
     percentVioArr = createArray(ekfSize,0);
     neesPercArr =  createArray(ekfSize-1,0);
     nisPercArr = createArray(6,0);
-    ttcArr = createArray(2,0);
+    ttcArr = createArray(1,0);
     ttcNeesArr = createArray(1,0);
     maxStableErrArr =createArray(5,0);
     trajNameArr = {};
+
     gtTimeArr=createArray(1,0);
     timeArr = createArray(1,0);
     biasArr = createArray(6,0);
+    residArr = createArray(7,0);
+    PArr=createArray(ekfSize,0);
 
     if ~doPlot
         areFig=0;
@@ -64,10 +67,12 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
         
         %*******************************************
         %Do some post-corrections:
-        ekfResult.trueState(11:13,:)=-ekfResult.trueState(11:13,:); %ONLY FOR SIM! Accel bias is wrong way!
-        ekfResult.z(:,1)=nan(7,1);
-        ekfResult.y(:,1)=nan(7,1);
-        ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:ekfSize,:));
+       %  ekfResult.trueState(11:13,:)=-ekfResult.trueState(11:13,:); %ONLY FOR SIM! Accel bias is wrong way!
+       %  ekfResult.z(:,1)=nan(size(ekfResult.z, 1),1);
+       %  ekfResult.y(:,1)=nan(size(ekfResult.y, 1),1);
+       %  ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:ekfSize,:));
+       %  ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
+       ekfResult.nees = evalNEES_noq_nano(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:7,:));
 
         %***************************
                 
@@ -94,7 +99,7 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
             % if median(ekfResult.timeSinceLastCorrection(2:end)) >1000 %check if actually in microseconds
             %     ekfResult.timeSinceLastCorrection =ekfResult.timeSinceLastCorrection *10^(-6);
             % end
-            idx_scrubStart = find(ekfResult.timeSinceLastCorrection < 1, 1, "first");
+            idx_scrubStart = find(ekfResult.timeSinceLastCorrection < 0.5, 1, "first");
             idx_scrubEnd = find(ekfResult.timeSinceLastCorrection(:, idx_scrubStart:end) > 1, 1, "first");
             idx_scrubEnd = idx_scrubStart+idx_scrubEnd;
             if ~exist('idx_scrubEnd', 'var') || isempty(idx_scrubEnd)
@@ -137,29 +142,32 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
        
         %*******************************************
         %time to converge
-        ttc_are_idx = find(ekfResult.trajErr.AbsoluteError(idx_scrubStart_gt:idx_scrubEnd_gt,1)'<= 5, 1, "first");%time to converge
-        if isempty(ttc_are_idx)
-            ttc_are = nan(1);
-        else
-            %tempIdx = find(gtNotNan==1,ttc_are_idx,'first');
-            %ttc_are_idx = tempIdx(end);
-            %ttc_are = ekfResult.time(1, ttc_are_idx);
-            ttc_are = timeEl_gt(1, ttc_are_idx);
-        end
+        [ttc, idxTtc, ~]=calcTimeToConverge(ekfResult.elapsedTime(ekfSelector), ekfResult.x_(:,ekfSelector), ekfResult.trueState(:,ekfSelector), 0.3,5, 1);
 
-        ttc_ate_idx = find(ekfResult.trajErr.AbsoluteError(idx_scrubStart_gt:idx_scrubEnd_gt,2)'<= 0.3, 1, "first");
-        if isempty(ttc_ate_idx)
-            ttc_ate = nan(1,1);
-        else
-            % tempIdx = find(gtNotNan==1,ttc_ate_idx,'first');
-            % ttc_ate_idx = tempIdx(end);
-            % ttc_ate = ekfResult.time(1, ttc_ate_idx);
-            ttc_ate = timeEl_gt(1, ttc_ate_idx);
-        end
-        ttc=[ttc_are; ttc_ate];
-
+        % ttc_are_idx = find(ekfResult.trajErr.AbsoluteError(idx_scrubStart_gt:idx_scrubEnd_gt,1)'<= 5, 1, "first");%time to converge
+        % if isempty(ttc_are_idx)
+        %     ttc_are = nan(1);
+        % else
+        %     %tempIdx = find(gtNotNan==1,ttc_are_idx,'first');
+        %     %ttc_are_idx = tempIdx(end);
+        %     %ttc_are = ekfResult.time(1, ttc_are_idx);
+        %     ttc_are = timeEl_gt(1, ttc_are_idx);
+        % end
+        % 
+        % ttc_ate_idx = find(ekfResult.trajErr.AbsoluteError(idx_scrubStart_gt:idx_scrubEnd_gt,2)'<= 0.3, 1, "first");
+        % if isempty(ttc_ate_idx)
+        %     ttc_ate = nan(1,1);
+        % else
+        %     % tempIdx = find(gtNotNan==1,ttc_ate_idx,'first');
+        %     % ttc_ate_idx = tempIdx(end);
+        %     % ttc_ate = ekfResult.time(1, ttc_ate_idx);
+        %     ttc_ate = timeEl_gt(1, ttc_ate_idx);
+        % end
+        % ttc=[ttc_are; ttc_ate];
+        % 
+        %
         validNees = ekfResult.nees(:, ekfSelector);
-        ttc_nees = ekfResult.time(:,testNeesConv(validNees));
+        % ttc_nees = ekfResult.time(:,testNeesConv(validNees));
 
            
         % %remove  first 20 estimates
@@ -185,12 +193,13 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
         neesVioPercent = [size(neesVioLo_idx, 2); size(neesVioHi_idx, 2); size(neesVioEith_idx, 2)]/(idx_scrubEnd_gt-idx_scrubStart_gt);
         nees_i = rmoutliers(nees_i, 'mean', 'ThresholdFactor', 8);
         
+        
         %*******************************************
         %nis percent exceed
         alpha = 0.05; %confidence
         numMonteCarloRuns = 1;%length(selectListOfFileNames);
         measSize = 6;
-        ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
+        
         validNis = ekfResult.nis(:,idx_scrubStart:idx_scrubEnd);
 
         % if size(ekfResult.nis, 2)< size(ekfResult.x_, 2)
@@ -239,16 +248,18 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
         end
 
         %*******************************************
-        % % get max stabilised error per state
-        % maxStableErr(1,1) = max(trajErr_i(2,250:end));
-        % maxStableErr(2,1) = max(trajErr_i(1,250:end));
-        % if gtSize>7
-        %     maxStableErr(3,1) = max(velErr_i(250:end));
-        % %if size(ekfMetricsArr(i).simpleErr, 1) > 10
-        %     maxStableErr(4,1) = max(baErr_i(250:end));
-        %     maxStableErr(5,1) = max(bgErr_i(250:end));
-        % %end
-        % end
+        % get max stabilised error per state
+        if ~isnan(idxTtc)
+            maxStableErr(1,1) = max(trajErr_i(2,idxTtc:end));
+            maxStableErr(2,1) = max(trajErr_i(1,idxTtc:end));
+            if gtSize>7
+                maxStableErr(3,1) = max(velErr_i(idxTtc:end));
+            %if size(ekfMetricsArr(i).simpleErr, 1) > 10
+                maxStableErr(4,1) = max(baErr_i(idxTtc:end));
+                maxStableErr(5,1) = max(bgErr_i(idxTtc:end));
+            %end
+            end
+        end
 
         % % put all vel, all bias together? like position
         % velErr = vecnorm(x_err(8:10,:), 2,2);
@@ -269,22 +280,31 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
            %      (x_err(11:16,idxSel));
            % end
            % 
+
+           P_diag = createArray(size(ekfResult.P,1), size(ekfResult.P,3));
+           P_var = P_diag;
+           for t=1:size(P_diag,2)
+               P_diag(:,t)=diag(ekfResult.P(:,:,t));
+               P_var(:,t) =sqrt(P_diag(:,t));
+           end
     %*******************************************
     %build arrays
         trajErrArr = [trajErrArr, trajErr_i];
-        simpleErrArr = [simpleErrArr, x_err];
+        simpleErrArr = [simpleErrArr, x_err(:,500:end)];
         percentVioArr = [percentVioArr, vio];
         ttcArr = [ttcArr, ttc];
         nisPercArr = [nisPercArr, nisVioPercent];
         neesPercArr = [neesPercArr, neesVioPercent];
-        ttcNeesArr = [ttcNeesArr, ttc_nees];
+%        ttcNeesArr = [ttcNeesArr, ttc_nees];
         trajNameArr = [trajNameArr, trajName];
         gtTimeArr = [gtTimeArr, gtTimes];
-        %maxStableErrArr = [maxStableErrArr, maxStableErr];
+        maxStableErrArr = [maxStableErrArr, maxStableErr];
         if ekfSize>10
             biasArr = [biasArr, ekfResult.x_(11:16,:)];
         end
         timeArr = [timeArr, ekfResult.elapsedTime];
+        residArr = [residArr, ekfResult.y];
+        PArr=[PArr, P_var(:,500:end)];
         % 
 
         %*******************************************
@@ -299,7 +319,7 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
             hold on;
             
             figure(neesFig);
-            plot(ekfResult.elapsedTime(1, ekfSelector),  validNees','DisplayName', trajName);
+            plot(ekfResult.elapsedTime(1, ekfSelector), validNees','DisplayName', trajName);
             hold on;
     
             figure(nisFig);
@@ -317,9 +337,12 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
     ekfMetrics.ekfType = ekfName;
     ekfMetrics.maxStableErr = maxStableErrArr;
     ekfMetrics.trajNames = trajNameArr;
+
     ekfMetrics.gtTimes = gtTimeArr;
     ekfMetrics.biasArr = biasArr;
     ekfMetrics.timeArr =timeArr;
+    ekfMetrics.residArr=residArr;
+    ekfMetrics.PArr=PArr;
 
 
 
@@ -361,5 +384,7 @@ function [idx_conv] = testNeesConv(nees)
         idx_conv = [];
     end
 end
+
+
 
 end

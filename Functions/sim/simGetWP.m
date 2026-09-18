@@ -28,12 +28,26 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
             in_eul = [0 0 0; 0 0 0;0 -21 -25;  -10 0 -30; 20 -20 0; 15 -5 50;  0 0 0]';
             cut = false;
  
+
         elseif strcmp(trajIn, "static")
             %elevated figure eight
             trajNames = "static";
-            in_times = [0.01, 0.3, 11]';
+            in_times = [0.01, 0.3, 30];
             in_pos = [0 0 -1; 0 0 -1; 0 0 -1]';
             in_eul = [0 0 0; 0 0 0;0 0 0]';
+            cut = false;
+
+        elseif strcmp(trajIn, "staticExtreme")
+            %elevated figure eight
+            trajNames = "staticExtreme";
+            %in_times = [0.01, 0.3, 30];
+            %in_pos = [1 -1 -1.5; 1 -1 -1.5; 1 -1 -1.5]';
+            %in_eul = [-45 -15 0; -45 -15 0;-45 -15 0]';
+            in_times = [0.01, 0.3, 5];
+            pos = [1.74 -0.4315 -1.4419];
+            in_pos = [pos; pos; pos]';
+            eul =rad2deg(quat2eul([0.8519, -0.1708, -0.4477, 0.2125], 'XYZ')); 
+            in_eul = [eul; eul; eul]';
             cut = false;
         
         elseif contains(trajIn, "spiral")
@@ -102,7 +116,79 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
                 5, 3, 0.5, 0.2, ...
                 0.8, 0.01, 200, 2);  % Set numRollRotations to 0 for no roll, or e.g., 2 for 2 full rotations
             cut = true;
-                        
+
+        elseif contains(trajIn, "SettleAndWiggle", 'IgnoreCase', true)
+            % ~60 s: move (0-20 s), hold position + wiggle attitude (20-60 s)
+            trajNames = "SettleAndWiggle";
+            in_pos =   [0 0 -1.8;
+                        0 0 -1.8;
+                        1, 1, -1.8; %top right
+                        -1, 1, -2; %bottom right
+                        1, -1, -2;%top left
+                        0 0 -1.8;  %centre
+                        0 0 -1.8; %rotating
+                        0 0 -1.8; %rotating
+                        0 0 -1.8]'; %rotating
+            in_eul =   [0 0 0;
+                        0 0 0;
+                        30 -15 0;
+                        25 15 0;
+                        -20 -10, 0;
+                        0 0 0;
+                        -130, 95, -15;
+                       45 -20 150
+                       150 -120 0]';
+            in_times = [0.01, 5, 10, 15, 20, 30, 40, 50, 60];
+             % [in_times, in_pos, in_eul] = generateSettleAndWiggleTrajectory();
+            % simset.trajInterp = "linear";
+            % cut = false;
+
+        elseif contains(trajIn, "ExciteAndWiggle", 'IgnoreCase', true)
+            
+            trajNames = "ExciteAndWiggle";
+            
+            target = [0; 0; 0];
+            
+            in_times = [ ...
+                0.01, 4, ...
+                7, 10, 13, 16, 19, 22, 25, 28, ...
+                31, 35];
+            
+            in_pos = [ ...
+                 0.00,  0.00, -1.80;  % settle
+                 0.00,  0.00, -1.80;  % settle
+            
+                 0.65,  0.00, -1.55;  % +x, shallow
+                 0.25,  0.65, -2.05;  % +x/+y, deep
+                -0.65,  0.20, -1.65;  % -x
+                -0.25, -0.65, -2.15;  % -x/-y, deep
+                 0.75, -0.25, -1.70;  % +x/-y
+                 0.00,  0.75, -1.50;  % +y, shallow
+                -0.75,  0.00, -2.00;  % -x, deep
+                 0.00, -0.75, -1.60;  % -y, shallow
+            
+                 0.45,  0.45, -2.20;  % final diagonal depth change
+                 0.00,  0.00, -1.80]'; % return before your static rotation phase
+            
+            roll_about_view = [0, 0, 20, -25, 35, -35, 45, -45, 25, -20, 40, 0];
+            
+            in_eul = zeros(3, numel(in_times));
+            for k = 1:numel(in_times)
+                in_eul(:, k) = eulerLookAtTarget(in_pos(:, k), target, roll_about_view(k));
+            end
+
+            statPhase_pos =  [0.00,  0.00, -1.80; 
+                             0.00,  0.00, -1.80;  
+                             0.00,  0.00, -1.80]';
+            statPhase_eul =  [-130, 95, -15;
+                                45 -20 150;
+                                150 -120 0]';
+            statPhase_t = [15, 30, 45];
+
+            in_pos = [in_pos statPhase_pos];
+            in_eul = [in_eul, statPhase_eul];
+            in_times=[in_times, (in_times(end)+statPhase_t)];
+
         end
 
         simset.duration =in_times(end);
@@ -121,7 +207,7 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
     end
 
     
-    trajOut = [in_times'; in_pos; in_eul]; 
+    trajOut = [in_times; in_pos; in_eul]; 
     
 
 else

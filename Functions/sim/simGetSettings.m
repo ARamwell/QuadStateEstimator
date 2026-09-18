@@ -2,7 +2,7 @@ function [simset, targetSaveFolder] = simGetSettings()
     
     %settings
     simset.envHz = 40;
-    simset.SITL = true;
+    simset.SITL = false;
     simset.mocapTraj = false;
     simset.runEstimator =false;
     simset.imuHz = 8000;
@@ -26,7 +26,8 @@ function [simset, targetSaveFolder] = simGetSettings()
     mapFile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map_real';
     accelParamFile = './Resources/Calibrations/accel_accel0_20251211_allan_stable.mat';
     gyroParamFile = './Resources/Calibrations/gyro_gyro0_20251211_allan.mat';
-    camParamFile = fullfile('C:/Users/Alyssa/Documents/QuadStateEstimator/Resources/Calibrations/params_imx219_640p_lowdist.mat');
+    camParamFile= "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\physical\camCalib\camParams.mat";
+    %camParamFile = fullfile('C:/Users/Alyssa/Documents/QuadStateEstimator/Resources/Calibrations/params_imx219_640p_lowdist.mat');
     %% GENERAL PARAMS
     g = simset.g;
     simset.map = load(mapFile);
@@ -39,6 +40,10 @@ function [simset, targetSaveFolder] = simGetSettings()
     %camCalib_pin.K(1,1)  = camCalib_pin.K(1,1)/1.1;
     %camCalib_pin.K(2,2)  = camCalib_pin.K(2,2)/1.1;
     simset.camParams = load(camParamFile);
+    if size(fields(simset.camParams),1) ==1
+        simset.camParams =simset.camParams.cameraParams;
+    end
+
     
     %% Some logic
     % if simset.runEstimator == true

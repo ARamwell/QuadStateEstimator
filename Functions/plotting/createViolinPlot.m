@@ -1,4 +1,5 @@
 
+ekfMetricsArr(end+1) = ekfMetrics;
 
 % %make sure ekfMetricsArr is loaded with everything you need.
 % %if necessary, append px4 results:
@@ -10,27 +11,39 @@
 % ekfMetricsArr(end+1) = px4_gb;
 
 
-ekfMetrics_a0_simTune = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_simTune_scrub1s.mat");
-ekfMetrics_a0_inflatedQ = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_inflatedQ_scrub1s.mat");
-ekfMetrics_a0_inflatedQ_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_inflatedQ_reprojOnly_scrub1s.mat");
-ekfMetrics_a0_simTune_reprojOnly=load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_simTune_reprojOnly_scrub1s.mat");
+% ekfMetrics_a0_simTune = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_simTune_scrub1s.mat");
+% ekfMetrics_a0_inflatedQz = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_inflatedQz_scrub1s.mat");
+% ekfMetrics_a0_inflatedQ = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_inflatedQ_scrub1s.mat");
+% ekfMetrics_a0_inflatedQ_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_inflatedQ_reprojOnly_scrub1s.mat");
+% ekfMetrics_a0_simTune_reprojOnly=load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0_simTune_reprojOnly_scrub1s.mat");
+% 
+% ekfMetrics_a099_simTune = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_simTune_scrub1s.mat");
+% ekfMetrics_a099_inflatedQ = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_inflatedQ_scrub1s.mat");
+% ekfMetrics_a099_inflatedQ_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_inflatedQ_reprojOnly_scrub1s.mat");
+% ekfMetrics_a099_simTune_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_simTune_reprojOnly_scrub1s.mat");
+% 
+% ekfMetrics_a099_inflatedQz = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_inflatedQz_scrub1s.mat");
+% ekfMetrics_a099_inflatedQz_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_inflatedQz_ReprojOnly_scrub1s.mat");
 
-ekfMetrics_a099_simTune = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_simTune_scrub1s.mat");
-ekfMetrics_a099_inflatedQ = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_inflatedQ_scrub1s.mat");
-ekfMetrics_a099_inflatedQ_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_inflatedQ_reprojOnly_scrub1s.mat");
-ekfMetrics_a099_simTune_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-12_s3-6\ekfMetrics_16elRa0.99_simTune_reprojOnly_scrub1s.mat");
+ekfMetrics_a0_simTune = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-m11_s3-6_trueDt\ekfMetrics_16Ra0_simTune_trueDt.mat");
+ekfMetrics_a0_inflatedQz = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-m11_s3-6_trueDt\ekfMetrics_16Ra0_inflatedQz_trueDt.mat");
+ekfMetrics_a099_inflatedQz = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-m11_s3-6_trueDt\ekfMetrics_16Ra0.99_inflatedQz_trueDt.mat");
+ekfMetrics_a099_reprojOnly = load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-m11_s3-6_trueDt\ekfMetrics_16Ra0.99_inflatedQz_reprojOnly_trueDt.mat");
 
-
+ekfMetrics_a0_simTune.ekfMetrics.ekfType = "16e-R-a0-simTune";
+ekfMetrics_a0_inflatedQz.ekfMetrics.ekfType="16e-R-a0-inflQz";
+ekfMetrics_a099_inflatedQz.ekfMetrics.ekfType="16e-R-a0.99-inflQz";
+ekfMetrics_a099_reprojOnly.ekfMetrics.ekfType="16e-R-a0.99-reproj";
 
 ekfMetricsArr(1) = ekfMetrics_a0_simTune.ekfMetrics;
-ekfMetricsArr(end+1) =ekfMetrics_a0_inflatedQ.ekfMetrics;
-% ekfMetricsArr(end+1) = ekfMetrics_a0_inflatedQ_reprojOnly.ekfMetrics;
-% ekfMetricsArr(end+1) = ekfMetrics_a0_simTune_reprojOnly.ekfMetrics;
-
-ekfMetricsArr(end+1) =ekfMetrics_a099_simTune.ekfMetrics;
-%ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQ.ekfMetrics;
-%ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQ_reprojOnly.ekfMetrics;
-ekfMetricsArr(end+1) =ekfMetrics_a099_simTune_reprojOnly.ekfMetrics;
+ekfMetricsArr(end+1) =ekfMetrics_a0_inflatedQz.ekfMetrics;
+ekfMetricsArr(end+1) = ekfMetrics_a099_inflatedQz.ekfMetrics;
+ekfMetricsArr(end+1) = ekfMetrics_a099_reprojOnly.ekfMetrics;
+% 
+% ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQz.ekfMetrics;
+% %ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQ.ekfMetrics;
+% %ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQ_reprojOnly.ekfMetrics;
+% ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQz_reprojOnly.ekfMetrics;
 
 
 

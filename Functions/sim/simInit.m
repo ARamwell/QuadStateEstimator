@@ -58,7 +58,8 @@
         imuWait = (1/simHz)*2;
     end 
     
-    camParams = simset.camParams;%load(camFile);
+    camParams = toStruct(simset.camParams);%load(camFile);
+    
     camParams_p = cameraParameters(camParams);%
     K = camParams.K;
     k_rad = camParams.RadialDistortion;
