@@ -51,3 +51,6 @@ results.mat
 msgdef/
 src/
 Sandbox/Jetson/ros2Sub_ert_rtw/
+Functions/Graveyard/Sandbox/CamImgs/
+Functions/Graveyard/
+*.fig
