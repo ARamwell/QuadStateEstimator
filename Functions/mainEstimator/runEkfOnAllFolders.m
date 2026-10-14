@@ -8,6 +8,7 @@ calibrate = true;
 down2kHz =false;
 downEkf =true;
 diffImuHz =true;
+tiltAlign = true;
 
 % Which EKFs to run
 integ_arr = {'rect'};
@@ -176,6 +177,15 @@ for f=1:numFolders
         %x_k_(8:10,1) = zeros(3,1);
         x_k_ = zeros(ekfSize, 1); %bad initial guess
         x_k_(4,1) = 1; 
+        if tiltAlign
+            a_norm = u_hist(4:6, 1)/vecnorm( u_hist(4:6, 1));
+            g_norm = -[0 0 1]';
+            ang =acos(dot(a_norm, g_norm));
+            ax= cross(a_norm, g_norm);
+            ax = ax/vecnorm(ax);
+            quat = axang2quat([ax', ang]);
+            x_k_(4:7)=quat';
+        end
         
         %dt_av = 1/ekfHz
         [P_k_, Q, W_k] = EKF_3dQuad_funcs.initEKF_params(1/ekfHz, x_k_, ekfHz);
@@ -265,10 +275,10 @@ for f=1:numFolders
         ekfResult.partialNis.orient= evalNIS(ekfResult.y(5:7,:), ekfResult.S(5:7, 5:7 ,:));
 
         %% Optionally, save
-        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_uncalibrated", ".mat");
+        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_test", ".mat");
         %saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\spiral\";
         %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
-        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\sim_2026-06-02_22-45-56-settleAndWiggle_statPhase";
+        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\gravAiding";
         destFile = strcat(saveFolder, "\", saveFile);
         save(destFile, '-struct', 'ekfResult');
     end

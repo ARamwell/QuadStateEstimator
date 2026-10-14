@@ -1,6 +1,6 @@
 [simset, parentSaveFolder] = simGetSettings(); %get user input for type of sim to run
 %[trajList, trajNames, simset] = simGetTraj(simset, "spiral");%get user input on trajectories to run
-[trajList, trajNames, simset] = simGetWP(simset,"staticExtreme");%get user input on trajectories to run
+[trajList, trajNames, simset] = simGetWP(simset,"staticRoll");%get user input on trajectories to run
 if simset.runEstimator == true
     estset = estGetSettings();
 end
@@ -39,5 +39,3 @@ for i = 1: size(trajList, 3)
 end
 
 %
-
-runEkfOnAllFolders

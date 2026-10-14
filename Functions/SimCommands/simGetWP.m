@@ -50,6 +50,19 @@ if simset.mocapTraj == false %then manual input or some standard trajectories
             in_eul = [eul; eul; eul]';
             cut = false;
         
+        elseif strcmp(trajIn, "staticRoll")
+            %elevated figure eight
+            trajNames = "staticRoll";
+            %in_times = [0.01, 0.3, 30];
+            %in_pos = [1 -1 -1.5; 1 -1 -1.5; 1 -1 -1.5]';
+            %in_eul = [-45 -15 0; -45 -15 0;-45 -15 0]';
+            in_times = [0.01, 0.3, 5];
+            pos = [0 -0.5 -1.5];
+            in_pos = [pos; pos; pos]';
+            eul =[-30 0 0]; 
+            in_eul = [eul; eul; eul]';
+            cut = false;
+        
         elseif contains(trajIn, "spiral")
             %Archimedes spiral trajectory with camera pointing at target [0 0 0]
             %Parameters can be passed as: "spiral_rpm_H_dr_dz_sh_sr_nw" where:

@@ -74,7 +74,7 @@ classdef EKF_3dQuad_funcs
                 W_new = W_k;
                
             else
-        %---------- STEP 2: MEASUREMENT UPDATE------------    
+        %---------- STEP 2: MEASUREMENT UPDATE - CAMERA ------------    
 
                 %Predict new measurement z (may differ from actual measurement) and get
                 %jacobian H, and measurement residual model
@@ -143,6 +143,50 @@ classdef EKF_3dQuad_funcs
                 %*************************************************
             end
                  
+        %*************************************************
+        % GRAVITY VECTOR AIDING: ONLY RUN CORRECTION IF CONDITIONS ARE MET
+
+            if (1) %condition is met
+
+        %---------- STEP 2B: MEASUREMENT UPDATE - GRAVITY VECTOR ------------  
+                z_grav_new = u_new(4:6); %unnormalised
+                W_grav_k = Q_k(4:6,4:6)*10;
+                %z_grav_new = u_new(4:6)-x_new(end-5:end-3); %unit case 1
+                %z_grav_new = u_new(4:6); %unit case 2
+                %z_grav_new = [z_grav_new/vecnorm(z_grav_new);vecnorm(z_grav_new)];
+                %W_grav_k = diag([[Q_k(4,4) Q_k(5,5) Q_k(6,6)]*0.1, 0.05]);
+
+                %Predict new measurement z (may differ from actual measurement) and get
+                %jacobian H, and measurement residual model
+                [z_grav_new_hat, H_grav_new] = EKF_3dQuad_funcs.grav_predict(x_new);
+            
+                %Calculate measurement residual y
+                y_grav_new = z_grav_new - z_grav_new_hat;
+            
+                %Compute predicted measurement covariance S
+                S_grav_new_hat = H_grav_new * P_new * transpose(H_grav_new) + W_grav_k;
+
+                %Enforce positive definite-ness
+                S_grav_new_hat = (S_grav_new_hat + S_grav_new_hat')/2;
+
+        
+        %*************************************************
+        %------------- STEP 3B: STATE UPDATE -------------- 
+                
+                %Calculate Kalman gain
+                K_grav_new = P_new * transpose(H_grav_new)/(S_grav_new_hat);
+            
+                %Update state est
+                x_new = x_new + (K_grav_new * y_grav_new);
+            
+                %Update state covariance
+                I = eye(size(H_grav_new,2), size(H_grav_new,2)); %make identity matrix of appropriate size
+                P_new = (I - K_grav_new * H_grav_new) * P_new;
+                
+                %Enforce positive definite-ness
+                P_new = (P_new + P_new')/2;
+       
+            end
 
             %Enforce quaternion constraints - closest quaternions
             if dot(x_k(4:7), x_new(4:7)) < 0
@@ -236,6 +280,37 @@ classdef EKF_3dQuad_funcs
     
           z_new_hat(1:end, 1) = feval(strcat('ekf_measModel_', xSizeStr), x_new_hat); %get predicted measurement
           H_new_hat(1:end, 1:end) = feval(strcat('ekf_H_', xSizeStr), x_new_hat); %and covariance
+                                     
+        end
+
+      %------------------------------------------------------------%
+
+      function [z_new_hat, H_new_hat] = grav_predict(x_new_hat)
+
+          %predefine variables for coder
+          zhowBig = 3;
+          xhowBig = size(x_new_hat, 1);
+          xSizeStr = strcat(string(xhowBig), 'el');
+          z_new_hat = createArray(zhowBig, 1);
+          H_new_hat = createArray(zhowBig, xhowBig);
+    
+          z_new_hat(1:end, 1) = feval(strcat('ekf_gravModel_', xSizeStr), x_new_hat); %get predicted measurement
+          H_new_hat(1:end, 1:end) = feval(strcat('ekf_HGrav_', xSizeStr), x_new_hat); %and covariance
+                                     
+      end
+            %------------------------------------------------------------%
+
+      function [z_new_hat, H_new_hat] = gravUnit_predict(x_new_hat)
+
+          %predefine variables for coder
+          zhowBig = 4;
+          xhowBig = size(x_new_hat, 1);
+          xSizeStr = strcat(string(xhowBig), 'el');
+          z_new_hat = createArray(zhowBig, 1);
+          H_new_hat = createArray(zhowBig, xhowBig);
+    
+          z_new_hat(1:end, 1) = feval(strcat('ekf_gravUnitModel_', xSizeStr), x_new_hat); %get predicted measurement
+          H_new_hat(1:end, 1:end) = feval(strcat('ekf_HGravUnit_', xSizeStr), x_new_hat); %and covariance
                                      
         end
 
@@ -519,8 +594,92 @@ classdef EKF_3dQuad_funcs
             matlabFunction(H_star_10el, 'File', strcat('Functions/mainEstimator/ekf/ekf_H_10el'), 'Vars', {symbols_10}, 'Optimize', true);
             matlabFunction(H_star_16el, 'File', strcat('Functions/mainEstimator/ekf/ekf_H_16el'), 'Vars', {symbols_16}, 'Optimize', true);
 
-        end
+      end
 
+      %------------------------------------------------------------%
+
+        function calcGravMeasurementModel(g)
+            %Function using symbolic toolbox to calculate the matrices involved in
+            %the GRAVITY VECTOR measurement model. Here, the raw
+            %accelerometer reading is the measurement.
+            
+            %Define symbolic variables
+            
+            %state
+            p = sym("p", [3,1]);
+            v = sym("v", [3,1]);
+            q = sym("q", [4,1]);
+            ba = sym("ba", [3,1]);
+            bg = sym("bg", [3,1]);
+            x_16el = [p; q; v; ba; bg];
+            x_10el = [p; q; v];
+
+            %compile used symbols
+            symbols_16 = x_16el; %state only
+            symbols_10 = x_10el;
+
+            % %sanity check on euler states
+            % yaw = sym("yaw", [1,1]);
+            % pitch = sym("pit", [1,1]);
+            % roll = sym("roll", [1,1]);
+            % cy = cos(yaw * 0.5);
+            % sy = sin(yaw * 0.5);
+            % cp = cos(pitch * 0.5);
+            % sp = sin(pitch * 0.5);
+            % cr = cos(roll * 0.5);
+            % sr = sin(roll * 0.5);
+            % 
+            % % Calculate quaternion components [w, x, y, z]
+            % w = cy * cp * cr + sy * sp * sr;
+            % x = cy * cp * sr - sy * sp * cr;
+            % y = sy * cp * sr + cy * sp * cr;
+            % z = sy * cp * cr - cy * sp * sr;
+            % 
+            % q = [w, x, y, z];
+
+           
+            %Extract rotation matrix
+            R_rq2rw =  [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1)); % Convert q to rotation matrix
+                2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
+                2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
+                     
+            %Meas model: 
+            a_z = (R_rq2rw)'*(-g)+ba; %For the 10-element EKF, we could use the normalised acceleration and gravity vector, since bias is not observed anyway. 
+            %a_z_unit = (R_rq2rw)'*(-g/vecnorm(g)); %Try unit version - first try
+            a_z_unit = a_z/sqrt(a_z(1)^2+a_z(2)^2+a_z(3)^2);
+            len = sqrt(a_z(1)^2+a_z(2)^2+a_z(3)^2);
+            
+
+            % OUTPUTS
+            gravModel_16el = [a_z]; %predicted measurement vector (symbolic)
+            gravModel_10el = subs(gravModel_16el, [ba; bg], zeros(2*3, 1)); %simplify by evaluating with biases and associated noise = 0
+
+            % define jacobians
+            HGrav_star_10el = jacobian(gravModel_10el, x_10el); %jacobian of measurement wrt state
+            HGrav_star_16el = jacobian(gravModel_16el, x_16el); %jacobian of measurement wrt state
+
+            % generate and save functions
+            matlabFunction(gravModel_10el, 'File', strcat('Functions/mainEstimator/ekf/ekf_gravModel_10el'), 'Vars', {symbols_10}, 'Optimize', true);
+            matlabFunction(gravModel_16el, 'File', strcat('Functions/mainEstimator/ekf/ekf_gravModel_16el'), 'Vars', {symbols_16}, 'Optimize', true);
+            matlabFunction(HGrav_star_10el, 'File', strcat('Functions/mainEstimator/ekf/ekf_HGrav_10el'), 'Vars', {symbols_10}, 'Optimize', true);
+            matlabFunction(HGrav_star_16el, 'File', strcat('Functions/mainEstimator/ekf/ekf_HGrav_16el'), 'Vars', {symbols_16}, 'Optimize', true);
+
+            % OUTPUTS - unit vector case
+            gravUnitModel_16el = [a_z_unit; len]; %predicted measurement vector (symbolic)
+            gravUnitModel_10el = subs(gravUnitModel_16el, [ba; bg], zeros(2*3, 1)); %simplify by evaluating with biases and associated noise = 0
+
+            % define jacobians
+            HGravUnit_star_10el = jacobian(gravUnitModel_10el, x_10el); %jacobian of measurement wrt state
+            HGravUnit_star_16el = jacobian(gravUnitModel_16el, x_16el); %jacobian of measurement wrt state
+
+            % generate and save functions
+            matlabFunction(gravUnitModel_10el, 'File', strcat('Functions/mainEstimator/ekf/ekf_gravUnitModel_10el'), 'Vars', {symbols_10}, 'Optimize', true);
+            matlabFunction(gravUnitModel_16el, 'File', strcat('Functions/mainEstimator/ekf/ekf_gravUnitModel_16el'), 'Vars', {symbols_16}, 'Optimize', true);
+            matlabFunction(HGravUnit_star_10el, 'File', strcat('Functions/mainEstimator/ekf/ekf_HGravUnit_10el'), 'Vars', {symbols_10}, 'Optimize', true);
+            matlabFunction(HGravUnit_star_16el, 'File', strcat('Functions/mainEstimator/ekf/ekf_HGravUnit_16el'), 'Vars', {symbols_16}, 'Optimize', true);
+
+        end
+  
       %------------------------------------------------------------%
 
         function [P_0, Q, W] = initEKF_params(dt_av, x_0, ekfHz)
