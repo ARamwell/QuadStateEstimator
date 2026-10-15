@@ -5,7 +5,7 @@ classdef EKF_3dQuad_funcs
 
       %------------------------------------------------------------%
       
-      function [x_new, P_new, x_new_hat, P_new_hat, z_new_hat, z_new, y_new, K_new, S_new_hat, Q_k, W_new] = EKF_loop(g, x_k, P_k, u_new, Q_k, z_new, W_k, t_delta, integ, alpha, meas_count)
+      function [x_new, P_new, x_new_hat, P_new_hat, z_new_hat, z_new, y_new, K_new, S_new_hat, Q_k, W_new] = EKF_loop(g, x_k, P_k, u_new, Q_k, z_new, W_k, t_delta, integ, alpha, meas_count, flag_gravAid)
         %EKF_LOOP Main EKF loop for 3D quad, calling prediction and correction stages
         %
         %   Extended Kalman filter using IMU measurements for state prediction and fusing in pose 'measurements' from some other state sensor (usually visual) 
@@ -146,7 +146,7 @@ classdef EKF_3dQuad_funcs
         %*************************************************
         % GRAVITY VECTOR AIDING: ONLY RUN CORRECTION IF CONDITIONS ARE MET
 
-            if (1) %condition is met
+            if (flag_gravAid) %condition is met
 
         %---------- STEP 2B: MEASUREMENT UPDATE - GRAVITY VECTOR ------------  
                 z_grav_new = u_new(4:6); %unnormalised

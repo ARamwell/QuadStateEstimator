@@ -18,6 +18,11 @@ numEkfs = size(ekfSize_arr, 2);
 
 biasPerturb = false;
 
+%Known coordinate transformations (mapping)
+T_uw2rw = map.worldObjectStruct.transforms.T_sim2world;
+T_imu2rq = map.worldObjectStruct.transforms.T_imu2genquad;
+T_rc2rq = map.worldObjectStruct.transforms.T_gencam2genquad;
+
 %% Choose folders
 listOfFolderNames =selector_multiFolder(pwd, 'Select sim folders to run EKF on');
 numFolders = length(listOfFolderNames);
@@ -32,138 +37,32 @@ if biasPerturb == true
     randomIndexes = randi([1, numel(A)], numSamples, numFolders); %
     % Select the elements using the indices
     selectedPerturb = A(randomIndexes);
+else
+    selectedPerturb = zeros(6, numFolders);
 end
+
 
 %%
 for f=1:numFolders
     clear ekfResult p3pResult
 
     %% Get current folder
-    %figure;
     currentFolder = string(listOfFolderNames(f));
     parts = strsplit(currentFolder, '\');
     trajName = string((parts{end}));
 
-    simoutfilepath = fullfile(strcat(currentFolder, '\simout.mat'));
-    simsetfilepath = fullfile(strcat(currentFolder, '\simset.mat'));
-    imgfilepath = currentFolder;
+    %% Import data (also run P3P)
+    [groundTruth, imuData, p3pResult, simset] = importSimData(currentFolder,diffImuHz, aiding, map);
 
-    %% Import data
-    simout = load(simoutfilepath);
-    if length(fieldnames(simout)) == 1
-        simout = simout.simout;
-    end
-    
-    simset = load(simsetfilepath);
-    if length(fieldnames(simset)) == 1
-        simset = simset.simset;
-    end
-    
-    ekfHz = 250; %simset.ekfHz;
-    imuHz = simset.imuHz;
-    simHz = simset.simHz;
+    %% Preprocess IMU (downsample and calibrate)
+    ekfHz = 250;
+    [u_hist, u_timeHist] = preprocessImuData(imuData, diffImuHz, down2kHz, downEkf, calibrate, selectedPerturb(:,f), simset.accelCalib, simset.gyroCalib, simset.imuHz, ekfHz);
 
-
-    %% Get data in usable format
-
-    startCalc = 3; %Which log values to start at
-    [groundTruth, imuData, ~, ~ ] = processSimData(simout, 0, 0, diffImuHz);
+    %% Preprocess P3P
     if aiding
-        p3pResult = runP3pOnFile(imgfilepath,  simset.camParams.K, p3pFuncs.invertT(map.worldObjectStruct.transforms.T_gencam2genquad));
+        [z_arr, z_timeHist, z_best]=preprocessP3pResult(p3pResult, groundTruth);
     end
-
-
-    %% Do additional processing
-    %Known coordinate transformations (mapping)
-    T_uw2rw = map.worldObjectStruct.transforms.T_sim2world;
-    T_imu2rq = map.worldObjectStruct.transforms.T_imu2genquad;
-    T_rc2rq = map.worldObjectStruct.transforms.T_gencam2genquad;
     
-
-    if aiding
-        z_timeHist = p3pResult.time;
-        z_arr = p3pResult.poseArr;
-        z_best = nan(7,size(z_timeHist, 2));
-        for t=1:size(z_timeHist,2)
-            [closestDiff, closestIndex] = min(abs(groundTruth.quad.time(1,:)-z_timeHist(1,t))); %find index of closest time
-            %idx_gt = find(groundTruth.quad.time(1,:)==z_timeHist(1,t), 1, "first");
-            z_best(:,t) = chooseMinPoseErr(z_arr(:,:,t), groundTruth.quad.state(1:7, closestIndex), 1.2, 2);
-        end
-        %z_best = p3pResult.selected;
-    end
-
-    %Inputs
-    ua_hist = imuData(1).rawdata(4:6, 1:end);
-    ua_timeHist = imuData(1).time;
-    if diffImuHz == true
-        ug_hist = imuData(2).rawdata(1:3, 1:end);
-        ug_timeHist = imuData(2).time;
-    else
-        ug_hist = imuData(1).rawdata(1:3, 1:end);
-        ug_timeHist = imuData(1).time;
-    end
-
-    if biasPerturb == true
-        bg_perturb = 0.05*selectedPerturb(f, 1:3)';
-        ba_perturb = 0.15*selectedPerturb(f, 4:6)';
-    else
-        bg_perturb = zeros(3,1);
-        ba_perturb = zeros(3,1);
-    end
-
-    if calibrate == true
-        Ka = simset.accelCalib.scale;
-        ba= 0*simset.accelCalib.turnOnBias';
-        Kg = simset.gyroCalib.scale;
-        bg = 0*simset.gyroCalib.turnOnBias';
-        for i = 1:size(ug_hist, 2)
-            ug_hist(1:3,i) = Kg*ug_hist(1:3,i) - bg +bg_perturb;
-        end
-        for i = 1:size(ua_hist, 2)
-            ua_hist(1:3,i) = Ka*ua_hist(1:3,i) + ba - ba_perturb;
-        end
-    end
-
-    %% Downsampler
-
-    if down2kHz || diffImuHz
-        k = ceil(imuHz/2000);
-
-        if diffImuHz == false
-            %first, downsample gyro to 2000Hz
-            gyro_2kHz = downsample(ug_hist(1:3,:)', k)';
-            gyro_times = downsample(ug_hist(1:3,:)', k)';
-            
-        else
-            gyro_2kHz = ug_hist;
-            gyro_times = ug_timeHist;
-        end
-        
-
-       
-        %then, do basic averaging to downsample accel to 2kHz
-        accel_fullkHz = ua_hist(1:3,:);
-        accel_means = movmean(accel_fullkHz, k,2);
-        accel_2kHz = downsample(accel_means', k)';
-
-        %get new ua and ug
-        u_hist = [gyro_2kHz; accel_2kHz];   
-        u_timeHist = gyro_times;
-
-        if downEkf
-            %then, do basic averaging
-            k = ceil(2000/ekfHz);
-            % u_means = movmean(u_hist, k, 2);
-            % u_hist = downsample(u_hist', k, (k-2))';
-            % u_timeHist = downsample(u_timeHist', k, 0)';
-            
-            % run downsampler
-            [u_hist, u_timeHist] = imuHistDownsampler(u_hist, u_timeHist, 2000, ekfHz, 0);  
-        end
-    end
-   
-    u_hist = u_hist(:,startCalc:end);
-    u_timeHist = u_timeHist(:,startCalc:end);
     %% Set up EKF
     for e=1:numEkfs
         clear ekfResult
@@ -206,7 +105,7 @@ for f=1:numFolders
         ekfResult.W(:,:,count) = W_k;
 
         %% Run EKF
-        for i = startCalc:(endCalc-1) %currently sample based
+        for i = 1:(endCalc-1) %currently sample based
             % Grab newest IMU measurement
             u_new = u_hist(:, i); %current control input
             t_new = u_timeHist(1,i);
@@ -237,7 +136,8 @@ for f=1:numFolders
                 end
             end
         
-            [x_k_, P_k_, xHat_k, PHat_k, zHat_k, z_out_k, y_k, K_k, S_k, Q_k, W_k] = EKF_3dQuad_funcs.EKF_loop(g, x_k_, P_k_, u_new, Q, z_new, W_k, dt_new, integ, alpha, meas_count);
+            [flag_constVel, T_a, T_w]=constVelDetector(u_hist(:,i), 3*10^(-5), 0.1, 5, i); %guess 3e-5 and 0.08
+            [x_k_, P_k_, xHat_k, PHat_k, zHat_k, z_out_k, y_k, K_k, S_k, Q_k, W_k] = EKF_3dQuad_funcs.EKF_loop(g, x_k_, P_k_, u_new, Q, z_new, W_k, dt_new, integ, alpha, meas_count, 0);
         
             count = count + 1;
             ekfResult.time(:,count) = t_new;
@@ -263,7 +163,7 @@ for f=1:numFolders
         ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
         if size(ekfResult.trueState,1)>10
             for g=1:size(ekfResult.trueState,2)
-                ekfResult.trueState(11:16,g) = ekfResult.trueState(11:16,g) +[ba_perturb; bg_perturb];
+                ekfResult.trueState(11:16,g) = ekfResult.trueState(11:16,g) +[selectedPerturb];
             end
         end
         ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.PHat, ekfResult.trueState);
@@ -325,72 +225,72 @@ end
 
 
 %% functions
-
-
-
-        ekfResult1.x_ = x_k_;
-        ekfResult1.u = u_new;
-        ekfResult1.z = z_out_k;
-        ekfResult1.xHat = xHat_k; 
-        ekfResult1.zHat= zHat_k;
-        ekfResult1.elapsedTime = t_new-t0;
-        ekfResult1.timeSinceLastCorrection= timeSinceLastCorrection;
-        ekfResult1.y = y_k; 
-        ekfResult1.K = K_k;
-        ekfResult1.P = P_k_; %these might still have zeroes in the lower triangle
-        ekfResult1.PHat = PHat_k;
-        ekfResult1.S = S_k;
-        ekfResult1.W = W_k;
-        ekfResult1.Q = Q_k;
-        ekfResult1.time = t_new;
-
-
-        %%
-        t_full = imuData(1).time;
-
-        rawAccel=imuData(1).rawdata(4:6,:);
-        rawNorm = vecnorm(rawAccel, 2,1);
-              
-        calibAccel = (imuData(1).rawdata(4:6,:));
-        for i=1:size(imuData(1).rawdata, 2)
-            calibAccel(:,i) = Ka*imuData(1).rawdata(4:6, i);
-        end
-        calibNorm =vecnorm(calibAccel, 2,1);
-        
-    
-        t_ideal = simout.idealIMU.time;
-        idealAccel = simout.idealIMU.signals.values(:,4:6)';
-        idealNorm = vecnorm(idealAccel,2,1);
-
-        idealBias = calibAccel-idealAccel;
-        
-        idealCorrAccel = calibAccel-repmat(mean(idealBias,2), 1, size(calibAccel,2));
-        idealCorrNorm = vecnorm(idealCorrAccel,2,1);
-
-        liveBias = ekfResult.x_(11:13,:);
-        liveCorrAccel = ekfResult.u(4:6,:)-liveBias;
-        liveCorrNorm =vecnorm(liveCorrAccel,2,1);
-
-        calibDsAccel =ekfResult.u(4:6,:);
-        calibDsNorm = vecnorm(calibDsAccel,2,1);
-
-        
-        finalBias = ekfResult.x_(11:13,end);
-        finalCorrAccel = calibAccel-repmat(finalBias, 1, size(calibAccel,2));
-        finalCorrNorm = vecnorm(finalCorrAccel,2,1);
-        finalCorrDsAccel = calibDsAccel-repmat(finalBias, 1, size(calibDsAccel,2));
-        finalCorrDsNorm = vecnorm(finalCorrDsAccel,2,1);
-
-
-        figure;
-        plot(t_full, rawNorm);
-        hold on;
-        plot(t_full, calibNorm);
-        hold on;
-        plot(ekfResult.time, calibDsNorm);
-        hold on;
-        plot(ekfResult.time, finalCorrDsNorm);
-        hold on;
-        plot(ekfResult.time, liveCorrNorm);
-        hold on;
-        plot(t_ideal, idealNorm);
+        % 
+        % 
+        % 
+        % ekfResult1.x_ = x_k_;
+        % ekfResult1.u = u_new;
+        % ekfResult1.z = z_out_k;
+        % ekfResult1.xHat = xHat_k; 
+        % ekfResult1.zHat= zHat_k;
+        % ekfResult1.elapsedTime = t_new-t0;
+        % ekfResult1.timeSinceLastCorrection= timeSinceLastCorrection;
+        % ekfResult1.y = y_k; 
+        % ekfResult1.K = K_k;
+        % ekfResult1.P = P_k_; %these might still have zeroes in the lower triangle
+        % ekfResult1.PHat = PHat_k;
+        % ekfResult1.S = S_k;
+        % ekfResult1.W = W_k;
+        % ekfResult1.Q = Q_k;
+        % ekfResult1.time = t_new;
+        % 
+        % 
+        % %%
+        % t_full = imuData(1).time;
+        % 
+        % rawAccel=imuData(1).rawdata(4:6,:);
+        % rawNorm = vecnorm(rawAccel, 2,1);
+        % 
+        % calibAccel = (imuData(1).rawdata(4:6,:));
+        % for i=1:size(imuData(1).rawdata, 2)
+        %     calibAccel(:,i) = Ka*imuData(1).rawdata(4:6, i);
+        % end
+        % calibNorm =vecnorm(calibAccel, 2,1);
+        % 
+        % 
+        % t_ideal = simout.idealIMU.time;
+        % idealAccel = simout.idealIMU.signals.values(:,4:6)';
+        % idealNorm = vecnorm(idealAccel,2,1);
+        % 
+        % idealBias = calibAccel-idealAccel;
+        % 
+        % idealCorrAccel = calibAccel-repmat(mean(idealBias,2), 1, size(calibAccel,2));
+        % idealCorrNorm = vecnorm(idealCorrAccel,2,1);
+        % 
+        % liveBias = ekfResult.x_(11:13,:);
+        % liveCorrAccel = ekfResult.u(4:6,:)-liveBias;
+        % liveCorrNorm =vecnorm(liveCorrAccel,2,1);
+        % 
+        % calibDsAccel =ekfResult.u(4:6,:);
+        % calibDsNorm = vecnorm(calibDsAccel,2,1);
+        % 
+        % 
+        % finalBias = ekfResult.x_(11:13,end);
+        % finalCorrAccel = calibAccel-repmat(finalBias, 1, size(calibAccel,2));
+        % finalCorrNorm = vecnorm(finalCorrAccel,2,1);
+        % finalCorrDsAccel = calibDsAccel-repmat(finalBias, 1, size(calibDsAccel,2));
+        % finalCorrDsNorm = vecnorm(finalCorrDsAccel,2,1);
+        % 
+        % 
+        % figure;
+        % plot(t_full, rawNorm);
+        % hold on;
+        % plot(t_full, calibNorm);
+        % hold on;
+        % plot(ekfResult.time, calibDsNorm);
+        % hold on;
+        % plot(ekfResult.time, finalCorrDsNorm);
+        % hold on;
+        % plot(ekfResult.time, liveCorrNorm);
+        % hold on;
+        % plot(t_ideal, idealNorm);
