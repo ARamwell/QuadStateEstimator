@@ -28,6 +28,7 @@ function [groundTruth, imuData, p3pResult, simset] = importSimData(currentFolder
     %% Get data in usable format
 
     [groundTruth, imuData, ~, ~ ] = processSimData(simout, 0, 0, diffImuHz);
+    p3pResult = nan;
     if aiding
         p3pResult = runP3pOnFile(imgfilepath,  simset.camParams.K, p3pFuncs.invertT(map.worldObjectStruct.transforms.T_gencam2genquad));
     end

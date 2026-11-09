@@ -5,11 +5,12 @@ numFolders = length(listOfFolderNames);
 
 %% Initialise preliminaries
 %mapfile = './Resources/map.mat';
-mapfile = "C:\Users\Alyssa\Documents\nanoStateEstimator\mainStateEstimator\map.mat";
+%mapfile = "C:\Users\Alyssa\Documents\nanoStateEstimator\mainStateEstimator\map.mat";
+mapfile = "C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map.mat";
 map = load(fullfile(mapfile));
 
-%g=[0 0 -9.81]'; %for simulation
-g = [0 0 -9.79]'; %for physical
+g=[0 0 -9.81]'; %for simulation
+%g = [0 0 -9.79]'; %for physical
 aiding = true;
 calibrate = true;%true;
 down2kHz =true;
@@ -18,9 +19,9 @@ downEkf =true;
 % Which EKFs ran
 integ_arr = {'rect'};%{'rect' 'rect'};
 ekfSize_arr =[16];%[16 16  ];
-alpha_arr = [0.99];%[0 0.99];
+alpha_arr = [0];%[0 0.99];
 numEkfs = size(ekfSize_arr, 2);
-extraID = "_inflateQz_reprojOnly_trueDt";
+extraID = "grav3";
 
 %ekfMetricsArr = createArray(numEkfs,0);
 clear ekfMetricsArr ekfTempMetricsArr
@@ -74,7 +75,7 @@ for i=1:numEkfs
     %%
     
     % 
-    saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\nano\mainStateEst\analyses\anal_m8-m11_s3-6_trueDt\";
+    saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\gravAiding\gravAiding1\";
     formatFigForLatex(areFig);
     formatFigForLatex(ateFig);
     formatFigForLatex(neesFig);

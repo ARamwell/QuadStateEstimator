@@ -45,6 +45,16 @@ ekfMetricsArr(end+1) = ekfMetrics_a099_reprojOnly.ekfMetrics;
 % %ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQ_reprojOnly.ekfMetrics;
 % ekfMetricsArr(end+1) =ekfMetrics_a099_inflatedQz_reprojOnly.ekfMetrics;
 
+%%Gravity aiding tests:
+ekfMetrics_grav1=load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\gravAiding\gravAiding1\ekfMetrics_grav1.mat");
+ekfMetrics_grav2=load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\gravAiding\gravAiding1\ekfMetrics_grav2.mat");
+ekfMetrics_grav3=load("C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\gravAiding\gravAiding1\ekfMetrics_grav3.mat");
+
+ekfMetricsArr(1)=ekfMetrics;
+ekfMetricsArr(end+1)=ekfMetrics_grav1.ekfMetrics;
+ekfMetricsArr(end+1)=ekfMetrics_grav2.ekfMetrics;
+ekfMetricsArr(end+1)=ekfMetrics_grav3.ekfMetrics;
+
 
 
 %%

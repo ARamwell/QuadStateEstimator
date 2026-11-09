@@ -1,12 +1,10 @@
-function [nis] = evalNIS(meas_resid, meas_cov)
+function [nis] = evalNIS_noq(meas_resid, meas_cov)
 %will need groundtruth to be time-aligned in advance
     
     %idx = ~isnan(meas_resid(1,:));
     %y_clean = meas_resid(:,idx);   
     %cov_clean = meas_cov(:,:, idx);
-    %numUpdates = size(y_clean, 2);
-
-    
+    %numUpdates = size(y_clean, 2); 
     
     %calculate NIS 
     %for t=1:numUpdates

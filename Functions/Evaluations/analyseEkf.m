@@ -18,6 +18,7 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
     timeArr = createArray(1,0);
     biasArr = createArray(6,0);
     residArr = createArray(7,0);
+    residArr_grav = createArray(4,0);
     PArr=createArray(ekfSize,0);
 
     if ~doPlot
@@ -70,9 +71,9 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
        %  ekfResult.trueState(11:13,:)=-ekfResult.trueState(11:13,:); %ONLY FOR SIM! Accel bias is wrong way!
        %  ekfResult.z(:,1)=nan(size(ekfResult.z, 1),1);
        %  ekfResult.y(:,1)=nan(size(ekfResult.y, 1),1);
-       %  ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:ekfSize,:));
-       %  ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
-       ekfResult.nees = evalNEES_noq_nano(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:7,:));
+         ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:ekfSize,:));
+         ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
+       %ekfResult.nees = evalNEES_noq_nano(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:7,:));
 
         %***************************
                 
@@ -304,6 +305,7 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
         end
         timeArr = [timeArr, ekfResult.elapsedTime];
         residArr = [residArr, ekfResult.y];
+        residArr_grav = [residArr_grav, padarray(ekfResult.y_grav,[size(residArr_grav, 1)-size(ekfResult.y_grav, 1),0], nan, "post")];
         PArr=[PArr, P_var(:,500:end)];
         % 
 
@@ -342,6 +344,7 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
     ekfMetrics.biasArr = biasArr;
     ekfMetrics.timeArr =timeArr;
     ekfMetrics.residArr=residArr;
+    ekfMetrics.residArr_grav = residArr_grav;
     ekfMetrics.PArr=PArr;
 
 

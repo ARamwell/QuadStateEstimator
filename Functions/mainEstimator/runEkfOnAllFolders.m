@@ -1,14 +1,18 @@
 %% Initialise preliminaries
-mapfile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map_real';
+mapfile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map';
 map = load(fullfile(mapfile));
 
 g = [0 0 -9.81]'; %for simulation
 aiding = true;
-calibrate = true;
+calibrate = false;
 down2kHz =false;
 downEkf =true;
 diffImuHz =true;
 tiltAlign = true;
+goodInit = false;
+
+%debugging
+idealP3p=false;
 
 % Which EKFs to run
 integ_arr = {'rect'};
@@ -44,7 +48,7 @@ end
 
 %%
 for f=1:numFolders
-    clear ekfResult p3pResult
+    clear ekfResult p3pResult groundTruth
 
     %% Get current folder
     currentFolder = string(listOfFolderNames(f));
@@ -72,10 +76,13 @@ for f=1:numFolders
         endCalc =size(u_hist,2);
 
         %% Initialisation
-        %x_k_ = groundTruth.quad.state(1:ekfSize,startCalc+1); %good initial guess
-        %x_k_(8:10,1) = zeros(3,1);
-        x_k_ = zeros(ekfSize, 1); %bad initial guess
-        x_k_(4,1) = 1; 
+        if goodInit %perfect initial state estimate
+            x_k_ = groundTruth.quad.state(1:ekfSize,2); %good initial guess
+            x_k_(8:10,1) = zeros(3,1);
+        else
+            x_k_ = zeros(ekfSize, 1); %bad initial guess
+            x_k_(4,1) = 1; 
+        end
         if tiltAlign
             a_norm = u_hist(4:6, 1)/vecnorm( u_hist(4:6, 1));
             g_norm = -[0 0 1]';
@@ -114,6 +121,9 @@ for f=1:numFolders
             % Check for a camera measurement at this time
             z_new = NaN(7,1); %assume no measurement
 
+            % Check if constant velocity
+            flag_runGrav = constVelDetector(u_new, 6.4712e-05, 0.1115, 0.0838, 5, i);
+
             if aiding
                 timeSinceLastCorrection = t_new-lastCorrectionTime;  
                 [closestDiff, closestIndex] = min(abs(z_timeHist(1,:)-t_new)); %find index of closest time
@@ -128,6 +138,10 @@ for f=1:numFolders
                     %     z_new = z_arr_k(:,1);
                     % end
                     z_new=z_best(:, closestIndex);
+                    if idealP3p
+                        indices = selectClosestTimeIndices(t_new, groundTruth.quad.time);
+                        z_new = groundTruth.quad.state(1:7,indices);
+                    end
                     meas_oldIndex = closestIndex; %update index
                     if ~isnan(z_new(1,1))
                         lastCorrectionTime = t_new;
@@ -136,8 +150,8 @@ for f=1:numFolders
                 end
             end
         
-            [flag_constVel, T_a, T_w]=constVelDetector(u_hist(:,i), 3*10^(-5), 0.1, 5, i); %guess 3e-5 and 0.08
-            [x_k_, P_k_, xHat_k, PHat_k, zHat_k, z_out_k, y_k, K_k, S_k, Q_k, W_k] = EKF_3dQuad_funcs.EKF_loop(g, x_k_, P_k_, u_new, Q, z_new, W_k, dt_new, integ, alpha, meas_count, 0);
+            
+            [x_k_, P_k_, xHat_k, PHat_k, zHat_k, z_out_k, y_k, K_k, S_k, Q_k, W_k, zGHat_k, zG_k, yG_k, KG_k, SG_k, WG_k] = EKF_3dQuad_funcs.EKF_loop(g, x_k_, P_k_, u_new, Q, z_new, W_k, dt_new, integ, alpha, meas_count, flag_runGrav);
         
             count = count + 1;
             ekfResult.time(:,count) = t_new;
@@ -155,6 +169,14 @@ for f=1:numFolders
             ekfResult.S(:,:,count) = S_k;
             ekfResult.W(:,:,count) = W_k;
             ekfResult.Q(:,:,count) = Q_k;
+            
+            ekfResult.flagGrav(:, count) =flag_runGrav; 
+            ekfResult.z_grav(:,count)=zG_k;
+            ekfResult.W_grav(:,:,count) = WG_k;
+            ekfResult.zHat_grav(:,count) =zGHat_k;
+            ekfResult.y_grav(:, count)= yG_k;
+            ekfResult.S_grav(:,:,count) = SG_k;
+
         end
 
         %% Append EKF result with some useful information
@@ -162,8 +184,8 @@ for f=1:numFolders
         ekfResult.trueState = groundTruth.quad.state(:,indices);
         ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
         if size(ekfResult.trueState,1)>10
-            for g=1:size(ekfResult.trueState,2)
-                ekfResult.trueState(11:16,g) = ekfResult.trueState(11:16,g) +[selectedPerturb];
+            for l=1:size(ekfResult.trueState,2)
+                ekfResult.trueState(11:16,l) = ekfResult.trueState(11:16,l) +[selectedPerturb(:,f)];
             end
         end
         ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.PHat, ekfResult.trueState);
@@ -175,7 +197,7 @@ for f=1:numFolders
         ekfResult.partialNis.orient= evalNIS(ekfResult.y(5:7,:), ekfResult.S(5:7, 5:7 ,:));
 
         %% Optionally, save
-        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_test", ".mat");
+        saveFile = strcat("ekfResult_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", "_grav2", ".mat");
         %saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\spiral\";
         %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
         saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\gravAiding";
@@ -225,72 +247,72 @@ end
 
 
 %% functions
-        % 
-        % 
-        % 
-        % ekfResult1.x_ = x_k_;
-        % ekfResult1.u = u_new;
-        % ekfResult1.z = z_out_k;
-        % ekfResult1.xHat = xHat_k; 
-        % ekfResult1.zHat= zHat_k;
-        % ekfResult1.elapsedTime = t_new-t0;
-        % ekfResult1.timeSinceLastCorrection= timeSinceLastCorrection;
-        % ekfResult1.y = y_k; 
-        % ekfResult1.K = K_k;
-        % ekfResult1.P = P_k_; %these might still have zeroes in the lower triangle
-        % ekfResult1.PHat = PHat_k;
-        % ekfResult1.S = S_k;
-        % ekfResult1.W = W_k;
-        % ekfResult1.Q = Q_k;
-        % ekfResult1.time = t_new;
-        % 
-        % 
-        % %%
-        % t_full = imuData(1).time;
-        % 
-        % rawAccel=imuData(1).rawdata(4:6,:);
-        % rawNorm = vecnorm(rawAccel, 2,1);
-        % 
-        % calibAccel = (imuData(1).rawdata(4:6,:));
-        % for i=1:size(imuData(1).rawdata, 2)
-        %     calibAccel(:,i) = Ka*imuData(1).rawdata(4:6, i);
-        % end
-        % calibNorm =vecnorm(calibAccel, 2,1);
-        % 
-        % 
-        % t_ideal = simout.idealIMU.time;
-        % idealAccel = simout.idealIMU.signals.values(:,4:6)';
-        % idealNorm = vecnorm(idealAccel,2,1);
-        % 
-        % idealBias = calibAccel-idealAccel;
-        % 
-        % idealCorrAccel = calibAccel-repmat(mean(idealBias,2), 1, size(calibAccel,2));
-        % idealCorrNorm = vecnorm(idealCorrAccel,2,1);
-        % 
-        % liveBias = ekfResult.x_(11:13,:);
-        % liveCorrAccel = ekfResult.u(4:6,:)-liveBias;
-        % liveCorrNorm =vecnorm(liveCorrAccel,2,1);
-        % 
-        % calibDsAccel =ekfResult.u(4:6,:);
-        % calibDsNorm = vecnorm(calibDsAccel,2,1);
-        % 
-        % 
-        % finalBias = ekfResult.x_(11:13,end);
-        % finalCorrAccel = calibAccel-repmat(finalBias, 1, size(calibAccel,2));
-        % finalCorrNorm = vecnorm(finalCorrAccel,2,1);
-        % finalCorrDsAccel = calibDsAccel-repmat(finalBias, 1, size(calibDsAccel,2));
-        % finalCorrDsNorm = vecnorm(finalCorrDsAccel,2,1);
-        % 
-        % 
-        % figure;
-        % plot(t_full, rawNorm);
-        % hold on;
-        % plot(t_full, calibNorm);
-        % hold on;
-        % plot(ekfResult.time, calibDsNorm);
-        % hold on;
-        % plot(ekfResult.time, finalCorrDsNorm);
-        % hold on;
-        % plot(ekfResult.time, liveCorrNorm);
-        % hold on;
-        % plot(t_ideal, idealNorm);
+
+
+
+       %  ekfResult1.x_ = x_k_;
+       %  ekfResult1.u = u_new;
+       %  ekfResult1.z = z_out_k;
+       %  ekfResult1.xHat = xHat_k; 
+       %  ekfResult1.zHat= zHat_k;
+       %  ekfResult1.elapsedTime = t_new-t0;
+       %  ekfResult1.timeSinceLastCorrection= timeSinceLastCorrection;
+       %  ekfResult1.y = y_k; 
+       %  ekfResult1.K = K_k;
+       %  ekfResult1.P = P_k_; %these might still have zeroes in the lower triangle
+       %  ekfResult1.PHat = PHat_k;
+       %  ekfResult1.S = S_k;
+       %  ekfResult1.W = W_k;
+       %  ekfResult1.Q = Q_k;
+       %  ekfResult1.time = t_new;
+       % 
+       % 
+       %  %%
+       %  t_full = imuData(1).time;
+       % 
+       %  rawAccel=imuData(1).rawdata(4:6,:);
+       %  rawNorm = vecnorm(rawAccel, 2,1);
+       % 
+       %  calibAccel = (imuData(1).rawdata(4:6,:));
+       %  for i=1:size(imuData(1).rawdata, 2)
+       %      calibAccel(:,i) = simset.accelCalib.skew/100*imuData(1).rawdata(4:6, i);
+       %  end
+       %  calibNorm =vecnorm(calibAccel, 2,1);
+       % 
+       %  % 
+       %  % t_ideal = simout.idealIMU.time;
+       %  % idealAccel = simout.idealIMU.signals.values(:,4:6)';
+       %  % idealNorm = vecnorm(idealAccel,2,1);
+       %  % 
+       %  % idealBias = calibAccel-idealAccel;
+       %  % 
+       %  % idealCorrAccel = calibAccel-repmat(mean(idealBias,2), 1, size(calibAccel,2));
+       %  % idealCorrNorm = vecnorm(idealCorrAccel,2,1);
+       % 
+       %  liveBias = ekfResult.x_(11:13,:);
+       %  liveCorrAccel = ekfResult.u(4:6,:)-liveBias;
+       %  liveCorrNorm =vecnorm(liveCorrAccel,2,1);
+       % 
+       %  calibDsAccel =ekfResult.u(4:6,:);
+       %  calibDsNorm = vecnorm(calibDsAccel,2,1);
+       % 
+       % 
+       %  finalBias = ekfResult.x_(11:13,end);
+       %  finalCorrAccel = calibAccel-repmat(finalBias, 1, size(calibAccel,2));
+       %  finalCorrNorm = vecnorm(finalCorrAccel,2,1);
+       %  finalCorrDsAccel = calibDsAccel-repmat(finalBias, 1, size(calibDsAccel,2));
+       %  finalCorrDsNorm = vecnorm(finalCorrDsAccel,2,1);
+       % 
+       % 
+       %  figure;
+       %  plot(t_full, rawNorm);
+       %  hold on;
+       %  plot(t_full, calibNorm);
+       %  hold on;
+       %  plot(ekfResult.time, calibDsNorm);
+       %  hold on;
+       %  plot(ekfResult.time, finalCorrDsNorm);
+       %  hold on;
+       %  plot(ekfResult.time, liveCorrNorm);
+       %  hold on;
+       % % plot(t_ideal, idealNorm);
