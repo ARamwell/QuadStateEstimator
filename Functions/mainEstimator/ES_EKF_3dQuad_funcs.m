@@ -761,7 +761,35 @@ classdef ES_EKF_3dQuad_funcs
 
         end
         %------------------------------------------------------------%
+        function dx = calc_esGroundTruth(x_, x)
+            %function to calculate true estimation error
+            dx = createArray(15, size(x_,2));
+            
+            for t=1:size(x_,2)
+                dp = x(1:3,t)-x_(1:3,t);
+                dv = x(8:10,t)-x_(8:10,t);
+                dba = x(11:13,t)-x_(11:13,t);
+                dbg = x(14:16,t)-x_(14:16,t);
 
+                dq = quatmultiply(x(4:7,t)', quatinv(x_(4:7,t)'));
+                dq = dq';
+                if dq(1)<0
+                    dq= -dq;
+                end
+                dq_size = norm(dq(2:4));
+                if dq_size < 0.00001 %handle small angles
+                    do = 2*dq(2:4);
+                else
+                    dq_ang = 2*atan2(dq_size, dq(1)); %in radians
+                    do = dq_ang * dq(2:4)/dq_size;
+                end
+            
+                dx(:,t) = [dp; do; dv; dba; dbg];
+            
+            end
+
+
+        end
 
         %------------------------------------------------------------%
 

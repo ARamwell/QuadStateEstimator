@@ -66,6 +66,7 @@ for f=1:numFolders
     %% Import data (also run P3P)
     [groundTruth, imuData, p3pResult, simset] = importSimData(currentFolder,diffImuHz, aiding, map);
 
+
     %% Preprocess IMU (downsample and calibrate)
     if idealImu 
         u_hist=imuData(end).rawdata;
@@ -201,19 +202,21 @@ for f=1:numFolders
         %% Append EKF result with some useful information
         indices = selectClosestTimeIndices(ekfResult.time, groundTruth.quad.time);
         ekfResult.trueState = groundTruth.quad.state(:,indices);
+        ekfResult.trueErrState = ES_EKF_3dQuad_funcs.calc_esGroundTruth(ekfResult.x_,ekfResult.trueState);
         ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
         if size(ekfResult.trueState,1)>10
             for l=1:size(ekfResult.trueState,2)
                 ekfResult.trueState(11:16,l) = ekfResult.trueState(11:16,l) +[selectedPerturb(:,f)];
             end
         end
-        ekfResult.nees = evalNEES(ekfResult.dx_, ekfResult.PHat, ekfResult.trueState);
+        %idx_corr = ~isnan(ekfResult.z(1,:));
+        ekfResult.nees = evalNEES(ekfResult.dx_, ekfResult.PHat, ekfResult.trueErrState);
         ekfResult.nis = evalNIS(ekfResult.y, ekfResult.S);
-        ekfResult.partialNees.pos =  evalNEES(ekfResult.x_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueState(1:3, :));
-        ekfResult.partialNees.orient =  evalNEES(ekfResult.x_(5:7,:), ekfResult.PHat(5:7,5:7,:), ekfResult.trueState(5:7, :));
-        ekfResult.partialNees.vel =  evalNEES(ekfResult.x_(8:10,:), ekfResult.PHat(8:10, 8:10,:), ekfResult.trueState(8:10, :));
+        ekfResult.partialNees.pos =  evalNEES(ekfResult.dx_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueErrState(1:3, :));
+        ekfResult.partialNees.orient =  evalNEES(ekfResult.dx_(4:6,:), ekfResult.PHat(4:6,4:6,:), ekfResult.trueErrState(4:6, :));
+        ekfResult.partialNees.vel =  evalNEES(ekfResult.dx_(7:9,:), ekfResult.PHat(7:9, 7:9,:), ekfResult.trueState(7:9, :));
         ekfResult.partialNis.pos = evalNIS(ekfResult.y(1:3,:), ekfResult.S(1:3,1:3,:));
-        ekfResult.partialNis.orient= evalNIS(ekfResult.y(5:7,:), ekfResult.S(5:7, 5:7 ,:));
+        ekfResult.partialNis.orient= evalNIS(ekfResult.y(4:6,:), ekfResult.S(4:6, 4:6 ,:));
 
         %% Optionally, save
         saveFile = strcat("ekfResult_", "es_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", ".mat");
