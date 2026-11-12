@@ -7,7 +7,7 @@ classdef ES_EKF_3dQuad_funcs
     methods (Static)
 
       %------------------------------------------------------------%
-      function [x_new_hat]=update_nominalState(x_k, u_new, t_delta, g)
+      function [x_new_hat]=predict_nominalState(x_k, u_new, t_delta, g)
             
             xhowBig = size(x_k, 1); %programmatically set the type of EKF, 16 or 10 el
             integ = 'rect';
@@ -40,17 +40,52 @@ classdef ES_EKF_3dQuad_funcs
             x_new_hat(4:7) = x_new_hat(4:7) / norm(x_new_hat(4:7)); 
 
       end
+      %------------------------------------------------------------%
+      function [x_k, P_k] = correct_nominalState(x_k_, dx_k)
+            
+          x_k = createArray(size(x_k_));
+
+          %Update "linear" states
+          x_k(1:3,:) = x_k_(1:3,:) + dx_k(1:3,:);
+          x_k(8:end,:) = x_k_(8:end,:) + dx_k(7:end,:);
+
+          %Update quaternions
+          do = dx_k(4:6,1);
+          dAngle = vecnorm(do); %get incremental angle change
+          if dAngle<0.0001
+              dq = [1; 0.5*do];
+          else
+                angle_vec = do/dAngle; 
+                dq = [cos(dAngle/2); angle_vec*sin(dAngle/2)];
+          end
+          
+          
+          x_k(4:7,:) = (quatmultiply(dq', x_k_(4:7,:)'))';          
+
+      end
 
       %------------------------------------------------------------%
+      function [P_k, dx_k] = reset_esEkf(P_k, dx_k)
+        
+          %reset P_k here
+          G = eye(15);
+          G_o = eye(3)+skewsym(0.5*dx_k(4:6));
+          G(4:6,4:6) = G_o;
+          
+          P_k = G*P_k*G';
+
+      end
+      %------------------------------------------------------------%
       
-      function [x_new, dx_new, P_new, x_new_hat, dx_new_hat, P_new_hat, z_new_hat, z_new, y_new, K_new, S_new_hat, Q_k, W_new] = EKF_loop(g, x_k, P_k, u_new, Q_k, z_new, W_k, t_delta)
+      function [x_new, dx_new, P_new, x_new_hat, dx_new_hat, P_new_hat, z_new_hat, z_new, y_new, K_new, S_new_hat, Q_k, W_new] = EKF_loop(g, x_k, dx_k, P_k, u_new, Q_k, z_new, W_k, t_delta)
         %EKF_LOOP Main EKF loop for 3D quad, calling prediction and correction stages
         
         %*************************************************
         %----------- STEP 0: INITIALISATIONS -------------
-         K_new = createArray(size(x_k, 1), 7);
+         K_new = createArray(size(dx_k, 1), 7);
          S_new_hat = nan(7,7);
-         dx_new_hat = zeros(15,1); %reset error-state to zero
+         dx_k = zeros(15,1); %reset error-state to zero
+         
         
         %*************************************************
         %----------- STEP 1: DYNAMICS UPDATE -------------
@@ -59,12 +94,12 @@ classdef ES_EKF_3dQuad_funcs
             if norm(u_new(1:3)) < 0.001
                 u_new(1:3) = [0.000001; 0.000001; 0.000001];
             end
-
+            
             %Predict new nominal state (a priori)
-            x_new_hat = update_nominalState(g, x_k, u_new, t_delta);
+            x_new_hat = ES_EKF_3dQuad_funcs.predict_nominalState(x_k, u_new, t_delta, g);
         
             %Predict new error state (a priori) and get jacobian 
-            [dx_new_hat, F_new, L_new] = ES_EKF_3dQuad_funcs.dyn_update(g, x_k, u_new, t_delta);
+            [dx_new_hat, F_new, L_new] = ES_EKF_3dQuad_funcs.dyn_update(dx_k, x_k, u_new, t_delta);
             
             %Update nominal state with predicted error
             %do nothing
@@ -111,6 +146,8 @@ classdef ES_EKF_3dQuad_funcs
                 %Enforce positive definite-ness
                 S_new_hat = (S_new_hat + S_new_hat')/2;
 
+                W_new = W_k;
+
         
         %*************************************************
         %------------- STEP 3: STATE UPDATE -------------- 
@@ -121,12 +158,15 @@ classdef ES_EKF_3dQuad_funcs
                 %Update error state est
                 dx_new = dx_new_hat + (K_new * y_new);
 
-                %Update nominal state
-                x_new = x_new_hat + dx_new;
+                %Correct nominal state
+                x_new = ES_EKF_3dQuad_funcs.correct_nominalState(x_new_hat, dx_new);
             
                 %Update state covariance
                 I = eye(size(H_new,2), size(H_new,2)); %make identity matrix of appropriate size
                 P_new = (I - K_new * H_new) * P_new_hat;
+
+                %Reset P (should this happen beforehand?)
+                P_new = ES_EKF_3dQuad_funcs.reset_esEkf(P_new, dx_new);
                 
                 %Enforce positive definite-ness
                 P_new = (P_new + P_new')/2;
@@ -155,9 +195,11 @@ classdef ES_EKF_3dQuad_funcs
         %DYN_UPDATE Predict a priori error-state using dynamics and IMU
 
         % *****  Initialisations  *****
+            w_new = zeros(12,1);
             
             %Extract variables to match symbolic toolbox output
-            numerics = [x_k; dx_k, u_new; w_new; t_delta];
+            numerics = [x_k; dx_k; u_new; w_new; t_delta];
+            %symbols = [x; dx; u_new; w; dt];
 
             %predefine variables for coder
             dx_new_hat = createArray(15, 1);
@@ -180,9 +222,10 @@ classdef ES_EKF_3dQuad_funcs
           %predefine variables for coder
           zhowBig = 7;
           xhowBig = size(x_new_hat, 1);
+          dxhowBig = 15;
 
           z_new_hat = createArray(zhowBig, 1);
-          H_new_hat = createArray(zhowBig, xhowBig);
+          H_new_hat = createArray(zhowBig, dxhowBig);
     
           z_new_hat(1:end, 1) = feval(strcat('es_ekf_measModel'), x_new_hat); %get predicted measurement
           H_new_hat(1:end, 1:end) = feval(strcat('es_ekf_H'), x_new_hat); %and covariance
@@ -235,89 +278,90 @@ classdef ES_EKF_3dQuad_funcs
       % 
       % %------------------------------------------------------------%
       % 
-      % function calcProcessModel(T_imu2rq)
-      %   %CALCPROCESSMODEL Generates process model and jacobian functions using symbolic toolbox
-      % 
-      %       %general veriables
-      %       R_imu2rq = T_imu2rq(1:3,1:3);
-      % 
-      % 
-      %       %Define symbolic variables
-      % 
-      %       %general
-      %       dt = sym("dt");
-      % 
-      %       %nominal state - a constant, essentially
-      %       p = sym("p", [3,1], 'real');
-      %       q = sum("q", [4,1], 'real');
-      %       v =sym("v", [3,1],  'real');
-      %       %R_rq2rw = sym("R", [3,3], 'real'); %rotation matrix describing current best estimate for robot orientation in world frame
-      %       ba = sym("ba", [3,1], 'real'); %current best estimate for accelerometer bias
-      %       bg = sym("bg", [3,1], 'real'); %current best estimate for gyroscope bias
-      %       x = [p; q; v; ba; bg]; %nominal state vector
-      % 
-      %       %old error state
-      %       dp = sym("dp", [3,1], 'real');
-      %       dv = sym("dv", [3,1],  'real');
-      %       do = sym("do", [3,1],  'real'); %angular error 
-      %       dba = sym("dba", [3,1],  'real');
-      %       dbg = sym("dbg", [3,1], 'real');
-      %       dx = [dp; do; dv; dba; dbg]; %error state vector
-      % 
-      %       %new "control input"
-      %       u_g_new = sym("u_g_new", [3,1], 'real');
-      %       u_a_new = sym("u_a_new", [3,1], 'real');
-      %       u_new = [u_g_new; u_a_new];
-      % 
-      %       %process noise
-      %       w_g = sym("w_g", [3,1], 'real');
-      %       w_a = sym("w_a", [3,1], 'real');
-      %       w_bg = sym("w_bg", [3,1], 'real');
-      %       w_ba = sym("w_ba", [3,1], 'real');
-      %       w = [w_g; w_a; w_ba; w_bg];
-      % 
-      %       %prev "control input"
-      %       u_g_old = sym("u_g_prev", [3,1], 'real');
-      %       u_a_old = sym("u_a_prev", [3,1], 'real');
-      %       u_old = [u_g_old; u_a_old];
-      % 
-      %       %compile symbols
-      %       symbols = [x; dx; u_new; w; dt];
-      % 
-      %       %convert to some useful forms
-      %       R_rq2rw= [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1)); % Convert q to rotation matrix
-      %                 2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
-      %                 2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
-      % 
-      % 
-      %       %***** define dynamic equations *****
-      %       %using rectangular integration where applicable
-      %       dba_new = dba + w_ba;
-      %       dbg_new = dbg + w_bg;
-      % 
-      %       do_new = do + R_rq2rw * R_imu2rq * (dbg_new + w_bg) * dt;
-      % 
-      %       angErr = R_rq2rw * R_imu2rq * (u_a_new - ba - w_a - w_ba); %temp
-      %       angErr = [0        , -angErr(1), -angErr(2);
-      %                 angErr(1), 0         , -angErr(3);
-      %                 angErr(2), angErr(3) , 0         ]; %skew symmetric form
-      %       dv_new = dv + ((-angErr * do_new) - (R_rq2rw * R_imu2rq * dba))*dt;
-      % 
-      %       dp_new = dp + dv_new*dt;
-      % 
-      %       %***** generate complete process model *****
-      %       dx_new = [dp_new; do_new; dv_new; dba_new; dbg_new]; 
-      % 
-      %       % define jacobians                      
-      %       F_star = jacobian(dx_new, dx); 
-      %       L_star = jacobian(dx_new, w);
-      % 
-      %       % generate and save functions
-      %       matlabFunction(F_star, 'File', strcat('Functions/mainEstimator/es-ekf/es_ekf_F'), 'Vars', {symbols}, 'Optimize', true);
-      %       matlabFunction(L_star, 'File', strcat('Functions/mainEstimator/es-ekf/es_ekf_L'), 'Vars', {symbols}, 'Optimize', true);
-      %       matlabFunction(dx_new, 'File', strcat('Functions/mainEstimator/es-ekf/es_ekf_processModel'), 'Vars', {symbols}, 'Optimize', true);
-      % 
-      %   end
+      function calcProcessModel(T_imu2rq)
+        %CALCPROCESSMODEL Generates process model and jacobian functions using symbolic toolbox
+
+            %general veriables
+            R_imu2rq = T_imu2rq(1:3,1:3);
+
+
+            %Define symbolic variables
+
+            %general
+            dt = sym("dt");
+
+            %nominal state - a constant, essentially
+            p = sym("p", [3,1], 'real');
+            q = sym("q", [4,1], 'real');
+            v =sym("v", [3,1],  'real');
+            %R_rq2rw = sym("R", [3,3], 'real'); %rotation matrix describing current best estimate for robot orientation in world frame
+            ba = sym("ba", [3,1], 'real'); %current best estimate for accelerometer bias
+            bg = sym("bg", [3,1], 'real'); %current best estimate for gyroscope bias
+            x = [p; q; v; ba; bg]; %nominal state vector
+
+            %old error state
+            dp = sym("dp", [3,1], 'real');
+            dv = sym("dv", [3,1],  'real');
+            do = sym("do", [3,1],  'real'); %angular error 
+            dba = sym("dba", [3,1],  'real');
+            dbg = sym("dbg", [3,1], 'real');
+            dx = [dp; do; dv; dba; dbg]; %error state vector
+
+            %new "control input"
+            u_g_new = sym("u_g_new", [3,1], 'real');
+            u_a_new = sym("u_a_new", [3,1], 'real');
+            u_new = [u_g_new; u_a_new];
+
+            %process noise
+            w_g = sym("w_g", [3,1], 'real');
+            w_a = sym("w_a", [3,1], 'real');
+            w_bg = sym("w_bg", [3,1], 'real');
+            w_ba = sym("w_ba", [3,1], 'real');
+            w = [w_g; w_a; w_ba; w_bg];
+
+            %prev "control input"
+            u_g_old = sym("u_g_prev", [3,1], 'real');
+            u_a_old = sym("u_a_prev", [3,1], 'real');
+            u_old = [u_g_old; u_a_old];
+
+            %compile symbols
+            symbols = [x; dx; u_new; w; dt];
+
+            %convert to some useful forms
+            R_rq2rw= [1 - 2*(q(3)^2 + q(4)^2), 2*(q(2)*q(3) - q(4)*q(1)), 2*(q(2)*q(4) + q(3)*q(1)); % Convert q to rotation matrix
+                      2*(q(2)*q(3) + q(4)*q(1)), 1 - 2*(q(2)^2 + q(4)^2), 2*(q(3)*q(4) - q(2)*q(1));
+                      2*(q(2)*q(4) - q(3)*q(1)), 2*(q(3)*q(4) + q(2)*q(1)), 1 - 2*(q(2)^2 + q(3)^2)];
+
+
+            %***** define dynamic equations *****
+            %using rectangular integration where applicable
+            dba_new = dba + w_ba*dt;
+            dbg_new = dbg + w_bg*dt;
+
+            do_new = do - R_rq2rw * R_imu2rq * (dbg + w_g) * dt;
+
+            %angErr = R_rq2rw * R_imu2rq * (u_a_new - ba - w_a - w_ba); %temp
+            angErr = R_rq2rw * R_imu2rq * (u_a_new - ba); %temp
+            angErr = [0        , -angErr(3), angErr(2);
+                      angErr(3), 0         , -angErr(1);
+                      -angErr(2), angErr(1) , 0         ]; %skew symmetric form
+            dv_new = dv + ((-angErr * do) - (R_rq2rw * R_imu2rq * (dba + w_a)))*dt;
+
+            dp_new = dp + dv*dt;
+
+            %***** generate complete process model *****
+            dx_new = [dp_new; do_new; dv_new; dba_new; dbg_new]; 
+
+            % define jacobians                      
+            F_star = jacobian(dx_new, dx); 
+            L_star = jacobian(dx_new, w);
+
+            % generate and save functions
+            matlabFunction(F_star, 'File', strcat('Functions/mainEstimator/es-ekf/es_ekf_F'), 'Vars', {symbols}, 'Optimize', true);
+            matlabFunction(L_star, 'File', strcat('Functions/mainEstimator/es-ekf/es_ekf_L'), 'Vars', {symbols}, 'Optimize', true);
+            matlabFunction(dx_new, 'File', strcat('Functions/mainEstimator/es-ekf/es_ekf_processModel'), 'Vars', {symbols}, 'Optimize', true);
+
+        end
 
       %------------------------------------------------------------%
 
@@ -331,10 +375,11 @@ classdef ES_EKF_3dQuad_funcs
             q_rc2rq = rotm2quat(R_rc2rq)';
   
             %Define symbolic variables
+            dt = sym("dt");
 
             %nominal state - a constant, essentially
             p = sym("p", [3,1], 'real');
-            q = sum("q", [4,1], 'real');
+            q = sym("q", [4,1], 'real');
             v =sym("v", [3,1],  'real');
             %R_rq2rw = sym("R", [3,3], 'real'); %rotation matrix describing current best estimate for robot orientation in world frame
             ba = sym("ba", [3,1], 'real'); %current best estimate for accelerometer bias
@@ -397,11 +442,14 @@ classdef ES_EKF_3dQuad_funcs
            
             % define jacobians
             H_x = jacobian(measModel, x); %jacobian of measurement wrt to nominal state
-            X_dx = eye(16,15);
+            X_dx = eye(15, 'sym');
+            X_dx = [X_dx(1:6, :); zeros(1,15,'sym'); X_dx(7:15,:)];
             X_dx(4:7, 4:6) = [-q(2), -q(3), -q(4);
-                               q(1), -q(4),  q(3);
-                               q(4),  q(1), -q(2);
-                              -q(3),  q(2),  q(1)] * 0.5;
+                               q(1),  q(4), -q(3);
+                              -q(4),  q(1),  q(2);
+                               q(3),  -q(2), q(1)] * 0.5;
+
+            
             H_star = H_x * X_dx;
             %H_star = jacobian(measModel, dx); %jacobian of measurement wrt state
 
@@ -528,7 +576,7 @@ classdef ES_EKF_3dQuad_funcs
             %P_px4 - position, orientation, velocity error is a bit made up
             P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.02, 0.02, 0.02, 0.01, 0.01, 0.01]); %Initial, 16 el, good bias calib
 
-            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.15, 0.15, 0.15, 0.05, 0.05, 0.05]); %Initial, 16 el, bad bias calib
+            P_ = diag([0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.15, 0.15, 0.15, 0.05, 0.05, 0.05]); %Initial, 16 el, bad bias calib
 
             %P_ = diag([0.2, 0.2, 0.2, 0.2*0.01, 0.2*0.1, 0.2*0.1, 0.2*0.1, 0.2, 0.2, 0.2, 1, 1, 1, 0.05, 0.05, 0.05]); %Initial, 16 el, REALLY  bad bias calib
             

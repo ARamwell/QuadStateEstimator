@@ -1,4 +1,4 @@
-function [groundTruth, imuData, p3pResult, simset] = importSimData(currentFolder, diffImuHz, aiding, map)
+function [groundTruth, imuData, p3pResult, simset, idealImu] = importSimData(currentFolder, diffImuHz, aiding, map)
 %IMPORTSIMDATA Function to import data from QuadSimEnv, and downsample if
 %needed. 
 %   Detailed explanation goes here

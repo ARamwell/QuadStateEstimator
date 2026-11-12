@@ -11,6 +11,11 @@ function [groundTruth, imuData, ekfResult, p3pResult] = processSimData(out, runE
         imuData(2).rawdata = [imuData(2).rawdata(4:6,:); imuData(2).rawdata(1:3,:)] ;
     end
 
+    %ideal IMU
+    imuData(end+1) =processSimImu(out.idealIMU);
+    
+
+
     [ekfResult, p3pResult] = processSimEstimatorData(out, runEKF, runP3P, groundTruth);
 
 end
