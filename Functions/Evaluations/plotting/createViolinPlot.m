@@ -65,19 +65,30 @@ cut = 0; %how many readings to cut (to account for bad initialisation)
 
 %prepare data for box plot 
 for i=1:size(ekfMetricsArr,2)
-
+    group_i = ekfMetricsArr(i).ekfType;
+    
     orientErr_i = ekfMetricsArr(i).trajErr(1,cut+1:end)'; 
     posErr_i = ekfMetricsArr(i).trajErr(2,cut+1:end)';
     %posErr_i =rmoutliers(posErr_i, 'mean');
     
+    if contains(group_i, "es")
+        velErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(7:9,cut+1:end), 2, 1));
+        velErr_i = rmoutliers(velErr_i, 'mean');
 
-    velErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(8:10,cut+1:end), 2, 1));
-    velErr_i = rmoutliers(velErr_i, 'mean');
+        baErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(10:12,cut+1:end), 2, 1));
+        bgErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(13:15,cut+1:end), 2, 1));
+    else
+        velErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(8:10,cut+1:end), 2, 1));
+        velErr_i = rmoutliers(velErr_i, 'mean');
 
+        if size(ekfMetricsArr(i).simpleErr, 1) > 10
+            baErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(11:13,cut+1:end), 2, 1));
+            bgErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(14:16,cut+1:end), 2, 1));
+        end
+    end
 
-    group_i = ekfMetricsArr(i).ekfType;
+    
     dataSize = size(posErr_i, 1);
-
        
     %if i == 1
     %    dynArgs_are = {orientErr_i, group_i};
@@ -90,21 +101,18 @@ for i=1:size(ekfMetricsArr,2)
         dynArgs_vel{i*2-1} = velErr_i;
         dynArgs_vel{i*2} = group_i;
 
-    %end
-
-    if size(ekfMetricsArr(i).simpleErr, 1) > 10
-        baErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(11:13,cut+1:end), 2, 1));
-        bgErr_i = abs(vecnorm(ekfMetricsArr(i).simpleErr(14:16,cut+1:end), 2, 1));
         if ~exist('dynArgs_ba', 'var')
-            dynArgs_ba{1} = baErr_i;
-            dynArgs_bg{1} = bgErr_i;
+                dynArgs_ba{1} = baErr_i;
+                dynArgs_bg{1} = bgErr_i;
         else
-            dynArgs_ba{end+1} = baErr_i;
-            dynArgs_bg{end+1} = bgErr_i;
+                dynArgs_ba{end+1} = baErr_i;
+                dynArgs_bg{end+1} = bgErr_i;
         end
         dynArgs_bg{end+1} = group_i;
         dynArgs_ba{end+1} = group_i;
-    end
+
+
+
 
 
 end

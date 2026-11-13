@@ -4,24 +4,16 @@ numFolders = length(listOfFolderNames);
 
 
 %% Initialise preliminaries
-%mapfile = './Resources/map.mat';
-%mapfile = "C:\Users\Alyssa\Documents\nanoStateEstimator\mainStateEstimator\map.mat";
-mapfile = "C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map.mat";
-map = load(fullfile(mapfile));
 
 g=[0 0 -9.81]'; %for simulation
 %g = [0 0 -9.79]'; %for physical
-aiding = true;
-calibrate = true;%true;
-down2kHz =true;
-downEkf =true;
 
 % Which EKFs ran
 integ_arr = {'rect'};%{'rect' 'rect'};
 ekfSize_arr =[16];%[16 16  ];
 alpha_arr = [0];%[0 0.99];
 numEkfs = size(ekfSize_arr, 2);
-extraID = "grav3";
+extraID = "simMap";
 
 %ekfMetricsArr = createArray(numEkfs,0);
 clear ekfMetricsArr ekfTempMetricsArr
@@ -75,7 +67,7 @@ for i=1:numEkfs
     %%
     
     % 
-    saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\gravAiding\gravAiding1\";
+    saveDest ="C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\errorState\";
     formatFigForLatex(areFig);
     formatFigForLatex(ateFig);
     formatFigForLatex(neesFig);
@@ -92,10 +84,6 @@ for i=1:numEkfs
 
     ekfMetricsArr(i) = ekfMetrics;
 
-    % ekfTempMetricsArr(i).nees = nees_i;
-    % ekfTempMetricsArr(i).nis = nis_i;
-    % ekfTempMetricsArr(i).ekfType = ekfSearchTerms{i};
-    % ekfTempMetricsArr(i).ttc_nees = ttcNeesArr;
 
 end
 
@@ -106,7 +94,7 @@ mean(ekfMetricsArr(1).trajErr(2,:));
 %neesnisViolin(ekfTempMetricsArr);
 
 
-%%Plot some violin plots for nees and nis
+%% Plot some violin plots for nees and nis
 function neesnisViolin(metricsArr)
     
     clear dynArgs_nees dynArgs_nis 
@@ -133,52 +121,6 @@ function neesnisViolin(metricsArr)
     plotViolin(dynArgs_nis{:})
 
 end
-
-
-
-
-
-
-% %% Other metrics
-% numEkfs = size(ekfMetricsArr, 1);
-% for i= 1:numEkfs
-%     %remove outliers and first 20 measurements
-%     ekfMetrics = ekfMetricsArr(i);
-%     [trajErrClean, rmIdx] = rmoutliers(ekfMetrics.trajErr(:,20:end)', "mean");
-%     ekfMetrics.trajErr_clean = trajErrClean';
-%     ekfMetrics.simpleErr_clean
-% 
-%     %time to converge
-%     ttc_are_idx = find(trajErr(1,:)<= 5, 1, "first");%time to converge
-%     ttc_are = ekfResult.time(1, ttc_are_idx);
-%     ttc_ate_idx = find(trajErr(2,:)<= 0.2, 1, "first");
-%     ttc_ate = ekfResult.time(1, ttc_ate_idx);
-%     ekfMetrics.ttc = [ttc_are, ttc_ate];
-% 
-%     %find some more metrics
-%     ekfMetrics.meanErr = 
-% 
-%     %nees percent exceed
-% 
-% 
-%     %nis percent exceed
-% 
-% 
-%     %vio percent
-% 
-% 
-%     %max, min, mean error per state
-%     % put all vel, all bias together? like position
-% 
-% end
-
-%
-% for i=2:size(ekfMetricsArr, 2)
-%     trueNis =downsample(ekfMetricsArr(i).percentNis', 2, 1) ;
-%     ekfMetricsArr(i).percentNis = trueNis';
-%     trueNees =downsample(ekfMetricsArr(i).percentNees', 2, 1) ;
-%     ekfMetricsArr(i).percentNees = trueNees';
-% end
 
 
 %% effective ttc

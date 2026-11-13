@@ -182,6 +182,9 @@ for f=1:numFolders
         %% Append EKF result with some useful information
         indices = selectClosestTimeIndices(ekfResult.time, groundTruth.quad.time);
         ekfResult.trueState = groundTruth.quad.state(:,indices);
+
+        %% Evaluates
+        ekfResult = analyseEkf_2(ekfResult, "fs");
         ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
         if size(ekfResult.trueState,1)>10
             for l=1:size(ekfResult.trueState,2)

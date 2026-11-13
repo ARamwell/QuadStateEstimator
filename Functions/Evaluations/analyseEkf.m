@@ -2,6 +2,8 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
 %ANALYSEEKF Summary of this function goes here
 %   Detailed explanation goes here
     doPlot = true;
+    errorState = true;
+    grav = false;
 
     %% do some analysis for this type of EKF
     trajErrArr = createArray(2,0);
@@ -71,8 +73,8 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
        %  ekfResult.trueState(11:13,:)=-ekfResult.trueState(11:13,:); %ONLY FOR SIM! Accel bias is wrong way!
        %  ekfResult.z(:,1)=nan(size(ekfResult.z, 1),1);
        %  ekfResult.y(:,1)=nan(size(ekfResult.y, 1),1);
-         ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:ekfSize,:));
-         ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
+         % ekfResult.nees = evalNEES_noq(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:ekfSize,:));
+         % ekfResult.nis = evalNIS_noq(ekfResult.y, ekfResult.S);
        %ekfResult.nees = evalNEES_noq_nano(ekfResult.x_, ekfResult.P, ekfResult.trueState(1:7,:));
 
         %***************************
@@ -143,7 +145,7 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
        
         %*******************************************
         %time to converge
-        [ttc, idxTtc, ~]=calcTimeToConverge(ekfResult.elapsedTime(ekfSelector), ekfResult.x_(:,ekfSelector), ekfResult.trueState(:,ekfSelector), 0.3,5, 1);
+        [ttc, idxTtc, ~]=calcTimeToConverge(ekfResult.elapsedTime(ekfSelector), ekfResult.trajErr.AbsoluteError(ekfSelector,:)', 0.3,5, 1);
 
         % ttc_are_idx = find(ekfResult.trajErr.AbsoluteError(idx_scrubStart_gt:idx_scrubEnd_gt,1)'<= 5, 1, "first");%time to converge
         % if isempty(ttc_are_idx)
@@ -230,21 +232,42 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
         end
         trajErr_i =ekfResult.trajErr.AbsoluteError(idx_scrubStart_gt:idx_scrubEnd_gt, :)';
 
-        % get percent divergence per state
-        if isfield(ekfResult, 'P')
-            [vio, x_err]=evalPercentDivergence(ekfResult.x_(1:gtSize, ekfSelector), ekfResult.trueState(1:gtSize, ekfSelector), ekfResult.P(1:gtSize, 1:gtSize,ekfSelector), 2);
-        else
-            [vio, x_err]=evalPercentDivergence(ekfResult.x_(1:gtSize,ekfSelector), ekfResult.trueState(1:gtSize, ekfSelector), ekfResult.PHat(1:gtSize, 1:gtSize,ekfSelector, 2));
-        end
-        if gtSize > 7
-            velErr_i = abs(vecnorm(x_err(8:10,:), 2, 1));
-            velErr_i = rmoutliers(velErr_i, 'mean');
-            if size(x_err,1)>10
-                baErr_i = abs(vecnorm(x_err(11:13,:), 2, 1));
-                bgErr_i = abs(vecnorm(x_err(14:16,:), 2, 1));
+        
+        % get percent divergence per state -  full-state EKF
+        if errorState
+            gtSize = 15;
+            if isfield(ekfResult, 'P')
+                [vio, x_err]=evalPercentDivergence(ekfResult.dx_(1:gtSize, ekfSelector), ekfResult.trueErrState(1:gtSize, ekfSelector), ekfResult.P(1:gtSize, 1:gtSize,ekfSelector), 2, false);
             else
-                baErr_i = nan(size(x_err, 2));
-                bgErr_i= nan(size(x_err, 2));
+                [vio, x_err]=evalPercentDivergence(ekfResult.dx_(1:gtSize,ekfSelector), ekfResult.trueErrState(1:gtSize, ekfSelector), ekfResult.PHat(1:gtSize, 1:gtSize,ekfSelector, 2, false));
+            end
+            if gtSize > 6
+                velErr_i = abs(vecnorm(x_err(7:9,:), 2, 1));
+                velErr_i = rmoutliers(velErr_i, 'mean');
+                if size(x_err,1)>10
+                    baErr_i = abs(vecnorm(x_err(10:12,:), 2, 1));
+                    bgErr_i = abs(vecnorm(x_err(13:15,:), 2, 1));
+                else
+                    baErr_i = nan(size(x_err, 2));
+                    bgErr_i= nan(size(x_err, 2));
+                end
+            end
+        else
+            if isfield(ekfResult, 'P')
+                [vio, x_err]=evalPercentDivergence(ekfResult.x_(1:gtSize, ekfSelector), ekfResult.trueState(1:gtSize, ekfSelector), ekfResult.P(1:gtSize, 1:gtSize,ekfSelector), 2, true);
+            else
+                [vio, x_err]=evalPercentDivergence(ekfResult.x_(1:gtSize,ekfSelector), ekfResult.trueState(1:gtSize, ekfSelector), ekfResult.PHat(1:gtSize, 1:gtSize,ekfSelector), 2, true);
+            end
+            if gtSize > 7
+                velErr_i = abs(vecnorm(x_err(8:10,:), 2, 1));
+                velErr_i = rmoutliers(velErr_i, 'mean');
+                if size(x_err,1)>10
+                    baErr_i = abs(vecnorm(x_err(11:13,:), 2, 1));
+                    bgErr_i = abs(vecnorm(x_err(14:16,:), 2, 1));
+                else
+                    baErr_i = nan(size(x_err, 2));
+                    bgErr_i= nan(size(x_err, 2));
+                end
             end
         end
 
@@ -305,8 +328,11 @@ function [ekfMetrics, areFig, ateFig, neesFig, nisFig] = analyseEkf(ekfSize,ekfN
         end
         timeArr = [timeArr, ekfResult.elapsedTime];
         residArr = [residArr, ekfResult.y];
-        residArr_grav = [residArr_grav, padarray(ekfResult.y_grav,[size(residArr_grav, 1)-size(ekfResult.y_grav, 1),0], nan, "post")];
         PArr=[PArr, P_var(:,500:end)];
+
+        if grav
+            residArr_grav = [residArr_grav, padarray(ekfResult.y_grav,[size(residArr_grav, 1)-size(ekfResult.y_grav, 1),0], nan, "post")];
+        end
         % 
 
         %*******************************************

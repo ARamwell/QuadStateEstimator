@@ -1,10 +1,10 @@
 %% Initialise preliminaries
-mapfile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map_real';
+mapfile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map';
 map = load(fullfile(mapfile));
 
 g = [0 0 -9.81]'; %for simulation
 aiding = true;
-calibrate = false;
+calibrate = true;
 tiltAlign =false;
 goodInit = true;
 
@@ -203,23 +203,28 @@ for f=1:numFolders
         indices = selectClosestTimeIndices(ekfResult.time, groundTruth.quad.time);
         ekfResult.trueState = groundTruth.quad.state(:,indices);
         ekfResult.trueErrState = ES_EKF_3dQuad_funcs.calc_esGroundTruth(ekfResult.x_,ekfResult.trueState);
-        ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
-        if size(ekfResult.trueState,1)>10
-            for l=1:size(ekfResult.trueState,2)
-                ekfResult.trueState(11:16,l) = ekfResult.trueState(11:16,l) +[selectedPerturb(:,f)];
-            end
-        end
-        %idx_corr = ~isnan(ekfResult.z(1,:));
-        ekfResult.nees = evalNEES(ekfResult.dx_, ekfResult.PHat, ekfResult.trueErrState);
-        ekfResult.nis = evalNIS(ekfResult.y, ekfResult.S);
-        ekfResult.partialNees.pos =  evalNEES(ekfResult.dx_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueErrState(1:3, :));
-        ekfResult.partialNees.orient =  evalNEES(ekfResult.dx_(4:6,:), ekfResult.PHat(4:6,4:6,:), ekfResult.trueErrState(4:6, :));
-        ekfResult.partialNees.vel =  evalNEES(ekfResult.dx_(7:9,:), ekfResult.PHat(7:9, 7:9,:), ekfResult.trueState(7:9, :));
-        ekfResult.partialNis.pos = evalNIS(ekfResult.y(1:3,:), ekfResult.S(1:3,1:3,:));
-        ekfResult.partialNis.orient= evalNIS(ekfResult.y(4:6,:), ekfResult.S(4:6, 4:6 ,:));
+
+        %Recalculate groundtruth bias?
+
+        %% Analyse EKF performance
+        ekfResult = analyseEkf_2(ekfResult, "es");
+        % ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
+        % if size(ekfResult.trueState,1)>10
+        %     for l=1:size(ekfResult.trueState,2)
+        %         ekfResult.trueState(11:16,l) = ekfResult.trueState(11:16,l) +[selectedPerturb(:,f)];
+        %     end
+        % end
+        % %idx_corr = ~isnan(ekfResult.z(1,:));
+        % ekfResult.nees = evalNEES(ekfResult.dx_(1:9,:), ekfResult.PHat(1:9,1:9,:), ekfResult.trueErrState(1:9,:));
+        % ekfResult.nis = evalNIS(ekfResult.y, ekfResult.S);
+        % ekfResult.partialNees.pos =  evalNEES(ekfResult.dx_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueErrState(1:3, :));
+        % ekfResult.partialNees.orient =  evalNEES(ekfResult.dx_(4:6,:), ekfResult.PHat(4:6,4:6,:), ekfResult.trueErrState(4:6, :));
+        % ekfResult.partialNees.vel =  evalNEES(ekfResult.dx_(7:9,:), ekfResult.PHat(7:9, 7:9,:), ekfResult.trueErrState(7:9, :));
+        % ekfResult.partialNis.pos = evalNIS(ekfResult.y(1:3,:), ekfResult.S(1:3,1:3,:));
+        % ekfResult.partialNis.orient= evalNIS(ekfResult.y(4:6,:), ekfResult.S(4:6, 4:6 ,:));
 
         %% Optionally, save
-        saveFile = strcat("ekfResult_", "es_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz", ".mat");
+        saveFile = strcat("ekfResult_", "es_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz","_", ".mat");
         %saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\spiral\";
         %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
         saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\errorState";

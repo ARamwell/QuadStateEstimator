@@ -659,8 +659,8 @@ classdef ES_EKF_3dQuad_funcs
             % w_bg = 0.01*[0.04^2 0.04^2 0.04^2];
 
             %%TUNE 1S
-            w_a = [0.02^2 0.02^2 0.02^2];%used for full rate
-            w_g = [0.08^2 0.08^2 0.08^2];
+            w_a = [0.02^2 0.02^2 0.02^2]*10;%used for full rate, multiplier for error-state
+            w_g = [0.08^2 0.08^2 0.08^2]*10; %multiplier for error-state
             w_ba = 0.01*w_a;
             w_bg = 0.01*w_g;
 
