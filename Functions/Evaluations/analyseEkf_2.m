@@ -20,6 +20,12 @@ if type =="es"
     ekfResult.eval.simpleErr.errState = abs(ekfResult.trueErrState - ekfResult.dx_(1:size_groundTruth_errState,:));
 end
 
+%% Measurement error - visual pose estimate
+vis_idx = ~isnan(ekfResult.z(1,:));
+if sum(vis_idx)>0
+    ekfResult.eval.p3pErr = evaluateTrackingPerformance(ekfResult.z(:,vis_idx), ekfResult.trueState(:,vis_idx), 'none');
+end
+
 %% nees 
 if type == "es"
     idx_v = 7; %index of first velocity state
@@ -36,7 +42,7 @@ else
 end
 
 
-%% nis
+%% nis - visual state estimate
 ekfResult.eval.nis.overall = evalNIS(ekfResult.y, ekfResult.S);
 ekfResult.eval.nis.pos = evalNIS(ekfResult.y(1:3,:), ekfResult.S(1:3,1:3,:));
 if type =="es"
@@ -45,8 +51,11 @@ else
     ekfResult.eval.nis.orient= evalNIS_noq(ekfResult.y(4:idx_v-1,:), ekfResult.S(4:idx_v-1, 4:idx_v-1 ,:));
 end
 
+%% nis - gravity correction
+ekfResult.eval.nis_grav = evalNIS(ekfResult.y_grav, ekfResult.S_grav);
+
 %% time-to-converge?
- [ekfResult.eval.ttc, idxTtc, ~]=calcTimeToConverge(ekfResult.elapsedTime, ekfResult.trajErr.AbsoluteError', 0.3,5, 1); %ate and are below threshold for certain time
+ [ekfResult.eval.ttc, idxTtc, ~]=calcTimeToConverge(ekfResult.elapsedTime, ekfResult.eval.trajErr.AbsoluteError', 0.3,5, 1); %ate and are below threshold for certain time
 
 
 %% 1-sigma nominal state bounds

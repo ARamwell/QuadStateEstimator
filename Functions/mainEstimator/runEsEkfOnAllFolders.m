@@ -1,5 +1,5 @@
 %% Initialise preliminaries
-mapfile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map';
+mapfile = 'C:\Users\Alyssa\Documents\QuadStateEstimator\Resources\map_real';
 map = load(fullfile(mapfile));
 
 g = [0 0 -9.81]'; %for simulation
@@ -7,6 +7,7 @@ aiding = true;
 calibrate = true;
 tiltAlign =false;
 goodInit = true;
+recalcBias = true;
 
 % %real IMU
 down2kHz =false;
@@ -66,8 +67,23 @@ for f=1:numFolders
     %% Import data (also run P3P)
     [groundTruth, imuData, p3pResult, simset] = importSimData(currentFolder,diffImuHz, aiding, map);
 
+    %recover camera offset
+    gt_t_rc2rq = (eul2rotm([pi 0 0], 'XYZ'))*groundTruth.cam.state(1:3,2)-groundTruth.quad.state(1:3,2); 
+    %gt_r_rc2rq =  (quat2rotm(groundTruth.quad.state(4:7,2)'))' *
+    %eul2rotm([pi 0 0], 'XYZ')*quat2rotm(groundTruth.cam.state(4:7,2)');
+    %%camera ground truth orientation seems to be wrong
+  
+    
+    if recalcBias
+        gt_bg = calcConstBias(imuData(end).rawdata(1:3,:), imuData(1).rawdata(1:3,:), simset.gyroCalib.scale);
+        gt_ba = calcConstBias(imuData(end).rawdata(4:6,:), imuData(1).rawdata(4:6,:), simset.accelCalib.scale);
+        if size(groundTruth.quad.state(),1)>10
+            groundTruth.quad.state(end-5:end, :)=repmat([gt_ba; gt_bg],1,size(groundTruth.quad.state, 2));
+        end
+    end
 
     %% Preprocess IMU (downsample and calibrate)
+
     if idealImu 
         u_hist=imuData(end).rawdata;
         u_timeHist = imuData(end).time;
@@ -76,6 +92,7 @@ for f=1:numFolders
         ekfHz = 250;
         [u_hist, u_timeHist] = preprocessImuData(imuData, diffImuHz, down2kHz, downEkf, calibrate, selectedPerturb(:,f), simset.accelCalib, simset.gyroCalib, simset.imuHz, ekfHz);
     end
+    
 
     %% Preprocess P3P
     if aiding
@@ -128,6 +145,7 @@ for f=1:numFolders
         ekfResult.P(:,:,count) = P_k_;
         ekfResult.Q(:,:,count) = Q;
         ekfResult.W(:,:,count) = W_k;
+        ekfResult.z(:,count)=nan(7,1);
 
         %% Run EKF
         for i = 1:(endCalc-1) %currently sample based
@@ -169,7 +187,7 @@ for f=1:numFolders
             end
         
             
-            [x_k_, dx_k_, P_k_, xHat_k, dxHat_k, PHat_k, zHat_k, z_out_k, y_k, K_k, S_k, Q_k, W_k] = ES_EKF_3dQuad_funcs.EKF_loop(g, x_k_, dx_k_, P_k_, u_new, Q, z_new, W_k, dt_new);
+            [x_k_, dx_k_, P_k_, xHat_k, dxHat_k, PHat_k, zHat_k, z_out_k, y_k, K_k, S_k, Q_k, W_k, zGHat_k, zG_k, yG_k, KG_k, SG_k, WG_k] = ES_EKF_3dQuad_funcs.EKF_loop(g, x_k_, dx_k_, P_k_, u_new, Q, z_new, W_k, dt_new, alpha, meas_count, flag_runGrav);
         
             count = count + 1;
             ekfResult.time(:,count) = t_new;
@@ -190,12 +208,13 @@ for f=1:numFolders
             ekfResult.W(:,:,count) = W_k;
             ekfResult.Q(:,:,count) = Q_k;
             
-            % ekfResult.flagGrav(:, count) =flag_runGrav; 
-            % ekfResult.z_grav(:,count)=zG_k;
-            % ekfResult.W_grav(:,:,count) = WG_k;
-            % ekfResult.zHat_grav(:,count) =zGHat_k;
-            % ekfResult.y_grav(:, count)= yG_k;
-            % ekfResult.S_grav(:,:,count) = SG_k;
+            ekfResult.flagGrav(:, count) =flag_runGrav; 
+            ekfResult.z_grav(:,count)=zG_k;
+            ekfResult.W_grav(:,:,count) = WG_k;
+            ekfResult.zHat_grav(:,count) =zGHat_k;
+            ekfResult.y_grav(:, count)= yG_k;
+            ekfResult.S_grav(:,:,count) = SG_k;
+            ekfResult.K_grav(:,:,count) = KG_k;
 
         end
 
@@ -208,26 +227,12 @@ for f=1:numFolders
 
         %% Analyse EKF performance
         ekfResult = analyseEkf_2(ekfResult, "es");
-        % ekfResult.trajErr = evaluateTrackingPerformance(ekfResult.x_, ekfResult.trueState, 'none');
-        % if size(ekfResult.trueState,1)>10
-        %     for l=1:size(ekfResult.trueState,2)
-        %         ekfResult.trueState(11:16,l) = ekfResult.trueState(11:16,l) +[selectedPerturb(:,f)];
-        %     end
-        % end
-        % %idx_corr = ~isnan(ekfResult.z(1,:));
-        % ekfResult.nees = evalNEES(ekfResult.dx_(1:9,:), ekfResult.PHat(1:9,1:9,:), ekfResult.trueErrState(1:9,:));
-        % ekfResult.nis = evalNIS(ekfResult.y, ekfResult.S);
-        % ekfResult.partialNees.pos =  evalNEES(ekfResult.dx_(1:3,:), ekfResult.PHat(1:3,1:3,:), ekfResult.trueErrState(1:3, :));
-        % ekfResult.partialNees.orient =  evalNEES(ekfResult.dx_(4:6,:), ekfResult.PHat(4:6,4:6,:), ekfResult.trueErrState(4:6, :));
-        % ekfResult.partialNees.vel =  evalNEES(ekfResult.dx_(7:9,:), ekfResult.PHat(7:9, 7:9,:), ekfResult.trueErrState(7:9, :));
-        % ekfResult.partialNis.pos = evalNIS(ekfResult.y(1:3,:), ekfResult.S(1:3,1:3,:));
-        % ekfResult.partialNis.orient= evalNIS(ekfResult.y(4:6,:), ekfResult.S(4:6, 4:6 ,:));
 
         %% Optionally, save
-        saveFile = strcat("ekfResult_", "es_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz","_", ".mat");
+        saveFile = strcat("ekfResult_", "es_", trajName, "_", string(ekfSize), "el", "_", string(integ), "_a", string(alpha), "_", string(ekfHz), "Hz","_a0_g3_wReset", ".mat");
         %saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\p3p_test_sim\ekfComparison2\spiral\";
         %saveFolder = currentFolder; %"C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\Diss1\Validation\EKF\";
-        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\errorState";
+        saveFolder = "C:\Users\Alyssa\OneDrive - University of Cape Town\Thesis\TestsAndResults\PostDiss\errorState\es_a0_g3_wReset";
         destFile = strcat(saveFolder, "\", saveFile);
         save(destFile, '-struct', 'ekfResult');
     end

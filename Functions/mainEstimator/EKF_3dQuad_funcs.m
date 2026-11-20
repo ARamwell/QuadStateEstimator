@@ -170,7 +170,7 @@ classdef EKF_3dQuad_funcs
 
                     %Predict new measurement z (may differ from actual measurement) and get
                     %jacobian H, and measurement residual model
-                    [z_grav_new_hat, H_grav_new] = EKF_3dQuad_funcs.gravUnit_predict(x_new);
+                    [z_grav_new_hat, H_grav_new] = EKF_3dQuad_funcs.grav_predict(x_new, gravAidingType);
 
                 elseif gravAidingType == 3
                     z_grav_new = u_new(4:6); %unnormalised
@@ -335,7 +335,7 @@ classdef EKF_3dQuad_funcs
               z_new_hat = createArray(zhowBig, 1);
               H_new_hat = createArray(zhowBig, xhowBig);
               z_new_hat(1:end, 1) = feval(strcat('ekf_gravUnitModel_', xSizeStr), x_new_hat); %get predicted measurement
-              H_new_hat(1:end, 1:end) = feval(strcat('ekf_HUnitGrav_', xSizeStr), x_new_hat); %and covariance
+              H_new_hat(1:end, 1:end) = feval(strcat('ekf_HGravUnit_', xSizeStr), x_new_hat); %and covariance
           elseif type==3
               z_new_hat(1:end, 1) = feval(strcat('ekf_gravModel2_', xSizeStr), x_new_hat); %get predicted measurement
               H_new_hat(1:end, 1:end) = feval(strcat('ekf_HGrav2_', xSizeStr), x_new_hat); %and covariance
